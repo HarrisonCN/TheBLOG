@@ -1,6 +1,6 @@
 # Winston 的博客
 
-一个 **Cloudflare 原生** 的个人博客：静态前端部署在 **Cloudflare Pages**，一个 **Worker** 提供公开 API、后台 API 和 **MCP 端点**，文章 / 资料 / 设置存在 **D1**，图片存在 **R2**。动效来自我自己的 [Motionary](https://github.com/HarrisonCN/Motionary)（`motionary@10.3.0`）。
+一个 **Cloudflare 原生** 的个人博客：静态前端部署在 **Cloudflare Pages**，一个 **Worker** 提供公开 API、后台 API 和 **MCP 端点**，文章 / 资料 / 设置存在 **D1**，图片存在 **R2**。动效来自我自己的 [Motionary](https://github.com/HarrisonCN/Motionary)（`motionary@10.4.0`）。
 
 ```
 ┌──────────────── Cloudflare（同一个域名 blog.example.com）────────────────┐

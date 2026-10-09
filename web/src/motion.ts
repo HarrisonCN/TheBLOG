@@ -72,7 +72,7 @@ export function applyMotion(root: HTMLElement, level: Animation): void {
   if (bar && article) {
     const tl = timeline({ paused: true }).to(bar, { from: { scaleX: 0 }, to: { scaleX: 1 }, ease: 'linear' });
     const scene = scrollScene({ trigger: article, start: 'top top', end: 'bottom bottom', scrub: lvl === 'high' ? 120 : true,
-      // motionary 10.3.0：runtime/scroll 的 d.ts 自带一份 Playable 声明，与 runtime 的 Timeline 类型不兼容（运行时没问题）
+      // motionary 10.3–10.4：runtime/scroll 的 d.ts 自带一份 Playable 声明，与 runtime 的 Timeline 类型不兼容（运行时没问题）
       animation: tl as never });
     cleanups.push(() => scene.kill?.());
   }
