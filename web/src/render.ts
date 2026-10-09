@@ -7,7 +7,7 @@
  * 浏览器端由 usa.ts 按需加载对应的组件定义。
  */
 import { escapeHtml as e, plainText, renderMarkdown, safeHref } from './markdown';
-import { icon, SOCIAL_ICON } from './icons';
+import { festivalIcon, icon, SOCIAL_ICON, stripEmoji } from './icons';
 import type { Album, CategoryCount, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SiteData, TagCount } from './types';
 import { activeFestival, type Festival, type Project, type PublicMember, type StickyNote } from './demo/community-types';
 
@@ -571,7 +571,7 @@ export function festivalTile(list: Festival[] | undefined, now = new Date()): st
   return tile(
     'third',
     `${kicker('sparkles', '今天是节日')}
-  <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${e(f.message)}</usa-festival-banner>
+  <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${festivalText(f)}</usa-festival-banner>
   <div class="fest__row"><b class="fest__name">${e(f.name)}</b><span class="fest__days">快乐！</span></div>
   <usa-click effect="confetti" class="fest__click"><button class="btn btn--sm" type="button">${icon('sparkles')}撒花庆祝</button></usa-click>`,
     { cls: 'fest-tile fest-tile--on', attrs: `data-festival="${e(f.id)}"` },
@@ -1204,8 +1204,13 @@ export function appHtml(site: SiteData, p: Page): string {
 ${footer(site)}`;
 }
 
+/** 节日横幅文字：SVG 图标 + 去掉 emoji 的祝福语。 */
+export function festivalText(f: Festival): string {
+  return `<span class="fest-msg">${festivalIcon(f.id, f.theme)}<span>${e(stripEmoji(f.message))}</span></span>`;
+}
+
 /** 节日横幅（全站顶部，只在节日当天渲染）。 */
 export function festivalBanner(f: Festival | null): string {
   if (!f) return '';
-  return `<usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" dismissible class="festival festival--top">${e(f.message)}</usa-festival-banner>`;
+  return `<usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" dismissible class="festival festival--top">${festivalText(f)}</usa-festival-banner>`;
 }
