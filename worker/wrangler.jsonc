@@ -1,0 +1,30 @@
+// Cloudflare Worker：博客 API + 管理后台 API + MCP 端点
+// 部署前请把 database_id 换成 `wrangler d1 create blog` 输出的 ID，见根目录 README。
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "winston-blog-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "blog",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "blog-images" }],
+  "vars": {
+    // 允许调用 Admin API 的浏览器来源（逗号分隔）。同域部署时填博客域名即可。
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173",
+    "SESSION_TTL_SECONDS": "3600",
+    "COOKIE_SECURE": "true"
+  }
+  // 自定义域名（Pages 与 Worker 同域，Cookie 才是第一方）：
+  // "routes": [
+  //   { "pattern": "blog.example.com/api/*", "zone_name": "example.com" },
+  //   { "pattern": "blog.example.com/mcp", "zone_name": "example.com" }
+  // ]
+}
