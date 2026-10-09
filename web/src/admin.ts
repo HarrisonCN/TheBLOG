@@ -681,7 +681,7 @@ async function renderMembers(): Promise<void> {
 <button class="adm-icon-btn adm-icon-btn--danger" type="button" data-act="member-del" data-id="${m.id}" data-name="${e(m.name)}" aria-label="删除 ${e(m.name)}">${icon('trash')}</button></header>
 ${m.bio ? `<p class="small">${e(m.bio)}</p>` : ''}
 <div class="adm-badges">${m.badges.map((b) => `<span class="adm-badge">${memberBadge(b.code, b.label, b.style)}<span class="small">${e(b.label)}</span><button type="button" class="adm-x" data-act="badge-revoke" data-id="${m.id}" data-code="${e(b.code)}" aria-label="收回 ${e(b.code)}">${icon('close')}</button></span>`).join('') || '<span class="muted small">还没有徽章</span>'}</div>
-<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9\-]+" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="材质"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
+<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="材质"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
         )
         .join('') || '<p class="empty">还没有好朋友。访客在「成为好朋友」页验证邮箱后会出现在这里。</p>'}</div>`,
     ),
