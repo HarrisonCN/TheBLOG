@@ -1,0 +1,35 @@
+# @winstonsayno/mcp-gateway v11 配置示例：把博客 Worker 的 /mcp 作为 HTTP 上游接入网关。
+# 网关是 Node 服务（Node ≥ 22），不能运行在 Workers 里；把它跑在你自己的电脑 / 服务器上。
+#
+#   export BLOG_MCP_TOKEN=blog_xxx                          # 博客 Worker 的 API token（明文，只放在网关这一侧）
+#   npx @winstonsayno/mcp-gateway gen-key                   # 把输出的 hash 填到下面 apiKeys，key 交给 Claude / Cursor
+#   npx @winstonsayno/mcp-gateway validate --strict -c gateway/gateway.config.yaml
+#   npx @winstonsayno/mcp-gateway start -c gateway/gateway.config.yaml
+version: 11
+host: 127.0.0.1
+port: 4000
+
+auth:
+  strategy: api-key
+  apiKeys:
+    # ↓ 占位摘要，必须替换成 gen-key 输出的 hash（sha256:<64 位十六进制>）
+    - sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+security:
+  dnsRebindingProtection: true
+  authLockout: true
+
+servers:
+  - id: blog
+    name: Winston 的博客
+    description: 文章 / 个人资料 / 展示设置 / 图片上传（Cloudflare Worker /mcp）
+    transport: streamable-http
+    # 改成你的博客域名；本地联调用 http://127.0.0.1:8787/mcp（url 不做 ${VAR} 展开）
+    url: https://blog.example.com/mcp
+    headers:
+      Authorization: "Bearer ${BLOG_MCP_TOKEN}"
+    timeoutMs: 30000
+    tags: [blog, cloudflare]
+    # 只读客户端可以这样收窄：
+    # tools:
+    #   allow: ["list_posts", "get_post", "get_profile", "get_settings"]

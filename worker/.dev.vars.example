@@ -1,0 +1,10 @@
+# 复制为 worker/.dev.vars（已被 .gitignore 忽略），仅用于本地 wrangler dev。
+# 生成方法：
+#   node worker/scripts/hash-secret.mjs jwt        → JWT_SECRET
+#   node worker/scripts/hash-secret.mjs password   → ADMIN_PASSWORD_HASH（输入密码，≥12 位）
+#   node worker/scripts/hash-secret.mjs token      → 打印 TOKEN（给 MCP 客户端）和 API_TOKEN_HASH
+JWT_SECRET=
+ADMIN_PASSWORD_HASH=
+API_TOKEN_HASH=
+# 本地是 http，必须关闭 Secure Cookie
+COOKIE_SECURE=false

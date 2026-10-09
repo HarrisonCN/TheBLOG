@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (worker on local D1/R2 via wrangler, web)
+        run: npm test
+      - name: Build frontend (no API → shell fallback)
+        run: npm run build
+      - name: E2E (wrangler dev + MCP SDK client + prerender)
+        run: npm run e2e
+      - name: Validate mcp-gateway example config
+        env:
+          BLOG_MCP_TOKEN: ci-placeholder-token
+        run: npx -y @winstonsayno/mcp-gateway@11 validate --strict -c gateway/gateway.config.yaml
