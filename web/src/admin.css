@@ -17,7 +17,7 @@
 .admin table { width: 100%; border-collapse: collapse; }
 .admin td, .admin th { text-align: left; padding: 0.55rem 0.4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
 .admin td .row { gap: 0.3rem; }
-.badge { font-size: 0.75rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--code-bg); color: var(--muted); }
+.badge { white-space: nowrap; font-size: 0.75rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--code-bg); color: var(--muted); }
 .badge--pub { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 .msg { min-height: 1.5rem; font-size: 0.9rem; color: var(--muted); }
 .msg--err { color: #dc2626; }
