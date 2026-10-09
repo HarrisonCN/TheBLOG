@@ -1,4 +1,4 @@
-import type { Post, PostSummary, Profile, Settings, TagCount } from './types';
+import type { CategoryCount, ContentKey, ContentMap, GuestbookEntry, Post, PostSummary, Profile, SearchDoc, Settings, TagCount } from './types';
 
 /** 同域部署时留空；Worker 在独立域名时设置 VITE_API_BASE=https://api.example.com */
 export const API_BASE = (import.meta.env?.VITE_API_BASE ?? '').replace(/\/+$/, '');
@@ -42,9 +42,10 @@ export async function request<T>(path: string, init: RequestInit & { timeoutMs?:
 }
 
 export const api = {
-  posts: (q: { tag?: string; limit?: number; offset?: number } = {}) => {
+  posts: (q: { tag?: string; category?: string; limit?: number; offset?: number } = {}) => {
     const p = new URLSearchParams();
     if (q.tag) p.set('tag', q.tag);
+    if (q.category) p.set('category', q.category);
     if (q.limit) p.set('limit', String(q.limit));
     if (q.offset) p.set('offset', String(q.offset));
     const qs = p.toString();
@@ -54,4 +55,10 @@ export const api = {
   tags: () => request<{ tags: TagCount[] }>('/api/tags'),
   profile: () => request<Profile>('/api/profile'),
   settings: () => request<Settings>('/api/settings'),
+  categories: () => request<{ categories: CategoryCount[] }>('/api/categories'),
+  searchIndex: () => request<{ posts: SearchDoc[] }>('/api/search-index'),
+  content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
+  guestbook: () => request<{ entries: GuestbookEntry[] }>('/api/guestbook'),
+  postGuestbook: (body: { name: string; content: string; website?: string }) =>
+    request<GuestbookEntry>('/api/guestbook', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
 };

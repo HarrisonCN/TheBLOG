@@ -11,6 +11,10 @@ import {
   settingsPatchSchema,
   settingsSchema,
   slugSchema,
+  contentSchemas,
+  guestbookCreateSchema,
+  guestbookModerateSchema,
+  type ContentKey,
   type ListQuery,
   type Profile,
   type Settings,
@@ -25,6 +29,9 @@ export interface PostRow {
   content_md: string;
   tags: string;
   cover_url: string | null;
+  category: string | null;
+  pinned: number;
+  word_count: number;
   status: 'draft' | 'published';
   published_at: string | null;
   created_at: string;
@@ -39,6 +46,10 @@ export interface Post {
   contentMd: string;
   tags: string[];
   coverUrl: string | null;
+  category: string | null;
+  pinned: boolean;
+  /** 正文字数（近似：Markdown 去掉空白后的字符数） */
+  wordCount: number;
   status: 'draft' | 'published';
   publishedAt: string | null;
   createdAt: string;
@@ -64,6 +75,9 @@ export function rowToPost(r: PostRow): Post {
     contentMd: r.content_md,
     tags: parseTags(r.tags),
     coverUrl: r.cover_url,
+    category: r.category || null,
+    pinned: !!r.pinned,
+    wordCount: Number(r.word_count ?? 0),
     status: r.status,
     publishedAt: r.published_at,
     createdAt: r.created_at,
@@ -95,8 +109,11 @@ export function slugify(title: string): string {
   return s || `post-${Date.now().toString(36)}`;
 }
 
-const COLS = 'id, slug, title, summary, content_md, tags, cover_url, status, published_at, created_at, updated_at';
-const SUMMARY_COLS = "id, slug, title, summary, '' AS content_md, tags, cover_url, status, published_at, created_at, updated_at";
+// 字数：去掉空白与常见 Markdown 符号后的字符数（中文按字计）
+const WORDS = "LENGTH(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content_md, ' ', ''), char(10), ''), char(13), ''), '#', ''), '*', ''), '`', '')) AS word_count";
+const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const ORDER = 'ORDER BY pinned DESC, COALESCE(published_at, created_at) DESC, id DESC';
 
 export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boolean }): Promise<{ posts: PostSummary[]; total: number }> {
   const where: string[] = [];
@@ -110,11 +127,15 @@ export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boole
     where.push('EXISTS (SELECT 1 FROM json_each(posts.tags) WHERE json_each.value = ?)');
     binds.push(q.tag);
   }
+  if (q.category) {
+    where.push('category = ?');
+    binds.push(q.category);
+  }
   const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const limit = q.limit ?? 20;
   const offset = q.offset ?? 0;
   const [rows, count] = await env.DB.batch([
-    env.DB.prepare(`SELECT ${SUMMARY_COLS} FROM posts ${w} ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ? OFFSET ?`).bind(...binds, limit, offset),
+    env.DB.prepare(`SELECT ${SUMMARY_COLS} FROM posts ${w} ${ORDER} LIMIT ? OFFSET ?`).bind(...binds, limit, offset),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM posts ${w}`).bind(...binds),
   ]);
   const posts = ((rows!.results ?? []) as PostRow[]).map((r) => toSummary(rowToPost(r)));
@@ -136,6 +157,29 @@ export async function listTags(env: Env): Promise<{ tag: string; count: number }
   return results ?? [];
 }
 
+export async function listCategories(env: Env): Promise<{ category: string; count: number }[]> {
+  const { results } = await env.DB.prepare(
+    "SELECT category, COUNT(*) AS count FROM posts WHERE status = 'published' AND category IS NOT NULL AND category <> '' GROUP BY category ORDER BY count DESC, category ASC",
+  ).all<{ category: string; count: number }>();
+  return results ?? [];
+}
+
+/** 站内搜索索引：已发布文章的标题、摘要、标签、分类与正文纯文本（截断）。 */
+export async function searchIndex(env: Env): Promise<{ slug: string; title: string; summary: string; tags: string[]; category: string | null; text: string }[]> {
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER} LIMIT 500`).all<PostRow>();
+  return (results ?? []).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, tags: parseTags(r.tags), category: r.category || null, text: plainText(r.content_md).slice(0, 3000) }));
+}
+
+export function plainText(md: string): string {
+  return (md ?? '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_`~|\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function slugExists(env: Env, slug: string): Promise<boolean> {
   return !!(await env.DB.prepare('SELECT 1 AS x FROM posts WHERE slug = ?').bind(slug).first());
 }
@@ -150,10 +194,10 @@ export async function createPost(env: Env, input: unknown): Promise<Post> {
   const status = data.status ?? 'draft';
   const ts = nowIso();
   const row = await env.DB.prepare(
-    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, status, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
+    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, category, pinned, status, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
   )
-    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, status, status === 'published' ? ts : null, ts, ts)
+    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
     .first<PostRow>();
   return rowToPost(row!);
 }
@@ -169,7 +213,7 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
     throw new HttpError(409, 'slug_conflict', `slug「${data.slug}」已存在`);
   }
   const row = await env.DB.prepare(
-    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
+    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, category = ?, pinned = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
   )
     .bind(
       data.slug ?? current.slug,
@@ -178,6 +222,8 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
       data.contentMd ?? current.contentMd,
       JSON.stringify(dedupe(data.tags ?? current.tags)),
       data.coverUrl === undefined ? current.coverUrl : data.coverUrl || null,
+      data.category === undefined ? current.category : data.category || null,
+      (data.pinned ?? current.pinned) ? 1 : 0,
       nowIso(),
       current.id,
     )
@@ -242,4 +288,77 @@ export async function updateSettings(env: Env, input: unknown): Promise<Settings
   const next = validate(settingsSchema, { ...cur, ...patch, sections: { ...cur.sections, ...(patch.sections ?? {}) } });
   await writeSingleton(env, 'settings', next);
   return next;
+}
+
+// ---------- 站点内容：友链 / 画廊 / 收藏 ----------
+export async function getContent(env: Env, key: ContentKey): Promise<unknown[]> {
+  const row = await env.DB.prepare('SELECT data FROM site_content WHERE key = ?').bind(key).first<{ data: string }>();
+  if (!row) return [];
+  try {
+    const v = JSON.parse(row.data);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setContent(env: Env, key: ContentKey, input: unknown): Promise<unknown[]> {
+  const items = validate(contentSchemas[key] as z.ZodType<unknown[]>, input);
+  await env.DB.prepare(
+    'INSERT INTO site_content (key, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
+  )
+    .bind(key, JSON.stringify(items), nowIso())
+    .run();
+  return items;
+}
+
+// ---------- 留言板（先审后发） ----------
+export interface GuestbookEntry {
+  id: number;
+  name: string;
+  content: string;
+  website: string;
+  status: 'pending' | 'approved' | 'hidden';
+  createdAt: string;
+}
+interface GuestbookRow {
+  id: number;
+  name: string;
+  content: string;
+  website: string | null;
+  status: GuestbookEntry['status'];
+  created_at: string;
+}
+const toEntry = (r: GuestbookRow): GuestbookEntry => ({ id: r.id, name: r.name, content: r.content, website: r.website ?? '', status: r.status, createdAt: r.created_at });
+export const MAX_PENDING_GUESTBOOK = 200;
+
+export async function listGuestbook(env: Env, opts: { status?: 'pending' | 'approved' | 'hidden' | 'all'; limit?: number } = {}): Promise<{ entries: GuestbookEntry[] }> {
+  const status = opts.status ?? 'approved';
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+  const stmt =
+    status === 'all'
+      ? env.DB.prepare('SELECT * FROM guestbook ORDER BY id DESC LIMIT ?').bind(limit)
+      : env.DB.prepare('SELECT * FROM guestbook WHERE status = ? ORDER BY id DESC LIMIT ?').bind(status, limit);
+  const { results } = await stmt.all<GuestbookRow>();
+  return { entries: (results ?? []).map(toEntry) };
+}
+
+export async function createGuestbook(env: Env, input: unknown): Promise<GuestbookEntry> {
+  const data = validate(guestbookCreateSchema, input);
+  const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM guestbook WHERE status = 'pending'").first<{ n: number }>();
+  if (Number(pending?.n ?? 0) >= MAX_PENDING_GUESTBOOK) throw new HttpError(429, 'too_many_pending', '待审核的留言太多了，请稍后再试');
+  const row = await env.DB.prepare("INSERT INTO guestbook (name, content, website, status, created_at) VALUES (?, ?, ?, 'pending', ?) RETURNING *")
+    .bind(data.name, data.content, data.website || null, nowIso())
+    .first<GuestbookRow>();
+  return toEntry(row!);
+}
+
+export async function moderateGuestbook(env: Env, input: unknown): Promise<{ id: number; action: string }> {
+  const { id, action } = validate(guestbookModerateSchema, input);
+  const res =
+    action === 'delete'
+      ? await env.DB.prepare('DELETE FROM guestbook WHERE id = ?').bind(id).run()
+      : await env.DB.prepare('UPDATE guestbook SET status = ? WHERE id = ?').bind(action === 'approve' ? 'approved' : 'hidden', id).run();
+  if (!res.meta?.changes) throw new HttpError(404, 'not_found', '留言不存在');
+  return { id, action };
 }

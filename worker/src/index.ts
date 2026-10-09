@@ -3,7 +3,7 @@ import { HttpError, errorResponse, json, readJson, withSecurityHeaders } from '.
 import { allowedOrigins, checkOrigin, handleLogin, handleLogout, readSession, requireAdmin, verifyBearer } from './auth';
 import { handleMcp } from './mcp';
 import { serveImage, uploadFromRequest } from './images';
-import { listQuerySchema } from './schema';
+import { CONTENT_KEYS, listQuerySchema, type ContentKey } from './schema';
 import * as svc from './service';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
@@ -28,6 +28,8 @@ function corsHeaders(req: Request, env: Env, path: string): Record<string, strin
   }
   return {};
 }
+
+const isContentKey = (k: string): k is ContentKey => (CONTENT_KEYS as readonly string[]).includes(k);
 
 async function route(req: Request, env: Env, url: URL): Promise<Response> {
   const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -54,9 +56,18 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
       return json(await svc.getPost(env, decodeURIComponent(match[1]!)), { headers: PUBLIC_CACHE });
     }
     if (path === '/api/tags') return json({ tags: await svc.listTags(env) }, { headers: PUBLIC_CACHE });
+    if (path === '/api/categories') return json({ categories: await svc.listCategories(env) }, { headers: PUBLIC_CACHE });
+    if (path === '/api/search-index') return json({ posts: await svc.searchIndex(env) }, { headers: PUBLIC_CACHE });
+    if ((match = /^\/api\/content\/([a-z]+)$/.exec(path)) && isContentKey(match[1]!)) return json({ items: await svc.getContent(env, match[1]) }, { headers: PUBLIC_CACHE });
+    if (path === '/api/guestbook') return json(await svc.listGuestbook(env, { status: 'approved' }), { headers: NO_STORE });
     if (path === '/api/profile') return json(await svc.getProfile(env), { headers: PUBLIC_CACHE });
     if (path === '/api/settings') return json(await svc.getSettings(env), { headers: PUBLIC_CACHE });
     if ((match = /^\/api\/(images\/.+)$/.exec(path))) return serveImage(env, match[1]!);
+  }
+
+  if (path === '/api/guestbook' && m === 'POST') {
+    checkOrigin(req, env);
+    return json(await svc.createGuestbook(env, await readJson(req)), { status: 201, headers: NO_STORE });
   }
 
   // ---------- 登录 ----------
@@ -100,6 +111,22 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     if (sub === '/settings') {
       if (m === 'GET') return json(await svc.getSettings(env), { headers: NO_STORE });
       if (m === 'PATCH' || m === 'PUT') return json(await svc.updateSettings(env, await readJson(req)), { headers: NO_STORE });
+    }
+    if ((match = /^\/content\/([a-z]+)$/.exec(sub)) && isContentKey(match[1]!)) {
+      if (m === 'GET') return json({ items: await svc.getContent(env, match[1]) }, { headers: NO_STORE });
+      if (m === 'PUT') {
+        const body = (await readJson(req)) as { items?: unknown };
+        return json({ items: await svc.setContent(env, match[1], body?.items) }, { headers: NO_STORE });
+      }
+    }
+    if (sub === '/guestbook' && m === 'GET') {
+      const st = url.searchParams.get('status');
+      const status = st === 'pending' || st === 'approved' || st === 'hidden' ? st : 'all';
+      return json(await svc.listGuestbook(env, { status, limit: 500 }), { headers: NO_STORE });
+    }
+    if ((match = /^\/guestbook\/(\d+)$/.exec(sub)) && m === 'POST') {
+      const body = (await readJson(req)) as { action?: unknown };
+      return json(await svc.moderateGuestbook(env, { id: Number(match[1]), action: body?.action }), { headers: NO_STORE });
     }
     if (sub === '/images' && m === 'POST') return json(await uploadFromRequest(env, req), { status: 201, headers: NO_STORE });
     throw new HttpError(404, 'not_found', '接口不存在');
