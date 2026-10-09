@@ -680,7 +680,8 @@ usa-toaster { z-index: 150; }
   .bento--top .profile { grid-column: span 12; grid-row: auto; }
   .post-layout { grid-template-columns: minmax(0, 1fr); }
   .post-side { position: static; grid-template-columns: 1fr 1fr; }
-  .post-side .toc-tile { display: none; }
+  .post-side { order: -1; }
+  .post-side .author-tile { display: none; }
   .footer__inner { grid-template-columns: 1fr 1fr; }
   .footer__meta { text-align: left; grid-column: 1 / -1; }
 }
@@ -745,3 +746,5 @@ usa-toaster { z-index: 150; }
 .liked-list { list-style: none; margin: 0.4rem 0 1rem; padding: 0; display: grid; gap: 6px; }
 .liked-list li { display: flex; gap: 0.5rem; align-items: center; padding: 0.55rem 0.8rem; border-radius: 14px; background: var(--tile-strong); font-size: 0.9rem; }
 .liked-list li svg { width: 16px; height: 16px; color: #ef4b6c; flex: none; }
+.set-row--cord { align-items: flex-start; min-height: 120px; overflow: visible; }
+.pull-cord--inline { display: block; scale: 0.72; transform-origin: top center; margin: -10px 6px 0 0; }

@@ -633,6 +633,7 @@ function announceTile(site: SiteData): string {
 /** 显示设置瓷砖：深色、页面风格、动效强度、暂停动效、光标拖尾。 */
 export function settingsBody(): string {
   return `<div class="set-row"><span>深色模式</span><usa-switch variant="daynight" class="js-dark-switch" label="深色模式"></usa-switch></div>
+  <div class="set-row set-row--cord"><span>或者拉一下灯绳</span><usa-pull-cord class="pull-cord--inline" label="拉灯绳切换深色模式"></usa-pull-cord></div>
   <div class="set-row set-row--col"><span>页面风格</span><usa-theme-switcher themes="light,glass,neon" label="页面风格" class="js-surface"></usa-theme-switcher></div>
   <div class="set-row set-row--col"><span>动效强度</span><usa-motion-switch class="js-motion-switch"></usa-motion-switch></div>
   <div class="set-row"><usa-checkbox class="js-comet-switch" label="光标彗星拖尾">光标彗星拖尾</usa-checkbox></div>
