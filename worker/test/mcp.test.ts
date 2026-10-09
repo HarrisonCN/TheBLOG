@@ -12,6 +12,7 @@ const EXPECTED_TOOLS = [
   'list_posts', 'get_post', 'create_post', 'update_post', 'delete_post', 'publish_post',
   'get_profile', 'update_profile', 'get_settings', 'update_settings', 'upload_image',
   'list_categories', 'get_site_content', 'update_friends', 'update_gallery', 'update_favorites', 'list_guestbook', 'moderate_guestbook',
+  'list_members', 'grant_badge', 'revoke_badge', 'list_sticky_notes', 'moderate_sticky_note', 'list_inbox', 'moderate_inbox', 'get_festivals', 'set_festivals', 'set_projects',
 ];
 
 describe('MCP 传输层', () => {
