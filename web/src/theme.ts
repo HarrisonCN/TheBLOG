@@ -9,13 +9,29 @@ function systemMode(): Mode {
 
 /** 优先级：访客手动选择 > 站点设置 > 系统。 */
 export function applyTheme(settings: Settings): void {
-  const stored = localStorage.getItem(KEY) as Mode | null;
+  let stored: Mode | null = null;
+  try {
+    stored = localStorage.getItem(KEY) as Mode | null;
+  } catch {
+    /* 隐私模式 */
+  }
   const mode: Mode = stored ?? (settings.theme === 'system' ? systemMode() : settings.theme);
   document.documentElement.dataset.theme = mode;
 }
 
-export function toggleTheme(): void {
-  const next: Mode = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  localStorage.setItem(KEY, next);
+export function currentMode(): Mode {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+export function setMode(next: Mode): void {
+  try {
+    localStorage.setItem(KEY, next);
+  } catch {
+    /* ignore */
+  }
   document.documentElement.dataset.theme = next;
+}
+
+export function toggleTheme(): void {
+  setMode(currentMode() === 'dark' ? 'light' : 'dark');
 }

@@ -1,3 +1,4 @@
+import type { Festival, Project, PublicMember, StickyNote, Viewer } from './demo/community-types';
 import type { CategoryCount, ContentKey, ContentMap, GuestbookEntry, Post, PostSummary, Profile, SearchDoc, Settings, TagCount } from './types';
 
 /** 同域部署时留空；Worker 在独立域名时设置 VITE_API_BASE=https://api.example.com */
@@ -60,5 +61,30 @@ export const api = {
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
   guestbook: () => request<{ entries: GuestbookEntry[] }>('/api/guestbook'),
   postGuestbook: (body: { name: string; content: string; website?: string }) =>
-    request<GuestbookEntry>('/api/guestbook', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    request<GuestbookEntry>('/api/guestbook', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+
+  // ---- 社区功能（Worker 社区模块；演示站由浏览器内 mock 提供）。旧 Worker 返回 404 时前端自动隐藏对应功能 ----
+  festivals: () => request<{ festivals: Festival[] }>('/api/festivals'),
+  projects: () => request<{ items: Project[] }>('/api/projects'),
+  members: () => request<{ members: PublicMember[] }>('/api/members'),
+  notes: () => request<{ notes: StickyNote[] }>('/api/notes'),
+  postNote: (body: { name: string; content: string; color: string }) => request<StickyNote>('/api/notes', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+  reportNote: (id: number) => request<{ ok: true }>(`/api/notes/${id}/report`, { method: 'POST', headers: JSON_H, body: '{}' }),
+  presence: (body: { sid: string; page: string }) => request<{ viewers: Viewer[]; total: number }>('/api/presence', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+  register: (body: { name: string; email: string; bio?: string }) => request<{ sent: true; demoCode?: string }>('/api/members/register', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+  verify: (body: { email: string; code: string }) => request<{ member: PublicMember; token: string }>('/api/members/verify', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+  me: (token: string) => request<{ member: PublicMember }>('/api/members/me', { headers: { authorization: `Bearer ${token}` } }),
+  upload: (token: string, file: File, note: string) => {
+    const fd = new FormData();
+    fd.set('file', file);
+    fd.set('note', note);
+    return request<{ id: number; status: string }>('/api/members/uploads', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: fd, timeoutMs: 60_000 });
+  },
+  voice: (token: string, blob: Blob, durationMs: number) => {
+    const fd = new FormData();
+    fd.set('file', new File([blob], 'voice.webm', { type: blob.type || 'audio/webm' }));
+    fd.set('durationMs', String(Math.round(durationMs)));
+    return request<{ id: number }>('/api/members/voice', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: fd, timeoutMs: 60_000 });
+  },
 };
+const JSON_H = { 'content-type': 'application/json' };

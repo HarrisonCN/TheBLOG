@@ -62,7 +62,7 @@ function page(p, data) {
     .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${esc(p.description)}" />`)
     .replace('data-site-theme="system"', `data-site-theme="${esc(s.theme)}"`)
     .replace('<!--blog:head-->', `<meta property="og:title" content="${esc(p.title)}" />\n    <meta property="og:description" content="${esc(p.description)}" />`)
-    .replace('<!--blog:app-->', `${R.header(s, p.route)}<main id="main" class="container" tabindex="-1">${p.main}</main>${R.footer(s, data.profile)}`)
+    .replace('<!--blog:app-->', R.appHtml(data, p))
     // 演示版的数据以访客浏览器为准，不嵌入快照
     .replace('<!--blog:data-->', DEMO ? '' : `<script type="application/json" id="blog-data">${jsonForHtml(data)}</script>`);
   return html;
@@ -77,26 +77,38 @@ function write(rel, html) {
 let ok = false;
 let count = 0;
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
+const soft = (p, fallback) => get(p).catch(() => fallback);
 if (API || DEMO) {
   try {
-    const [settings, profile, list, tags] = await Promise.all([get('/api/settings'), get('/api/profile'), get('/api/posts?limit=100'), get('/api/tags')]);
-    const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags };
-    write('', page(R.homePage(site), site));
-    write('about', page(R.aboutPage(profile, settings), site));
-    write('tags', page(R.tagsPage(site.tags, settings), site));
-    count += 3;
-    for (const t of site.tags) {
-      // Pages 按解码后的路径查找文件；含路径分隔符或以 . 开头的标签不生成静态页（浏览器端回退渲染）
-      if (/[\/\\]|^\./.test(t.tag)) continue;
-      const tp = await get(`/api/posts?tag=${encodeURIComponent(t.tag)}&limit=100`);
-      write(join('tags', t.tag), page(R.tagPage(t.tag, tp.posts, settings), { ...site, tagPosts: { tag: t.tag, posts: tp.posts } }));
+    const [settings, profile, list, tags, cats] = await Promise.all([get('/api/settings'), get('/api/profile'), get('/api/posts?limit=100'), get('/api/tags'), soft('/api/categories', { categories: [] })]);
+    const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags, categories: cats.categories };
+    const extra = {
+      gallery: (await soft('/api/content/gallery', { items: [] })).items,
+      friends: (await soft('/api/content/friends', { items: [] })).items,
+      favorites: (await soft('/api/content/favorites', { items: [] })).items,
+      projects: (await soft('/api/projects', { items: [] })).items,
+      guestbook: (await soft('/api/guestbook', { entries: [] })).entries,
+      notes: (await soft('/api/notes', { notes: [] })).notes,
+      members: (await soft('/api/members', { members: [] })).members,
+    };
+    // 每个页面只嵌入它需要的额外数据
+    const emit = (route, x = {}) => {
+      const want = R.needs(route);
+      const ex = Object.fromEntries(Object.entries({ ...extra, ...x }).filter(([k]) => want.includes(k)));
+      const p = R.renderRoute(route, site, ex);
+      const rel = decodeURIComponent(R.routePath(route)).replace(/^\/|\/$/g, '');
+      write(rel, page(p, { ...site, extra: ex }));
       count++;
-    }
-    for (const s of list.posts) {
-      const post = await get(`/api/posts/${s.slug}`);
-      write(join('posts', post.slug), page(R.postPage(post, settings), { ...site, post }));
-      count++;
-    }
+    };
+    const per = Math.max(1, settings.postsPerPage);
+    const pages = Math.max(1, Math.ceil(site.posts.length / per));
+    for (let n = 1; n <= pages; n++) emit({ name: 'home', page: n });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox']) emit({ name });
+    // Pages 按解码后的路径查找文件；含路径分隔符或以 . 开头的标签 / 分类不生成静态页（浏览器端回退渲染）
+    for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) emit({ name: 'tag', tag: t.tag });
+    for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) emit({ name: 'category', category: c.category });
+    for (const a of extra.gallery) emit({ name: 'album', slug: a.slug });
+    for (const s of list.posts) emit({ name: 'post', slug: s.slug }, { post: await get(`/api/posts/${s.slug}`) });
     ok = true;
   } catch (e) {
     if (DEMO) throw e;
@@ -129,10 +141,10 @@ const img = ["'self'", 'https:', 'data:'].join(' ');
 writeFileSync(
   join(dist, '_headers'),
   `/*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src ${img}; connect-src ${connect}; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src ${img}; connect-src ${connect}; font-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(), microphone=(self), display-capture=(self), geolocation=()
   X-Frame-Options: DENY
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

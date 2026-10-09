@@ -124,7 +124,7 @@ export function formatZodError(err: z.ZodError): { path: string; message: string
 // ---------- 站点内容：友链 / 画廊 / 收藏 ----------
 const text = (max: number) => z.string().trim().max(max);
 export const friendSchema = z.object({ name: text(40).min(1), url: safeUrl, avatar: optionalUrl.default(''), description: text(120).default('') });
-export const photoSchema = z.object({ url: safeUrl, caption: text(200).default(''), width: z.number().int().positive().max(20000).optional(), height: z.number().int().positive().max(20000).optional() });
+export const photoSchema = z.object({ url: safeUrl, caption: text(200).default(''), width: z.number().int().positive().max(20000).optional(), height: z.number().int().positive().max(20000).optional(), credit: text(200).optional(), creditUrl: z.union([safeUrl, z.literal('')]).optional() });
 export const albumSchema = z.object({
   slug: slugSchema,
   title: text(60).min(1),

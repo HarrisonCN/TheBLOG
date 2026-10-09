@@ -77,6 +77,9 @@ export interface Photo {
   caption: string;
   width?: number;
   height?: number;
+  /** 署名（作者 · 许可），例如 Wikimedia Commons 的照片 */
+  credit?: string;
+  creditUrl?: string;
 }
 export interface Album {
   slug: string;
@@ -122,6 +125,8 @@ export interface SiteData {
   total: number;
   tags: TagCount[];
   categories: CategoryCount[];
+  /** 节日（只在当天显示横幅）；旧 Worker 没有该接口时为空 */
+  festivals?: import('./demo/community-types').Festival[];
 }
 
 export const DEFAULT_SECTIONS: Sections = { hero: true, featured: true, postList: true, tags: true, about: true, announcement: true, latest: true, stats: true, categories: true };
