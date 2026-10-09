@@ -7,7 +7,7 @@
  * 浏览器端由 usa.ts 按需加载对应的组件定义。
  */
 import { escapeHtml as e, plainText, renderMarkdown, safeHref } from './markdown';
-import { icon, SOCIAL_ICON } from './icons';
+import { festivalIcon, icon, SOCIAL_ICON, stripEmoji } from './icons';
 import type { Album, CategoryCount, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SiteData, TagCount } from './types';
 import { activeFestival, type Festival, type Project, type PublicMember, type StickyNote } from './demo/community-types';
 
@@ -571,7 +571,7 @@ export function festivalTile(list: Festival[] | undefined, now = new Date()): st
   return tile(
     'third',
     `${kicker('sparkles', '今天是节日')}
-  <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${e(f.message)}</usa-festival-banner>
+  <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${festivalText(f)}</usa-festival-banner>
   <div class="fest__row"><b class="fest__name">${e(f.name)}</b><span class="fest__days">快乐！</span></div>
   <usa-click effect="confetti" class="fest__click"><button class="btn btn--sm" type="button">${icon('sparkles')}撒花庆祝</button></usa-click>`,
     { cls: 'fest-tile fest-tile--on', attrs: `data-festival="${e(f.id)}"` },
@@ -1078,7 +1078,9 @@ export function privacyPage(site: SiteData): Page {
 <h2 id="h-privacy-4">留言、便利贴、上传与语音</h2>
 <ul><li>留言需要审核后显示；便利贴被 3 位访客举报后自动隐藏，等待站长复核。只保存你填写的昵称、内容和时间。</li>
 <li>「上传给我的文件」和「给我说话」只有登录的好朋友能用，有大小、类型和频率限制，只有站长能看到，审核后可删除。</li>
-<li>邮箱只用来发送验证码和识别你的好朋友账号，不会出现在任何公开页面或接口里。</li></ul>
+<li>邮箱只用来发送验证码和识别你的好朋友账号，不会出现在任何公开页面或接口里。验证码和登录令牌在服务器上只存哈希，验证码 10 分钟后失效。</li>
+<li>限流和防重复举报用的是加盐哈希后的 IP，不保存原始 IP；在线状态记录 2 分钟后自动删除。</li>
+<li>Google 登录只在你点击后发生，授权页由 Google 显示并由你确认；本站只读取名字、头像和用于识别账号的邮箱。站长删除好朋友账号时，徽章、登录令牌和你上传的文件一并删除。</li></ul>
 <h2 id="h-privacy-5">本地存储</h2>
 <p>浏览器本地只保存：深色 / 浅色、页面风格、动效强度、点赞记录、好朋友登录状态。演示站的数据也只保存在你的浏览器里。</p>
 <h2 id="h-privacy-6">图片致谢</h2>
@@ -1204,8 +1206,13 @@ export function appHtml(site: SiteData, p: Page): string {
 ${footer(site)}`;
 }
 
+/** 节日横幅文字：SVG 图标 + 去掉 emoji 的祝福语。 */
+export function festivalText(f: Festival): string {
+  return `<span class="fest-msg">${festivalIcon(f.id, f.theme)}<span>${e(stripEmoji(f.message))}</span></span>`;
+}
+
 /** 节日横幅（全站顶部，只在节日当天渲染）。 */
 export function festivalBanner(f: Festival | null): string {
   if (!f) return '';
-  return `<usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" dismissible class="festival festival--top">${e(f.message)}</usa-festival-banner>`;
+  return `<usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" dismissible class="festival festival--top">${festivalText(f)}</usa-festival-banner>`;
 }

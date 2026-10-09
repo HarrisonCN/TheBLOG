@@ -118,3 +118,16 @@ describe('视图', () => {
     expect(html).toContain('https://github.com/HarrisonCN');
   });
 });
+
+describe('festival banner icons', () => {
+  it('replaces emoji with an inline SVG icon', async () => {
+    const { festivalText } = await import('../src/render');
+    const { stripEmoji } = await import('../src/icons');
+    expect(stripEmoji('国庆快乐 🇨🇳')).toBe('国庆快乐');
+    expect(stripEmoji('圣诞快乐 🎄 ☀️')).toBe('圣诞快乐');
+    const html = festivalText({ id: 'national', name: '国庆节', date: '10-01', days: 7, theme: 'fireworks', message: '国庆快乐 🇨🇳' });
+    expect(html).toContain('<svg');
+    expect(html).toContain('fest-ico');
+    expect(html).not.toMatch(/\p{Extended_Pictographic}|\p{Regional_Indicator}/u);
+  });
+});

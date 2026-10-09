@@ -16,6 +16,9 @@
     }
   ],
   "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "blog-images" }],
+  // 社区模块（可选，见 README「社区模块的密钥与绑定」）：
+  // 私有上传桶：{ "binding": "UPLOADS", "bucket_name": "blog-uploads" } 加进 r2_buckets
+  // Cloudflare 发信："send_email": [{ "name": "EMAIL" }]
   "vars": {
     // 允许调用 Admin API 的浏览器来源（逗号分隔）。同域部署时填博客域名即可。
     "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",

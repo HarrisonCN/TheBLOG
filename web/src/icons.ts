@@ -54,6 +54,15 @@ const P: Record<string, string> = {
   dashboard: '<rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/>',
   logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16.5 14.5 12 10 7.5M14.5 12H4"/>',
   upload: '<path d="M12 16V4M7 8.5 12 4l5 4.5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+  sparkles: '<path d="M12 3.5 13.6 9l5.4 1.6-5.4 1.6L12 17.7l-1.6-5.5L5 10.6 10.4 9z"/><path d="M18.5 3v3M17 4.5h3M5.5 17v3M4 18.5h3"/>',
+  lantern: '<path d="M12 2.5v2.5"/><path d="M9 5h6"/><path d="M8.5 5.5C5 7.5 5 15.5 8.5 17.5h7c3.5-2 3.5-10 0-12z"/><path d="M12 5.5v12M9.5 17.5V19h5v-1.5M12 19v2.5"/>',
+  firework: '<path d="M12 12v9"/><path d="M12 3v3M12 12 7 7M12 12l5-5M3.5 12h3M17.5 12h3M5.5 18l2-2M18.5 18l-2-2M12 12 6 9.5M12 12l6-2.5"/>',
+  tree: '<path d="m12 2.5 5 6h-2.5l4 5H16l3.5 4.5h-15L8 13.5H5.5l4-5H7z"/><path d="M12 18v3.5"/>',
+  pumpkin: '<path d="M12 6.5c-1.5-3 0-4 2-4"/><ellipse cx="12" cy="14" rx="8.5" ry="6.5"/><path d="M12 7.5c-2.5 0-3.5 3-3.5 6.5s1 6.5 3.5 6.5 3.5-3 3.5-6.5-1-6.5-3.5-6.5z"/>',
+  mooncake: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4.5h12.5l-2.5 4 2.5 4H5"/><path d="m9.5 7.2.5 1 1.1.1-.8.8.2 1.1-1-.5-1 .5.2-1.1-.8-.8 1.1-.1z"/>',
+  dragon: '<path d="M3 15c3-4 6 2 9-2s6 2 9-2"/><path d="M3 19c3-4 6 2 9-2s6 2 9-2"/><path d="M16 6.5a3 3 0 1 1 3 3"/>',
+  envelope: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 8.5c4 3 10 3 14 0"/><circle cx="12" cy="11.5" r="2"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
 };
 
@@ -76,3 +85,23 @@ export const SOCIAL_ICON: Record<string, string> = {
   rss: 'rss',
   link: 'link',
 };
+
+/** 节日 → 图标（不用 emoji：很多系统缺彩色 emoji 字体，会显示成方块）。 */
+const FESTIVAL_ICON: Record<string, string> = {
+  'new-year': 'firework', valentine: 'heart', spring: 'envelope', lantern: 'lantern', labour: 'sun', 'dragon-boat': 'dragon',
+  qixi: 'sparkles', 'mid-autumn': 'mooncake', national: 'flag', halloween: 'pumpkin', christmas: 'tree',
+};
+const THEME_ICON: Record<string, string> = { lunar: 'lantern', xmas: 'tree', halloween: 'pumpkin', fireworks: 'firework' };
+
+export function festivalIcon(id: string, theme: string): string {
+  const base = id.replace(/-\d{4}$/, '');
+  return icon(FESTIVAL_ICON[base] ?? THEME_ICON[theme] ?? 'sparkles', 'fest-ico');
+}
+
+/** 去掉文字里的 emoji / 国旗 / 变体选择符，留给 SVG 图标表达。 */
+export function stripEmoji(text: string): string {
+  return text
+    .replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u{FE0F}\u{200D}\u{20E3}\u{1F3FB}-\u{1F3FF}]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}

@@ -10,13 +10,14 @@ import { HttpError, json } from './http';
 import { b64Decode } from './crypto';
 import { storeImage, MAX_IMAGE_BYTES } from './images';
 import * as svc from './service';
+import { COMMUNITY_TOOLS } from './community-mcp';
 import { CONTENT_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
 
 export const SERVER_INFO = { name: 'winston-blog', title: 'Winston 的博客', version: '0.2.0' };
 export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const LATEST = SUPPORTED_PROTOCOL_VERSIONS[0]!;
 
-interface ToolDef {
+export interface ToolDef {
   name: string;
   title: string;
   description: string;
@@ -187,6 +188,7 @@ export const TOOLS: ToolDef[] = [
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     run: (env, a) => svc.moderateGuestbook(env, a),
   },
+  ...COMMUNITY_TOOLS,
 ];
 
 function inputSchemaOf(t: ToolDef): Record<string, unknown> {

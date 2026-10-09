@@ -8,3 +8,10 @@ ADMIN_PASSWORD_HASH=
 API_TOKEN_HASH=
 # 本地是 http，必须关闭 Secure Cookie
 COOKIE_SECURE=false
+# 社区模块（可选）：本地默认把验证码打印在 wrangler dev 日志里
+EMAIL_PROVIDER=console
+# RESEND_API_KEY=
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+# GOOGLE_REDIRECT_URI=http://localhost:5173/api/members/google/callback
+# SITE_URL=http://localhost:5173

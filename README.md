@@ -64,7 +64,8 @@ scripts/e2e.mjs         端到端测试
 - **数据加载**：构建时预渲染已发布内容（无 JS 也能读），浏览器端再从 API 拉最新数据；没有快照的页面显示骨架屏，失败显示可重试的错误态。
 - **动效**：滚动入场（`motionary/core` 的 `reveal`）、标题逐词 / 逐字入场（`motionary/runtime/text`）、文章阅读进度条（`motionary/runtime/scroll`）。后台可调强度 off / low / normal / high；`prefers-reduced-motion: reduce` 时完全关闭。
 - **后台 /admin**：密码登录 → 1 小时有效的 httpOnly + Secure + SameSite=Strict 会话 Cookie（`__Host-` 前缀、HS256 JWT）；写操作必须带 `X-CSRF-Token`（与会话绑定，只存在内存）；同一 IP 15 分钟内失败 5 次即 429。可写 / 改 / 删 / 发布文章、Markdown 实时预览、上传图片、改资料、改展示设置（主题、显示哪些区块、精选文章、动效强度、每页数量）。
-- **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image`。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
+- **社区模块**：好朋友（邮箱验证码，可选 Google 登录只取名字和头像）、徽章（珍珠 / 拉丝金属，编号全站唯一）、谁在看网站、便利贴墙、上传与语音留言（R2，仅站长可见）、节日横幅、我的项目。
+- **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
 
@@ -81,6 +82,15 @@ scripts/e2e.mjs         端到端测试
 | GET/PATCH | `/api/admin/profile` · `/api/admin/settings` | 局部更新 |
 | POST | `/api/admin/images` | multipart `file` 或原始图片字节 |
 | POST | `/mcp` | MCP JSON-RPC |
+| GET | `/api/festivals` · `/api/projects` · `/api/members` · `/api/notes` | 节日 / 项目 / 好朋友（不含邮箱）/ 便利贴 |
+| POST | `/api/notes` · `/api/notes/:id/report` | 贴便利贴（同一来源 10 分钟 5 张）/ 举报（3 个不同来源举报后自动隐藏） |
+| POST | `/api/presence` | 在线心跳 `{ sid, page }`（D1，45 秒内算在线） |
+| POST | `/api/members/register` · `/api/members/verify` | 邮箱验证码（6 位，10 分钟有效，最多试 5 次）→ 返回 `m_…` 令牌 |
+| GET | `/api/members/me` · `/api/members/google/start` | 当前好朋友 / 可选 Google 登录 |
+| POST | `/api/members/uploads` · `/api/members/voice` | 好朋友上传（≤10 MB，白名单类型）/ 语音留言（≤2 MB，≤60 秒），存 R2 等站长审核 |
+| GET/POST/DELETE | `/api/admin/members[/:id[/badges[/:code]]]` | 好朋友、徽章颁发 / 收回 |
+| GET/POST/DELETE | `/api/admin/notes[/:id]` · `/api/admin/inbox[/files\|voice/:id[/raw]]` | 便利贴审核 · 上传 / 语音收件箱 |
+| GET/PUT | `/api/admin/festivals` · `/api/admin/projects` | 节日与项目 |
 
 后台接口接受 **会话 Cookie + CSRF**（浏览器）或 **`Authorization: Bearer <token>`**（脚本 / MCP）。
 
@@ -111,7 +121,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 31 个 + web 30 个单元测试
+npm test               # worker 53 个 + web 70 个单元测试
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
@@ -137,6 +147,22 @@ npx wrangler secret put ADMIN_PASSWORD_HASH
 node scripts/hash-secret.mjs token                     # 保存 TOKEN；复制 API_TOKEN_HASH ↓
 npx wrangler secret put API_TOKEN_HASH
 ```
+
+**2b. 社区模块的密钥与绑定**（都可选；不配置时对应功能自动关闭）
+
+| 名称 | 类型 | 用途 |
+|---|---|---|
+| `EMAIL_PROVIDER` | var | 验证码邮件发送方式：`resend` / `cloudflare` / `console`（默认，只打印到 Worker 日志，仅适合本地） |
+| `EMAIL_FROM` | var | 发件人，如 `Winston 的博客 <noreply@blog.example.com>`（域名需在邮件服务验证过） |
+| `RESEND_API_KEY` | secret | `EMAIL_PROVIDER=resend` 时：`npx wrangler secret put RESEND_API_KEY` |
+| `EMAIL` | send_email 绑定 | `EMAIL_PROVIDER=cloudflare` 时：在 wrangler.jsonc 加 `"send_email": [{ "name": "EMAIL" }]`，并在 Cloudflare Email Routing 里开通发件 |
+| `GOOGLE_CLIENT_ID` | var | 可选 Google 登录（Google Cloud Console → OAuth 客户端，类型 Web） |
+| `GOOGLE_CLIENT_SECRET` | secret | `npx wrangler secret put GOOGLE_CLIENT_SECRET` |
+| `GOOGLE_REDIRECT_URI` | var | `https://blog.example.com/api/members/google/callback`（同时填进 Google 控制台的「已授权的重定向 URI」） |
+| `SITE_URL` | var | Google 登录后跳回的博客地址，如 `https://blog.example.com` |
+| `UPLOADS` | R2 绑定（可选） | 好朋友上传 / 语音的私有桶：`npx wrangler r2 bucket create blog-uploads`，再加 `{ "binding": "UPLOADS", "bucket_name": "blog-uploads" }`；不绑定时放在 `IMAGES` 桶的 `community/` 前缀下（不公开） |
+
+D1 迁移 `0004_community.sql` 会建好会员、验证码（只存哈希）、会话（只存哈希）、徽章、在线、便利贴、举报、上传、限流和节日 / 项目表。`JWT_SECRET` 同时用作验证码哈希和 IP 哈希的盐，所以社区模块也依赖它。
 
 **3. 域名与 Worker**
 

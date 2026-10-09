@@ -2,7 +2,7 @@
  * 社区功能的浏览器端交互：谁在看网站（presence）、留言 / 便利贴、注册好朋友（邮箱验证码）、
  * 上传文件、语音留言。接口见 api.ts；演示站由浏览器内 mock 实现，正式站由 Worker 社区模块实现。
  */
-import { api, ApiError, DEMO } from './api';
+import { api, API_BASE, ApiError, DEMO } from './api';
 import { defineUsed, loadFx } from './usa';
 import type { PublicMember, Viewer } from './demo/community-types';
 
@@ -178,9 +178,25 @@ function bindNotes(root: HTMLElement, ctx: Ctx): void {
   });
 }
 
+/** Google 登录回跳：令牌在 #member-token=… 里（不进服务器日志），取出后立刻从地址栏抹掉。 */
+async function adoptGoogleToken(ctx: Ctx): Promise<PublicMember | null> {
+  const m = /^#member-token=(m_[A-Za-z0-9_-]{16,128})$/.exec(location.hash);
+  if (!m) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    const { member } = await api.me(m[1]!);
+    localStorage.setItem(MEMBER_KEY, JSON.stringify({ token: m[1], member }));
+    return member;
+  } catch (e) {
+    ctx.notify(errMsg(e), 'error');
+    return null;
+  }
+}
+
 function bindJoin(root: HTMLElement, ctx: Ctx): void {
   const form = root.querySelector<HTMLFormElement>('.js-join-form');
   if (!form) return;
+  void adoptGoogleToken(ctx).then((m) => m && showDone(m));
   const steps = root.querySelectorAll('.js-join-steps li');
   const step = (n: number) => steps.forEach((li, i) => li.classList.toggle('is-active', i <= n));
   const otpBox = root.querySelector<HTMLElement>('.js-join-otp')!;
@@ -234,7 +250,7 @@ function bindJoin(root: HTMLElement, ctx: Ctx): void {
   });
   root.querySelector('.js-google')?.addEventListener('click', () => {
     if (DEMO) return void ctx.notify('演示站不会连接 Google。正式站点会跳转到 Google 授权页，并由你决定是否公开头像。', 'info');
-    location.href = '/api/members/google/start';
+    location.href = `${API_BASE}/api/members/google/start`;
   });
 }
 

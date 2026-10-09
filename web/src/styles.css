@@ -756,3 +756,11 @@ usa-toaster { z-index: 150; }
 :root:has(.demo-banner) .pull-cord { top: 36px; }
 .post-tile--big .post-tile__foot { margin-top: 0.2rem; }
 .post-tile--big .post-tile__chips { margin-top: auto; }
+
+/* 节日横幅：SVG 图标代替 emoji（避免无彩色 emoji 字体的系统显示方块） */
+.fest-msg { display: inline-flex; align-items: center; gap: 0.5em; }
+.fest-msg .fest-ico { flex: none; width: 1.35em; height: 1.35em; stroke-width: 1.7; }
+usa-festival-banner .usa-fb-bat {
+  width: 18px; height: 10px; font-size: 0 !important; color: transparent;
+  background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 20'%3E%3Cpath fill='%23111' d='M18 6c1-3 2-4 2-4l1 3c3-1 6 0 8-3 0 3 2 5 7 5-3 1-5 3-5 6-2-2-5-2-7 0-1-2-3-3-6-3s-5 1-6 3c-2-2-5-2-7 0 0-3-2-5-5-6 5 0 7-2 7-5 2 3 5 2 8 3l1-3s1 1 2 4z'/%3E%3C/svg%3E");
+}
