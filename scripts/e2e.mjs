@@ -81,7 +81,7 @@ try {
   await client.connect(transport);
   assert(client.getServerVersion()?.name === 'winston-blog', `initialize 成功，协议 ${transport.protocolVersion ?? '(未知)'}`);
   const { tools } = await client.listTools();
-  assert(tools.length === 11, `tools/list 返回 ${tools.length} 个工具`);
+  assert(tools.length === 18, `tools/list 返回 ${tools.length} 个工具`);
 
   const slug = 'e2e-hello-mcp';
   let r = await client.callTool({ name: 'create_post', arguments: { title: 'E2E 初稿', slug, contentMd: '初稿内容', tags: ['e2e'] } });
@@ -114,8 +114,8 @@ try {
   const postHtml = join(webDir, 'dist', 'posts', slug, 'index.html');
   assert(existsSync(postHtml), `生成 dist/posts/${slug}/index.html`);
   const html = readFileSync(postHtml, 'utf8');
-  assert(html.includes('<title>来自 MCP 的文章 · Winston 的博客</title>'), '文章页 <title> 正确');
-  assert(html.includes('<h2>MCP 写的小节</h2>') && html.includes('<strong>MCP</strong>'), 'Markdown 正文已渲染进 HTML');
+  assert(html.includes('<title>来自 MCP 的文章 | Winston 的博客</title>'), '文章页 <title> 正确');
+  assert(/<h2 id="[^"]+">MCP 写的小节<\/h2>/.test(html) && html.includes('<strong>MCP</strong>'), 'Markdown 正文已渲染进 HTML');
   assert(!html.includes('<script>alert(1)</script>') && html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), '正文中的 <script> 被转义');
   const home = readFileSync(join(webDir, 'dist', 'index.html'), 'utf8');
   assert(home.includes(`href="/posts/${slug}/"`) && home.includes('精选'), '首页列出该文章且显示精选');

@@ -64,6 +64,12 @@ export async function demoHandle(path: string, init: RequestInit = {}): Promise<
   } else if (init.body instanceof FormData) {
     const file = init.body.get('file');
     if (!(file instanceof File)) return { status: 400, body: { error: { code: 'no_file', message: '缺少 file 字段' } } };
+    if (path.startsWith('/api/members/')) {
+      // 好朋友上传 / 语音：小文件存成 data URL，大文件只记录元数据
+      const dataUrl = file.size <= 300_000 ? await readAsDataUrl(file).catch(() => undefined) : undefined;
+      body = { name: file.name, size: file.size, type: file.type, note: init.body.get('note') ?? '', durationMs: Number(init.body.get('durationMs') ?? 0), dataUrl };
+      return backend.handle(method, path, body, headers);
+    }
     try {
       body = { dataUrl: await fileToDataUrl(file), alt: init.body.get('alt') ?? '' };
     } catch (e) {

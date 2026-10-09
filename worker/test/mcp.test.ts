@@ -11,6 +11,7 @@ afterAll(disposeEnv);
 const EXPECTED_TOOLS = [
   'list_posts', 'get_post', 'create_post', 'update_post', 'delete_post', 'publish_post',
   'get_profile', 'update_profile', 'get_settings', 'update_settings', 'upload_image',
+  'list_categories', 'get_site_content', 'update_friends', 'update_gallery', 'update_favorites', 'list_guestbook', 'moderate_guestbook',
 ];
 
 describe('MCP 传输层', () => {
@@ -55,7 +56,7 @@ describe('MCP 传输层', () => {
     expect(r.status).toBe(400);
   });
 
-  it('tools/list 列出全部 11 个工具，inputSchema 为 object', async () => {
+  it('tools/list 列出全部 18 个工具，inputSchema 为 object', async () => {
     const r = await mcp(env, 'tools/list');
     const tools = r.body.result.tools as any[];
     expect(tools.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
@@ -125,3 +126,36 @@ describe('MCP 工具', () => {
     expect(txt.isError).toBe(true);
   });
 });
+
+describe('MCP：分类 / 置顶 / 站点内容 / 留言', () => {
+  it('create_post 支持 category + pinned；list_categories 统计', async () => {
+    const r = await tool(env, 'create_post', { title: 'MCP Category', slug: 'mcp-category', category: '摄影', pinned: true, status: 'published', contentMd: '一二三四五' });
+    expect(r.isError).toBe(false);
+    expect(r.structuredContent).toMatchObject({ category: '摄影', pinned: true, wordCount: 5 });
+    const c = await tool(env, 'list_categories');
+    expect(c.structuredContent.categories).toEqual(expect.arrayContaining([{ category: '摄影', count: 1 }]));
+    await tool(env, 'delete_post', { slug: 'mcp-category' });
+  });
+
+  it('update_friends / update_gallery / update_favorites + get_site_content', async () => {
+    expect((await tool(env, 'update_friends', { items: [{ name: '朋友', url: 'https://example.com' }] })).isError).toBe(false);
+    const g = await tool(env, 'update_gallery', { items: [{ slug: 'night', title: '夜色', photos: [{ url: 'https://example.com/a.jpg', caption: '街角' }] }] });
+    expect(g.isError).toBe(false);
+    expect((await tool(env, 'update_favorites', { items: [{ title: '工具', url: 'https://example.com', group: '效率' }] })).isError).toBe(false);
+    const got = await tool(env, 'get_site_content', { key: 'gallery' });
+    expect(got.structuredContent.items[0]).toMatchObject({ slug: 'night', cover: '', photos: [{ caption: '街角' }] });
+    const bad = await tool(env, 'update_gallery', { items: [{ slug: 'a', title: 'x' }, { slug: 'a', title: 'y' }] });
+    expect(bad.isError).toBe(true);
+  });
+
+  it('list_guestbook / moderate_guestbook', async () => {
+    const res = await call(env, '/api/guestbook', { body: { name: '路人', content: 'MCP 审核测试' } });
+    const id = ((await res.json()) as any).id;
+    const pending = await tool(env, 'list_guestbook');
+    expect(pending.structuredContent.entries.some((e: any) => e.id === id)).toBe(true);
+    expect((await tool(env, 'moderate_guestbook', { id, action: 'approve' })).isError).toBe(false);
+    expect((await tool(env, 'moderate_guestbook', { id, action: 'delete' })).isError).toBe(false);
+    expect((await tool(env, 'moderate_guestbook', { id, action: 'delete' })).isError).toBe(true);
+  });
+});
+

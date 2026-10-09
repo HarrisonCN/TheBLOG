@@ -37,7 +37,8 @@ describe('公开接口', () => {
     const profile = (await (await call(env, '/api/profile')).json()) as any;
     expect(profile.name).toBe('Winston');
     const settings = (await (await call(env, '/api/settings')).json()) as any;
-    expect(settings.animation).toBe('normal');
+    expect(['off', 'low', 'normal', 'high']).toContain(settings.animation); // 其它测试文件可能已修改（共享本地 D1）
+    expect(settings.sections.hero).toBe(true);
     expect(settings.sections.hero).toBe(true);
   });
 
@@ -153,5 +154,67 @@ describe('后台 REST', () => {
     expect(dev.headers.get('access-control-allow-credentials')).toBe('true');
     const pre = await call(env, '/api/admin/posts', { method: 'OPTIONS', headers: { origin: 'https://evil.example' } });
     expect(pre.headers.get('access-control-allow-origin')).toBeNull();
+  });
+});
+
+describe('分类、置顶、字数、搜索索引', () => {
+  it('置顶文章排在最前；按分类过滤；分类统计；搜索索引', async () => {
+    const mk = (slug: string, extra: Record<string, unknown>) =>
+      call(env, '/api/admin/posts', { token: API_TOKEN, body: { title: slug, slug, status: 'published', contentMd: '## 标题\n\n正文 内容', ...extra } });
+    expect((await mk('cat-a', { category: '摄影' })).status).toBe(201);
+    expect((await mk('cat-b', { category: '摄影', pinned: true })).status).toBe(201);
+    const list = (await (await call(env, '/api/posts')).json()) as any;
+    expect(list.posts[0].slug).toBe('cat-b');
+    expect(list.posts[0]).toMatchObject({ pinned: true, category: '摄影' });
+    expect(list.posts[0].wordCount).toBe(6);
+    const byCat = (await (await call(env, `/api/posts?category=${encodeURIComponent('摄影')}`)).json()) as any;
+    expect(byCat.posts.map((p: any) => p.slug).sort()).toEqual(['cat-a', 'cat-b']);
+    const cats = (await (await call(env, '/api/categories')).json()) as any;
+    expect(cats.categories).toEqual(expect.arrayContaining([{ category: '摄影', count: 2 }]));
+    const idx = (await (await call(env, '/api/search-index')).json()) as any;
+    expect(idx.posts.find((p: any) => p.slug === 'cat-a').text).toBe('标题 正文 内容');
+    const upd = (await (await call(env, '/api/admin/posts/cat-b', { method: 'PATCH', token: API_TOKEN, body: { pinned: false, category: '' } })).json()) as any;
+    expect(upd).toMatchObject({ pinned: false, category: null });
+    for (const s of ['cat-a', 'cat-b']) await call(env, `/api/admin/posts/${s}`, { method: 'DELETE', token: API_TOKEN });
+  });
+
+  it('设置：横幅副标题 / 公告 / 新区块；资料：homeUrl 与社交图标', async () => {
+    const s = (await (await call(env, '/api/admin/settings', { method: 'PUT', token: API_TOKEN, body: { heroSubtitles: ['一', '二'], announcement: '**公告**', sections: { stats: false } } })).json()) as any;
+    expect(s).toMatchObject({ heroSubtitles: ['一', '二'], announcement: '**公告**', sections: { stats: false, hero: true, latest: true } });
+    const bad = await call(env, '/api/admin/settings', { method: 'PUT', token: API_TOKEN, body: { heroImage: 'javascript:alert(1)' } });
+    expect(bad.status).toBe(400);
+    const p = (await (await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { homeUrl: 'https://github.com/x', links: [{ label: 'GitHub', url: 'https://github.com/x', icon: 'github' }] } })).json()) as any;
+    expect(p).toMatchObject({ homeUrl: 'https://github.com/x', links: [{ icon: 'github' }] });
+    expect((await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { links: [{ label: 'x', url: 'https://x', icon: 'myspace' }] } })).status).toBe(400);
+  });
+});
+
+describe('站点内容与留言板', () => {
+  it('友链 / 画廊 / 收藏：公开读取，后台整体替换并校验', async () => {
+    const put = await call(env, '/api/admin/content/friends', { method: 'PUT', token: API_TOKEN, body: { items: [{ name: '朋友', url: 'https://example.com', description: '你好' }] } });
+    expect(put.status).toBe(200);
+    expect(((await (await call(env, '/api/content/friends')).json()) as any).items).toEqual([{ name: '朋友', url: 'https://example.com', avatar: '', description: '你好' }]);
+    const bad = await call(env, '/api/admin/content/gallery', { method: 'PUT', token: API_TOKEN, body: { items: [{ slug: 'Bad Slug', title: 'x' }] } });
+    expect(bad.status).toBe(400);
+    expect((await call(env, '/api/content/secrets')).status).toBe(404);
+    expect((await call(env, '/api/admin/content/friends', { method: 'PUT', body: { items: [] } })).status).toBe(401);
+  });
+
+  it('留言：公开提交为待审核，审核后公开；校验与跨站拒绝', async () => {
+    const r = await call(env, '/api/guestbook', { body: { name: '访客', content: '你好呀', website: 'https://a.example' } });
+    expect(r.status).toBe(201);
+    const e = (await r.json()) as any;
+    expect(e.status).toBe('pending');
+    expect(((await (await call(env, '/api/guestbook')).json()) as any).entries.some((x: any) => x.id === e.id)).toBe(false);
+    expect((await call(env, '/api/guestbook', { body: { name: '', content: 'x' } })).status).toBe(400);
+    expect((await call(env, '/api/guestbook', { body: { name: 'a', content: 'x', website: 'javascript:1' } })).status).toBe(400);
+    expect((await call(env, '/api/guestbook', { body: { name: 'a', content: 'x' }, headers: { origin: 'https://evil.example' } })).status).toBe(403);
+    const pend = (await (await call(env, '/api/admin/guestbook?status=pending', { token: API_TOKEN })).json()) as any;
+    expect(pend.entries.some((x: any) => x.id === e.id)).toBe(true);
+    expect((await call(env, `/api/admin/guestbook/${e.id}`, { token: API_TOKEN, body: { action: 'approve' } })).status).toBe(200);
+    const pub = (await (await call(env, '/api/guestbook')).json()) as any;
+    expect(pub.entries.find((x: any) => x.id === e.id)).toMatchObject({ name: '访客', content: '你好呀', status: 'approved' });
+    expect((await call(env, `/api/admin/guestbook/${e.id}`, { token: API_TOKEN, body: { action: 'delete' } })).status).toBe(200);
+    expect((await call(env, `/api/admin/guestbook/${e.id}`, { token: API_TOKEN, body: { action: 'delete' } })).status).toBe(404);
   });
 });

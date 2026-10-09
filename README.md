@@ -190,3 +190,32 @@ API token 需要的权限（Account 级）：**Workers Scripts: Edit**、**D1: E
 ## 第三方依赖与许可
 
 本项目 MIT。运行时依赖：`motionary`（MIT）、`marked`（MIT）、`dompurify`（MPL-2.0 OR Apache-2.0）、`zod`（MIT）。开发依赖：`wrangler`、`@cloudflare/workers-types`、`@modelcontextprotocol/sdk`、`vite`、`vitest`、`typescript`。
+
+## 图片致谢
+
+演示站的示例照片均来自 [Wikimedia Commons](https://commons.wikimedia.org/)，已缩放并转为 WebP（`web/demo-assets/photos/`，机器可读版本见 `credits.json`）。许可均允许再分发；CC BY / CC BY-SA 照片按要求署名如下：
+
+| 文件 | 作者 | 许可 | 来源 |
+| --- | --- | --- | --- |
+| `hero-lake` | Michal Klajban | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Lake Sylvester during the sunrise, Kahurangi, New Zealand.jpg](https://commons.wikimedia.org/wiki/File:Lake_Sylvester_during_the_sunrise,_Kahurangi,_New_Zealand.jpg) |
+| `harbour-night` | Wilfredor | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [International Commerce Centre on Victoria Harbour.jpg](https://commons.wikimedia.org/wiki/File:International_Commerce_Centre_on_Victoria_Harbour.jpg) |
+| `street-tricycle` | Ermell | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Shanghai recycling transport tricycle.jpg](https://commons.wikimedia.org/wiki/File:Shanghai_recycling_transport_tricycle.jpg) |
+| `forest-road` | George Chernilevsky | [Public domain]() | [Forest road Slavne 2017 G8.jpg](https://commons.wikimedia.org/wiki/File:Forest_road_Slavne_2017_G8.jpg) |
+| `beach-parasols` | Jebulon | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Parasols, Evening, Beach, Rincon de la Victoria, Andalusia, Spain.jpg](https://commons.wikimedia.org/wiki/File:Parasols,_Evening,_Beach,_Rincon_de_la_Victoria,_Andalusia,_Spain.jpg) |
+| `harbour-castle` | Jebulon | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Bourtzi castle harbour Karystos Euboea Greece.jpg](https://commons.wikimedia.org/wiki/File:Bourtzi_castle_harbour_Karystos_Euboea_Greece.jpg) |
+| `field-bindweed` | W.carter | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [Field Bindweed in Brodalen.jpg](https://commons.wikimedia.org/wiki/File:Field_Bindweed_in_Brodalen.jpg) |
+| `pudong-night` | King of Hearts | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Pudong Shanghai November 2017 HDR panorama.jpg](https://commons.wikimedia.org/wiki/File:Pudong_Shanghai_November_2017_HDR_panorama.jpg) |
+| `guilin-pagodas` | King of Hearts | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Sun and Moon Pagodas Guilin November 2017 HDR.jpg](https://commons.wikimedia.org/wiki/File:Sun_and_Moon_Pagodas_Guilin_November_2017_HDR.jpg) |
+| `himalayas` | Vyacheslav Argenberg | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [Himalayas, Nepal.jpg](https://commons.wikimedia.org/wiki/File:Himalayas,_Nepal.jpg) |
+| `montriond-lake` | Krzysztof Golik | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Lac de Montriond 06.jpg](https://commons.wikimedia.org/wiki/File:Lac_de_Montriond_06.jpg) |
+| `panixersee` | Dominicus Johannes Bergsma. | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Panixersee (Lag da Pigniu) boven Andiast. 26-09-2025. (d.j.b.) 14.jpg](https://commons.wikimedia.org/wiki/File:Panixersee_(Lag_da_Pigniu)_boven_Andiast._26-09-2025._(d.j.b.)_14.jpg) |
+| `snina-winter` | Milan Bališin | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Sninský kameň (v zime) 024.jpg](https://commons.wikimedia.org/wiki/File:Sninsk%C3%BD_kame%C5%88_(v_zime)_024.jpg) |
+| `porto-covo` | Alvesgaspar | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Porto Covo Outubro 2014-3.jpg](https://commons.wikimedia.org/wiki/File:Porto_Covo_Outubro_2014-3.jpg) |
+| `palm-sunset` | Michal Klajban | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Three palm trees during the sunset, Ayia Marina Chrysochous, Paphos District, Cyprus 02.jpg](https://commons.wikimedia.org/wiki/File:Three_palm_trees_during_the_sunset,_Ayia_Marina_Chrysochous,_Paphos_District,_Cyprus_02.jpg) |
+| `baltic-view` | Radomianin | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Baltic Sea view from Schmiedeberg hill in Rerik, 2025-06-23.jpg](https://commons.wikimedia.org/wiki/File:Baltic_Sea_view_from_Schmiedeberg_hill_in_Rerik,_2025-06-23.jpg) |
+| `poppies-korea` | Basile Morin | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Field of Iceland poppies in the flower garden near Cheomseongdae Observatory in Gyeongju South Korea.jpg](https://commons.wikimedia.org/wiki/File:Field_of_Iceland_poppies_in_the_flower_garden_near_Cheomseongdae_Observatory_in_Gyeongju_South_Korea.jpg) |
+| `sunflowers` | Johann Jaritz | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Eberndorf Köcking Sonnenblumenfeld Biohof Tomic 18072014 0792.jpg](https://commons.wikimedia.org/wiki/File:Eberndorf_K%C3%B6cking_Sonnenblumenfeld_Biohof_Tomic_18072014_0792.jpg) |
+| `poppy-edge` | Dietmar Rabich | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [Dülmen, Fröbelstraße, Mohn am Feldrand -- 2021 -- 9174.jpg](https://commons.wikimedia.org/wiki/File:D%C3%BClmen,_Fr%C3%B6belstra%C3%9Fe,_Mohn_am_Feldrand_--_2021_--_9174.jpg) |
+| `iris` | Laitche | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [Iris ensata Thunb.jpg](https://commons.wikimedia.org/wiki/File:Iris_ensata_Thunb.jpg) |
+
+头像 `avatar.svg` 与背景音乐 `track.m4a`（合成的原创旋律）为本仓库原创，随 MIT 许可发布。界面图标为本仓库原创绘制的内联 SVG。

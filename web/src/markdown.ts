@@ -25,10 +25,23 @@ export function safeHref(href: string | null | undefined, img = false): string |
   return (img ? IMG_OK : LINK_OK).test(h) ? h : null;
 }
 
+let headingIds = new Map<string, number>();
+/** 标题锚点：保留中文等字母数字，重复时加序号（每次渲染重置）。 */
+export function headingId(text: string): string {
+  const base = 'h-' + (text.toLowerCase().replace(/<[^>]*>/g, '').replace(/&[a-z#0-9]+;/g, '').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'section');
+  const n = headingIds.get(base) ?? 0;
+  headingIds.set(base, n + 1);
+  return n ? `${base}-${n}` : base;
+}
+
 const marked = new Marked({
   gfm: true,
   breaks: false,
   renderer: {
+    heading(this: any, token: Tokens.Heading) {
+      const text = this.parser.parseInline(token.tokens);
+      return `<h${token.depth} id="${escapeHtml(headingId(token.text))}">${text}</h${token.depth}>\n`;
+    },
     html(token: Tokens.HTML | Tokens.Tag) {
       return escapeHtml(token.text);
     },
@@ -50,6 +63,7 @@ const marked = new Marked({
 });
 
 export function renderMarkdown(md: string): string {
+  headingIds = new Map();
   return marked.parse(md ?? '', { async: false }) as string;
 }
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DB_KEY, DemoBackend, memoryKV, SESSION_KEY, type KV } from '../src/demo/mock-api';
 import { createSeed, DEMO_PASSWORD } from '../src/demo/seed';
 import { renderMarkdown, safeHref } from '../src/markdown';
-import { homePage, parseRoute, postPath, setBasePath, stripBase, url } from '../src/render';
+import { appHtml, homePage, parseRoute, postPath, setBasePath, stripBase, url } from '../src/render';
 import type { Post, PostSummary, Profile, Settings, TagCount } from '../src/types';
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -158,7 +158,7 @@ describe('演示 mock API：后台写操作', () => {
   it('资料与展示设置：保存、部分更新与校验', async () => {
     const p = await admin('PATCH', '/api/admin/profile', { name: '新名字', links: [{ label: '邮箱', url: 'mailto:a@b.c' }], avatarUrl: PNG });
     expect(p.status).toBe(200);
-    expect(p.body).toMatchObject({ name: '新名字', avatarUrl: PNG, tagline: '摄影 · 产品体验 · 动效' });
+    expect(p.body).toMatchObject({ name: '新名字', avatarUrl: PNG, tagline: createSeed().profile.tagline });
     expect((await admin('PATCH', '/api/admin/profile', { links: [{ label: 'x', url: 'javascript:1' }] })).status).toBe(400);
 
     const s = await admin('PUT', '/api/admin/settings', { animation: 'high', sections: { tags: false }, postsPerPage: 3, siteTitle: '演示站' });
@@ -220,10 +220,11 @@ describe('子路径部署（GitHub Pages /TheBLOG/）', () => {
       expect(stripBase('/other/')).toBe('/other/');
       expect(parseRoute(stripBase('/TheBLOG/tags/%E6%91%84%E5%BD%B1/'))).toEqual({ name: 'tag', tag: '摄影' });
       const seed = createSeed('/TheBLOG/');
-      const html = homePage({ settings: seed.settings, profile: seed.profile, posts: seed.posts, total: seed.posts.length, tags: [] }).main;
+      const site = { settings: seed.settings, profile: seed.profile, posts: seed.posts, total: seed.posts.length, tags: [], categories: [] };
+      const html = appHtml(site, homePage(site));
       expect(html).toContain('href="/TheBLOG/posts/welcome/"');
       expect(html).toContain('href="/TheBLOG/about/"');
-      expect(html).not.toMatch(/href="\/(posts|tags|about)\//);
+      expect(html).not.toMatch(/href="\/(posts|tags|about|categories|archives)\//);
     } finally {
       setBasePath('/');
     }
@@ -236,5 +237,77 @@ describe('子路径部署（GitHub Pages /TheBLOG/）', () => {
     expect(safeHref('data:text/html;base64,PHNjcmlwdD4=', true)).toBeNull();
     expect(safeHref(PNG)).toBeNull(); // 链接不允许 data:
     expect(renderMarkdown(`![a](${PNG})`)).toContain(`src="${PNG}"`);
+  });
+});
+
+describe('演示 mock API：新内容模型与社区功能', () => {
+  it('分类、搜索索引、内容、置顶在前', async () => {
+    const cats = (await get('/api/categories')).body as { categories: { category: string; count: number }[] };
+    expect(cats.categories[0]).toMatchObject({ category: '摄影' });
+    const idx = (await get('/api/search-index')).body as { posts: { slug: string; text: string }[] };
+    expect(idx.posts.length).toBe(createSeed().posts.filter((p) => p.status === 'published').length);
+    expect(idx.posts[0]!.text).not.toContain('##');
+    const list = (await get('/api/posts')).body as { posts: PostSummary[] };
+    expect(list.posts[0]!.pinned).toBe(true);
+    expect(list.posts.every((p) => typeof p.wordCount === 'number' && p.wordCount > 0)).toBe(true);
+    expect(((await get('/api/posts?category=%E6%91%84%E5%BD%B1')).body as { posts: PostSummary[] }).posts.every((p) => p.category === '摄影')).toBe(true);
+    expect(((await get('/api/content/gallery')).body as { items: unknown[] }).items.length).toBeGreaterThan(0);
+    expect((await get('/api/content/nope')).status).toBe(404);
+  });
+
+  it('留言：提交后待审核，后台通过后公开', async () => {
+    const before = ((await get('/api/guestbook')).body as { entries: unknown[] }).entries.length;
+    const r = await api.handle('POST', '/api/guestbook', { name: '访客', content: '你好' });
+    expect(r.status).toBe(201);
+    expect((await api.handle('POST', '/api/guestbook', { name: '', content: '' })).status).toBe(400);
+    expect((await api.handle('POST', '/api/guestbook', { name: 'a', content: 'b', website: 'javascript:1' })).status).toBe(400);
+    expect(((await get('/api/guestbook')).body as { entries: unknown[] }).entries.length).toBe(before);
+    await login();
+    const id = (r.body as { id: number }).id;
+    expect((await admin('POST', `/api/admin/guestbook/${id}`, { action: 'approve' })).status).toBe(200);
+    expect(((await get('/api/guestbook')).body as { entries: unknown[] }).entries.length).toBe(before + 1);
+  });
+
+  it('便利贴：举报 3 次自动隐藏', async () => {
+    const r = await api.handle('POST', '/api/notes', { name: 'x', content: 'hello', color: 'pink' });
+    expect(r.status).toBe(201);
+    const id = (r.body as { id: number }).id;
+    for (let i = 0; i < 3; i++) await api.handle('POST', `/api/notes/${id}/report`, {});
+    expect(((await get('/api/notes')).body as { notes: { id: number }[] }).notes.some((n) => n.id === id)).toBe(false);
+  });
+
+  it('好朋友：邮箱验证码注册、上传限制、后台授予刻字徽章', async () => {
+    expect((await api.handle('POST', '/api/members/register', { name: 'A', email: 'bad' })).status).toBe(400);
+    const reg = await api.handle('POST', '/api/members/register', { name: '阿树', email: 'Tree@Example.com' });
+    expect(reg.body).toMatchObject({ sent: true });
+    expect((await api.handle('POST', '/api/members/verify', { email: 'tree@example.com', code: '000000' })).status).toBe(400);
+    const v = await api.handle('POST', '/api/members/verify', { email: 'tree@example.com', code: (reg.body as { demoCode: string }).demoCode });
+    expect(v.status).toBe(200);
+    const { token, member } = v.body as { token: string; member: { id: number; email?: string } };
+    expect(member.email).toBeUndefined();
+    expect((await api.handle('GET', '/api/members/me', undefined, { authorization: `Bearer ${token}` })).status).toBe(200);
+    expect((await api.handle('POST', '/api/members/uploads', { name: 'a.txt', size: 10 })).status).toBe(401);
+    expect((await api.handle('POST', '/api/members/uploads', { name: 'a.txt', size: 3_000_000 }, { authorization: `Bearer ${token}` })).status).toBe(413);
+    expect((await api.handle('POST', '/api/members/uploads', { name: 'a.txt', size: 10, note: 'hi' }, { authorization: `Bearer ${token}` })).status).toBe(201);
+    expect((await api.handle('POST', '/api/members/voice', { size: 100, durationMs: 3000 }, { authorization: `Bearer ${token}` })).status).toBe(201);
+    await login();
+    const inbox = (await admin('GET', '/api/admin/inbox')).body as { files: unknown[]; voice: unknown[] };
+    expect(inbox.files.length).toBe(1);
+    expect(inbox.voice.length).toBe(1);
+    const g = await admin('POST', `/api/admin/members/${member.id}/badges`, { code: 'friend-0099', label: '摄影搭子' });
+    expect(g.status).toBe(200);
+    expect((g.body as { badges: { code: string; style: string }[] }).badges.at(-1)).toMatchObject({ code: 'FRIEND-0099', style: 'brushed-metal' });
+    expect((await admin('POST', `/api/admin/members/${member.id}/badges`, { code: 'FRIEND-0099' })).status).toBe(409);
+    expect((await admin('POST', `/api/admin/members/${member.id}/badges`, { code: 'bad code!' })).status).toBe(400);
+  });
+
+  it('节日与在线访客', async () => {
+    expect(((await get('/api/festivals')).body as { festivals: unknown[] }).festivals.length).toBeGreaterThan(5);
+    const p = (await api.handle('POST', '/api/presence', { sid: 'abc', page: '首页' })).body as { viewers: { sid: string }[]; total: number };
+    expect(p.viewers[0]!.sid).toBe('abc');
+    expect(p.total).toBe(p.viewers.length);
+    await login();
+    expect((await admin('PUT', '/api/admin/festivals', { festivals: [{ id: 'x', name: '测试', date: '13-45x', theme: 'lunar' }] })).status).toBe(400);
+    expect((await admin('PUT', '/api/admin/festivals', { festivals: [{ id: 'x', name: '测试', date: '10-09', days: 1, theme: 'lunar', message: 'hi' }] })).status).toBe(200);
   });
 });

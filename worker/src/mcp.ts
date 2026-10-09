@@ -10,9 +10,9 @@ import { HttpError, json } from './http';
 import { b64Decode } from './crypto';
 import { storeImage, MAX_IMAGE_BYTES } from './images';
 import * as svc from './service';
-import { listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
+import { CONTENT_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
 
-export const SERVER_INFO = { name: 'winston-blog', title: 'Winston 的博客', version: '0.1.0' };
+export const SERVER_INFO = { name: 'winston-blog', title: 'Winston 的博客', version: '0.2.0' };
 export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const LATEST = SUPPORTED_PROTOCOL_VERSIONS[0]!;
 
@@ -55,7 +55,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'update_post',
     title: '修改文章',
-    description: '按 slug 修改文章的标题、正文、摘要、标签、封面或 slug。只需传要改的字段。',
+    description: '按 slug 修改文章的标题、正文、摘要、标签、分类、置顶、封面或 slug。只需传要改的字段。',
     input: postUpdateSchema.extend({ slug: slugSchema.describe('要修改的文章 slug'), newSlug: slugSchema.optional().describe('新的 slug（重命名）') }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: (env, a) => {
@@ -90,7 +90,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'update_profile',
     title: '修改个人资料',
-    description: '修改个人资料（只需传要改的字段）：name、tagline、avatarUrl、bioMd、location、links。',
+    description: '修改个人资料（只需传要改的字段）：name、tagline（座右铭）、avatarUrl、bioMd、location、homeUrl（「前往小窝」按钮）、links（社交链接，可带 icon）。',
     input: profilePatchSchema,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: (env, a) => svc.updateProfile(env, a),
@@ -106,7 +106,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'update_settings',
     title: '修改展示设置',
-    description: '修改展示设置（只需传要改的字段）。theme: system|light|dark；animation: off|low|normal|high；sections 控制首页区块；featuredSlugs 精选文章。',
+    description: '修改展示设置（只需传要改的字段）。theme: system|light|dark；animation: off|low|normal|high；sections 控制首页与侧栏区块；heroImage 横幅背景；heroSubtitles 打字机副标题；announcement 公告栏（Markdown）。',
     input: settingsPatchSchema,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     run: (env, a) => svc.updateSettings(env, a),
@@ -130,6 +130,62 @@ export const TOOLS: ToolDef[] = [
       }
       return storeImage(env, bytes, a.contentType, a.alt ?? '');
     },
+  },
+  {
+    name: 'list_categories',
+    title: '列出分类与标签',
+    description: '列出已发布文章的分类和标签及各自的文章数。',
+    input: z.object({}),
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    run: async (env) => ({ categories: await svc.listCategories(env), tags: await svc.listTags(env) }),
+  },
+  {
+    name: 'get_site_content',
+    title: '获取站点内容',
+    description: '获取友链（friends）、画廊相册（gallery）或收藏（favorites）列表。',
+    input: z.object({ key: z.enum(CONTENT_KEYS).describe('friends | gallery | favorites') }),
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    run: async (env, a) => ({ key: a.key, items: await svc.getContent(env, a.key) }),
+  },
+  {
+    name: 'update_friends',
+    title: '更新友链',
+    description: '用新列表整体替换友链。每项：name、url、avatar（可选）、description（可选）。',
+    input: z.object({ items: z.array(friendSchema).max(100) }),
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (env, a) => ({ items: await svc.setContent(env, 'friends', a.items) }),
+  },
+  {
+    name: 'update_gallery',
+    title: '更新画廊',
+    description: '用新列表整体替换画廊相册。每个相册：slug、title、description、cover、date、photos[{url, caption, width, height}]。',
+    input: z.object({ items: z.array(albumSchema).max(50) }),
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (env, a) => ({ items: await svc.setContent(env, 'gallery', a.items) }),
+  },
+  {
+    name: 'update_favorites',
+    title: '更新收藏',
+    description: '用新列表整体替换「收藏」页（推荐的网站、工具、器材等）。每项：title、url、description、group。',
+    input: z.object({ items: z.array(favoriteSchema).max(200) }),
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (env, a) => ({ items: await svc.setContent(env, 'favorites', a.items) }),
+  },
+  {
+    name: 'list_guestbook',
+    title: '列出留言',
+    description: '列出留言板留言，status 默认 pending（待审核）。',
+    input: z.object({ status: z.enum(['pending', 'approved', 'hidden', 'all']).optional() }),
+    annotations: { readOnlyHint: true, openWorldHint: false },
+    run: (env, a) => svc.listGuestbook(env, { status: a.status ?? 'pending', limit: 200 }),
+  },
+  {
+    name: 'moderate_guestbook',
+    title: '审核留言',
+    description: '审核一条留言：approve 公开显示、hide 隐藏、delete 永久删除。',
+    input: guestbookModerateSchema,
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: (env, a) => svc.moderateGuestbook(env, a),
   },
 ];
 

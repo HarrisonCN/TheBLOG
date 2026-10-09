@@ -2,12 +2,12 @@
  * 动效：全部来自 Winston 自己的 Motionary（motionary/core + motionary/runtime）。
  * - motionary/core 的 createMotion().reveal()：卡片 / 区块滚动入场（自带 reduced-motion 处理）
  * - motionary/runtime/text 的 splitText()：标题逐字入场（normal / high）
- * - motionary/runtime/scroll 的 scrollScene()：文章阅读进度条（scrub）
+ * - 阅读进度条：<usa-scroll-progress>；滚动场景：<usa-scroll-scene>（见 render.ts / usa/）
  * prefers-reduced-motion 或设置为 off 时完全不启用。
  */
 import { createMotion, type MotionInstance } from 'motionary/core';
-import { use, tween, timeline } from 'motionary/runtime';
-import { scroll, scrollScene, killScenes } from 'motionary/runtime/scroll';
+import { use, tween } from 'motionary/runtime';
+import { scroll, killScenes } from 'motionary/runtime/scroll';
 import { text, splitText, type SplitResult } from 'motionary/runtime/text';
 import type { Animation } from './types';
 
@@ -66,14 +66,4 @@ export function applyMotion(root: HTMLElement, level: Animation): void {
     }
   }
 
-  // 3) 阅读进度条
-  const bar = root.querySelector<HTMLElement>('.progress__bar');
-  const article = root.querySelector<HTMLElement>('.post');
-  if (bar && article) {
-    const tl = timeline({ paused: true }).to(bar, { from: { scaleX: 0 }, to: { scaleX: 1 }, ease: 'linear' });
-    const scene = scrollScene({ trigger: article, start: 'top top', end: 'bottom bottom', scrub: lvl === 'high' ? 120 : true,
-      // motionary 10.3–10.4：runtime/scroll 的 d.ts 自带一份 Playable 声明，与 runtime 的 Timeline 类型不兼容（运行时没问题）
-      animation: tl as never });
-    cleanups.push(() => scene.kill?.());
-  }
 }
