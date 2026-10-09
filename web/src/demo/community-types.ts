@@ -67,6 +67,8 @@ export interface UploadedFile {
   createdAt: string;
   /** 演示模式：小文件以 data URL 保存在本地 */
   dataUrl?: string;
+  /** 正式站：站长下载地址（/api/admin/inbox/files/:id/raw） */
+  url?: string;
 }
 export interface VoiceMessage {
   id: number;
@@ -77,6 +79,8 @@ export interface VoiceMessage {
   createdAt: string;
   read: boolean;
   dataUrl?: string;
+  /** 正式站：站长试听地址（/api/admin/inbox/voice/:id/raw） */
+  url?: string;
 }
 export interface Viewer {
   sid: string;
