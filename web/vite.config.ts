@@ -14,6 +14,10 @@ export default defineConfig({
     port: 5173,
     proxy: { '/api': api, '/mcp': api },
   },
+  preview: {
+    port: 4173,
+    proxy: { '/api': api, '/mcp': api },
+  },
   test: {
     include: ['test/**/*.test.ts'],
   },

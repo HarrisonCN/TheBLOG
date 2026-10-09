@@ -63,8 +63,10 @@ if (API) {
     write('tags', page(R.tagsPage(site.tags, settings), site));
     count += 3;
     for (const t of site.tags) {
+      // Pages 按解码后的路径查找文件；含路径分隔符或以 . 开头的标签不生成静态页（浏览器端回退渲染）
+      if (/[\/\\]|^\./.test(t.tag)) continue;
       const tp = await get(`/api/posts?tag=${encodeURIComponent(t.tag)}&limit=100`);
-      write(join('tags', encodeURIComponent(t.tag)), page(R.tagPage(t.tag, tp.posts, settings), { ...site, tagPosts: { tag: t.tag, posts: tp.posts } }));
+      write(join('tags', t.tag), page(R.tagPage(t.tag, tp.posts, settings), { ...site, tagPosts: { tag: t.tag, posts: tp.posts } }));
       count++;
     }
     for (const s of list.posts) {
