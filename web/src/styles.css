@@ -442,7 +442,7 @@ usa-like { --usa-like-color: var(--accent-2); }
 }
 .dock-panel.is-open { opacity: 1; visibility: visible; transform: none; }
 .dock-panel h2 { display: flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 1rem; color: var(--heading); }
-.pull-cord { position: fixed; top: 0; right: clamp(70px, 9vw, 140px); z-index: 95; transform-origin: top center; scale: 0.85; transition: opacity 0.3s, translate 0.4s var(--ease); }
+.pull-cord { position: fixed; top: 0; left: clamp(240px, 34vw, 460px); z-index: 95; transform-origin: top center; scale: 0.85; transition: opacity 0.3s, translate 0.4s var(--ease); }
 :root[data-scrolled] .pull-cord { opacity: 0; translate: 0 -40px; pointer-events: none; }
 .cursor-glow { --usa-cursor-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 :root[data-paused] .cursor-glow, :root[data-motion="off"] .cursor-glow { display: none; }
@@ -748,3 +748,11 @@ usa-toaster { z-index: 150; }
 .liked-list li svg { width: 16px; height: 16px; color: #ef4b6c; flex: none; }
 .set-row--cord { align-items: flex-start; min-height: 120px; overflow: visible; }
 .pull-cord--inline { display: block; scale: 0.72; transform-origin: top center; margin: -10px 6px 0 0; }
+/* edge-to-edge media tiles at every width (the narrow-screen .tile padding must not win) */
+.bento > .post-tile, .bento > .gal-tile, .bento > .album { padding: 0; }
+.post-tile--big .post-tile__link { justify-content: flex-end; }
+.post-tile--big .post-tile__info { display: flex; flex-direction: column; justify-content: flex-end; gap: 0.35rem; }
+.post-tile--big .post-tile__cover::after { background: linear-gradient(180deg, rgb(5 8 15 / 0.05) 25%, rgb(5 8 15 / 0.82)); }
+:root:has(.demo-banner) .pull-cord { top: 36px; }
+.post-tile--big .post-tile__foot { margin-top: 0.2rem; }
+.post-tile--big .post-tile__chips { margin-top: auto; }
