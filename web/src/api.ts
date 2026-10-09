@@ -3,6 +3,9 @@ import type { Post, PostSummary, Profile, Settings, TagCount } from './types';
 /** 同域部署时留空；Worker 在独立域名时设置 VITE_API_BASE=https://api.example.com */
 export const API_BASE = (import.meta.env?.VITE_API_BASE ?? '').replace(/\/+$/, '');
 
+/** 演示构建（vite --mode demo）：所有请求由浏览器内的 mock API 处理，不访问任何服务器。 */
+export const DEMO = import.meta.env.VITE_DEMO === '1';
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public code = 'error', public details?: unknown) {
     super(message);
@@ -10,6 +13,15 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, init: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
+  if (DEMO) {
+    const { demoHandle } = await import('./demo/client');
+    const res = await demoHandle(path, init);
+    if (res.status >= 400) {
+      const err = (res.body as { error?: { code?: string; message?: string; details?: unknown } } | null)?.error;
+      throw new ApiError(res.status, err?.message ?? `请求失败（${res.status}）`, err?.code, err?.details);
+    }
+    return res.body as T;
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), init.timeoutMs ?? 10_000);
   try {

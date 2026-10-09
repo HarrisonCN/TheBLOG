@@ -11,6 +11,7 @@
     "typecheck": "npm run typecheck -w worker && npm run typecheck -w web",
     "test": "npm test -w worker && npm test -w web",
     "build": "npm run build -w web",
+    "build:demo": "npm run build:demo -w web",
     "dev:api": "npm run dev -w worker",
     "dev:web": "npm run dev -w web",
     "e2e": "node scripts/e2e.mjs"

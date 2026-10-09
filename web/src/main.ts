@@ -1,15 +1,17 @@
 import './styles.css';
-import { api, ApiError } from './api';
+import { api, ApiError, DEMO } from './api';
 import { applyMotion } from './motion';
 import { renderSafe } from './sanitize';
 import { applyTheme, toggleTheme } from './theme';
 import {
-  aboutPage, errorMain, footer, header, homePage, loadingMain, notFoundPage, parseRoute, postPage, setMarkdownRenderer, tagPage, tagsPage,
+  aboutPage, errorMain, footer, header, homePage, loadingMain, notFoundPage, parseRoute as parsePath, postPage, setBasePath, setMarkdownRenderer, stripBase, tagPage, tagsPage, url,
   type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, type Post, type PostSummary, type SiteData } from './types';
 
 setMarkdownRenderer(renderSafe);
+setBasePath(import.meta.env.BASE_URL);
+const parseRoute = (pathname: string): Route => parsePath(stripBase(pathname));
 
 interface Snapshot extends Partial<SiteData> {
   post?: Post;
@@ -17,7 +19,8 @@ interface Snapshot extends Partial<SiteData> {
 }
 
 const app = document.getElementById('app')!;
-const snapshot: Snapshot = readSnapshot();
+// 演示模式：数据以访客本地为准，不使用构建时快照（快照只用于无 JS 时的首屏和 SEO）
+const snapshot: Snapshot = DEMO ? {} : readSnapshot();
 let site: SiteData = {
   settings: snapshot.settings ?? DEFAULT_SETTINGS,
   profile: snapshot.profile ?? DEFAULT_PROFILE,
@@ -121,7 +124,9 @@ document.addEventListener('click', (ev) => {
   if (!a || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
   if (a.target === '_blank' || a.hasAttribute('download')) return;
   const url = new URL(a.href, location.href);
-  if (url.origin !== location.origin || url.pathname.startsWith('/admin') || url.pathname.startsWith('/api/')) return;
+  const inSite = stripBase(url.pathname);
+  const outsideBase = import.meta.env.BASE_URL !== '/' && inSite === url.pathname;
+  if (url.origin !== location.origin || outsideBase || inSite.startsWith('/admin') || inSite.startsWith('/api/')) return;
   if (url.pathname === location.pathname && url.hash) return;
   ev.preventDefault();
   navigate(url.pathname + url.search);
@@ -129,6 +134,10 @@ document.addEventListener('click', (ev) => {
 window.addEventListener('popstate', () => void render({ showLoading: true }));
 
 async function boot(): Promise<void> {
+  if (DEMO) {
+    const { mountDemoBanner } = await import('./demo/client');
+    mountDemoBanner({ adminHref: url('/admin/') });
+  }
   applyTheme(site.settings);
   const hasSnapshot = !!snapshot.settings;
   // 1) 有预渲染快照：立即用它渲染（并挂上动效），无快照则显示加载骨架

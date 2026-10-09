@@ -5,8 +5,10 @@
  * - 为首页、关于、标签、每个标签、每篇已发布文章生成带内容的静态 HTML + JSON 快照；
  * - API 不可用时不让构建失败：保留空壳（浏览器端会显示加载状态并在运行时拉取）。
  * - 生成 Cloudflare Pages 的 _headers（CSP 等）。
+ * - `--demo`：GitHub Pages 演示版。数据来自浏览器内 mock API 的种子数据（不访问任何服务器），
+ *   页面链接带上子路径前缀（BLOG_BASE，默认 /TheBLOG/），并生成 404.html（SPA 回退）、admin/index.html、.nojekyll。
  */
-import { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
@@ -15,15 +17,34 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const dist = join(root, 'dist');
 const ssrOut = join(root, '.ssr');
+const DEMO = process.argv.includes('--demo');
+const BASE = DEMO ? (process.env.BLOG_BASE ?? '/TheBLOG/') : '/';
 const API = (process.env.BLOG_API_URL ?? '').replace(/\/+$/, '');
 const API_BASE = (process.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
 
-// 1) 把纯函数视图编译成 Node 可用的模块
-await build({ root, logLevel: 'warn', configFile: false, build: { ssr: join(root, 'src/render.ts'), outDir: ssrOut, emptyOutDir: true, target: 'node22' } });
+// 1) 把纯函数视图（以及演示模式的 mock API）编译成 Node 可用的模块
+await build({
+  root,
+  logLevel: 'warn',
+  configFile: false,
+  build: {
+    ssr: true,
+    outDir: ssrOut,
+    emptyOutDir: true,
+    target: 'node22',
+    rollupOptions: { input: { render: join(root, 'src/render.ts'), ...(DEMO ? { mock: join(root, 'src/demo/mock-api.ts') } : {}) } },
+  },
+});
 const R = await import(join(ssrOut, 'render.js'));
-
+R.setBasePath(BASE);
+const backend = DEMO ? new (await import(join(ssrOut, 'mock.js'))).DemoBackend({ base: BASE }) : null;
 
 async function get(path) {
+  if (backend) {
+    const res = await backend.handle('GET', path);
+    if (res.status !== 200) throw new Error(`${path} → ${res.status}`);
+    return res.body;
+  }
   const res = await fetch(API + path, { signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`${path} → ${res.status}`);
   return res.json();
@@ -42,7 +63,8 @@ function page(p, data) {
     .replace('data-site-theme="system"', `data-site-theme="${esc(s.theme)}"`)
     .replace('<!--blog:head-->', `<meta property="og:title" content="${esc(p.title)}" />\n    <meta property="og:description" content="${esc(p.description)}" />`)
     .replace('<!--blog:app-->', `${R.header(s, p.route)}<main id="main" class="container" tabindex="-1">${p.main}</main>${R.footer(s, data.profile)}`)
-    .replace('<!--blog:data-->', `<script type="application/json" id="blog-data">${jsonForHtml(data)}</script>`);
+    // 演示版的数据以访客浏览器为准，不嵌入快照
+    .replace('<!--blog:data-->', DEMO ? '' : `<script type="application/json" id="blog-data">${jsonForHtml(data)}</script>`);
   return html;
 }
 
@@ -54,7 +76,8 @@ function write(rel, html) {
 
 let ok = false;
 let count = 0;
-if (API) {
+const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
+if (API || DEMO) {
   try {
     const [settings, profile, list, tags] = await Promise.all([get('/api/settings'), get('/api/profile'), get('/api/posts?limit=100'), get('/api/tags')]);
     const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags };
@@ -76,6 +99,7 @@ if (API) {
     }
     ok = true;
   } catch (e) {
+    if (DEMO) throw e;
     console.warn(`[prerender] 无法从 ${API} 获取数据（${e.message}），使用空壳回退。`);
   }
 } else {
@@ -83,7 +107,20 @@ if (API) {
 }
 if (!ok) {
   // 空壳：保持模板，浏览器端显示加载骨架并调用 API
-  writeFileSync(join(dist, 'index.html'), template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', ''));
+  writeFileSync(join(dist, 'index.html'), shell);
+}
+
+if (DEMO) {
+  // GitHub Pages：未知路径（例如访客在本地新建的文章）由 404.html 交给前端路由渲染
+  writeFileSync(join(dist, '404.html'), shell);
+  // /TheBLOG/admin/ → 后台
+  mkdirSync(join(dist, 'admin'), { recursive: true });
+  writeFileSync(join(dist, 'admin', 'index.html'), readFileSync(join(dist, 'admin.html'), 'utf8'));
+  cpSync(join(root, 'demo-assets'), join(dist, 'demo'), { recursive: true });
+  writeFileSync(join(dist, '.nojekyll'), '');
+  if (existsSync(ssrOut)) rmSync(ssrOut, { recursive: true, force: true });
+  console.log(`[prerender] 演示版（base ${BASE}）：已预渲染 ${count} 个页面；404.html、admin/、demo/ 已写入。`);
+  process.exit(0);
 }
 
 // 2) Cloudflare Pages 响应头

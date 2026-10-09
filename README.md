@@ -13,6 +13,26 @@
                                           ▲ 或 @winstonsayno/mcp-gateway（Node，自行托管）
 ```
 
+## 演示
+
+**在线演示：<https://harrisoncn.github.io/TheBLOG/>**　·　后台：<https://harrisoncn.github.io/TheBLOG/admin/>　·　演示密码：`demo1234`
+
+演示版是一个纯静态构建（GitHub Pages），不连接 Worker：页面里内置了一个浏览器内的 mock API（与 Worker 的 REST 接口同路径、同状态码），数据来自几篇示例文章并保存在 **你自己浏览器的 localStorage** 里。
+
+- 可以浏览首页 / 文章 / 标签 / 关于，体验 Motionary 动效与深浅色切换；
+- 可以登录后台：写文章、编辑、发布 / 撤回、删除，修改资料与首页展示设置，上传图片（大图会在浏览器里缩小后以 data URL 存到本地）；
+- 所有改动只有你自己能看到，页面顶部的「演示模式 · 数据仅保存在本地浏览器」提示条里有「重置演示数据」按钮；
+- 演示密码只用于这个演示，不对应任何真实账号；正式构建（`npm run build`）不包含任何演示代码。
+
+本地构建演示版：
+
+```bash
+npm run build:demo          # vite build --mode demo + 预渲染种子数据，输出 web/dist（base 默认 /TheBLOG/，可用 BLOG_BASE 覆盖）
+npm run preview:demo -w web # 本地预览：http://localhost:4173/TheBLOG/
+```
+
+`.github/workflows/pages.yml` 在推送到 `main` 时构建演示版并通过 `actions/deploy-pages` 发布（仓库 Settings → Pages → Source 选 “GitHub Actions”）。从「演示」直接打开访客在本地新建的文章链接时，GitHub Pages 会以 404 状态返回 `404.html`，再由前端路由渲染出该文章（这是 Pages 上单页应用的常规做法）。
+
 ## 目录
 
 ```
@@ -30,7 +50,9 @@ web/                    前端（Vite + TypeScript，无框架）
   src/markdown.ts       安全 Markdown 渲染（原始 HTML 转义、URL 白名单）+ 浏览器端 DOMPurify
   src/motion.ts         Motionary：core.reveal / runtime/text.splitText / runtime/scroll.scrollScene
   src/admin.ts          /admin 后台
-  scripts/prerender.mjs 构建期从 API 拉数据，生成静态 HTML + JSON 快照 + Pages _headers
+  src/demo/             演示模式：mock-api.ts（localStorage 版 API）、seed.ts（示例文章）、client.ts（提示条 / 图片压缩）
+  demo-assets/          演示用 SVG 封面与头像（原创，MIT）
+  scripts/prerender.mjs 构建期从 API 拉数据，生成静态 HTML + JSON 快照 + Pages _headers（--demo：用种子数据，生成 404.html / admin/）
 gateway/gateway.config.yaml   mcp-gateway v11 示例配置
 docs/mcp-clients.md     Claude / Cursor / 网关接入说明
 scripts/e2e.mjs         端到端测试

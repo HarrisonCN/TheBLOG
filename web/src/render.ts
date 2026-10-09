@@ -10,6 +10,23 @@ export function setMarkdownRenderer(fn: (s: string) => string): void {
   md = fn;
 }
 
+/** 站点部署在子路径（如 GitHub Pages 的 /TheBLOG/）时的前缀；根路径部署时为空。 */
+let BASE = '';
+export function setBasePath(base: string): void {
+  BASE = (base || '/').replace(/\/+$/, '');
+}
+export function basePath(): string {
+  return BASE;
+}
+/** 站内绝对路径加上部署前缀。 */
+export const url = (path: string) => BASE + path;
+/** 把 location.pathname 去掉部署前缀，得到站内路径。 */
+export function stripBase(pathname: string): string {
+  if (!BASE) return pathname;
+  if (pathname === BASE) return '/';
+  return pathname.startsWith(BASE + '/') ? pathname.slice(BASE.length) : pathname;
+}
+
 export type Route =
   | { name: 'home' }
   | { name: 'post'; slug: string }
@@ -36,8 +53,8 @@ export function parseRoute(pathname: string): Route {
   return { name: 'notfound' };
 }
 
-export const postPath = (slug: string) => `/posts/${slug}/`;
-export const tagPath = (tag: string) => `/tags/${encodeURIComponent(tag)}/`;
+export const postPath = (slug: string) => `${BASE}/posts/${slug}/`;
+export const tagPath = (tag: string) => `${BASE}/tags/${encodeURIComponent(tag)}/`;
 
 const DATE = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Shanghai' });
 export function formatDate(iso: string | null): string {
@@ -97,11 +114,11 @@ export interface Page {
 export function header(settings: Settings, route: Route): string {
   const cur = (n: string) => (route.name === n || (n === 'tags' && route.name === 'tag') ? ' aria-current="page"' : '');
   return `<header class="site-header">
-  <a class="brand" href="/">${e(settings.siteTitle)}</a>
+  <a class="brand" href="${url('/')}">${e(settings.siteTitle)}</a>
   <nav aria-label="主导航">
-    <a href="/"${cur('home')}>首页</a>
-    <a href="/tags/"${cur('tags')}>标签</a>
-    <a href="/about/"${cur('about')}>关于</a>
+    <a href="${url('/')}"${cur('home')}>首页</a>
+    <a href="${url('/tags/')}"${cur('tags')}>标签</a>
+    <a href="${url('/about/')}"${cur('about')}>关于</a>
     <button class="theme-toggle" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色模式"><span aria-hidden="true">◐</span></button>
   </nav>
 </header>`;
@@ -134,7 +151,7 @@ export function homePage(d: SiteData): Page {
     parts.push(`<section aria-labelledby="h-tags"><h2 id="h-tags" class="section-title">标签</h2>${tagCloud(d.tags.slice(0, 20))}</section>`);
   }
   if (s.sections.about && (d.profile.bioMd || d.profile.tagline)) {
-    parts.push(`<section class="about-teaser reveal" aria-labelledby="h-about"><h2 id="h-about" class="section-title">关于我</h2><p>${e(plainText(d.profile.bioMd, 120))}</p><a class="more" href="/about/">了解更多 →</a></section>`);
+    parts.push(`<section class="about-teaser reveal" aria-labelledby="h-about"><h2 id="h-about" class="section-title">关于我</h2><p>${e(plainText(d.profile.bioMd, 120))}</p><a class="more" href="${url('/about/')}">了解更多 →</a></section>`);
   }
   return { title: s.siteTitle, description: s.siteDescription, main: parts.join('\n'), route: { name: 'home' } };
 }
@@ -154,7 +171,7 @@ export function postPage(post: Post, settings: Settings): Page {
   </header>
   ${img(post.coverUrl, '', 'post__cover')}
   <div class="prose">${md(post.contentMd)}</div>
-  <p><a class="more" href="/">← 返回首页</a></p>
+  <p><a class="more" href="${url('/')}">← 返回首页</a></p>
 </article>`,
   };
 }
@@ -184,12 +201,12 @@ export function tagPage(tag: string, posts: PostSummary[], settings: Settings): 
     title: `#${tag} · ${settings.siteTitle}`,
     description: `标签「${tag}」下的文章`,
     route: { name: 'tag', tag },
-    main: `<h1>#${e(tag)}</h1><p class="meta">${posts.length} 篇文章 · <a href="/tags/">全部标签</a></p>${postList(posts, '这个标签下还没有文章。')}`,
+    main: `<h1>#${e(tag)}</h1><p class="meta">${posts.length} 篇文章 · <a href="${url('/tags/')}">全部标签</a></p>${postList(posts, '这个标签下还没有文章。')}`,
   };
 }
 
 export function notFoundPage(settings: Settings): Page {
-  return { title: `页面不存在 · ${settings.siteTitle}`, description: '', route: { name: 'notfound' }, main: '<section class="state"><h1>404</h1><p>页面不存在或文章已下线。</p><a class="more" href="/">← 返回首页</a></section>' };
+  return { title: `页面不存在 · ${settings.siteTitle}`, description: '', route: { name: 'notfound' }, main: `<section class="state"><h1>404</h1><p>页面不存在或文章已下线。</p><a class="more" href="${url('/')}">← 返回首页</a></section>` };
 }
 
 export function loadingMain(): string {

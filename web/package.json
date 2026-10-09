@@ -7,7 +7,9 @@
     "build": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:demo": "vite build --mode demo && node scripts/prerender.mjs --demo",
+    "preview:demo": "vite preview --mode demo"
   },
   "dependencies": {
     "dompurify": "3.4.16",

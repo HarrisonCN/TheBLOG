@@ -1,0 +1,29 @@
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 1rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: center;
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--fg);
+}
+.demo-banner__text { font-weight: 600; }
+.demo-banner__actions { display: inline-flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: center; }
+.demo-banner__reset {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.demo-banner__reset:hover { background: var(--accent); color: var(--accent-fg); }
+.demo-hint { font-size: 0.85rem; padding: 0.5rem 0.75rem; border-radius: 8px; background: var(--code-bg); margin: 0 0 1rem; }
+.demo-hint code { font-family: var(--mono); font-weight: 600; user-select: all; }

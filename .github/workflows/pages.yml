@@ -1,0 +1,57 @@
+name: Pages demo
+
+# 把演示版（浏览器内 mock API，无需 Worker）部署到 GitHub Pages：
+#   https://harrisoncn.github.io/TheBLOG/
+# 仓库 Settings → Pages → Source 需选择 “GitHub Actions”。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Web unit tests (incl. demo mock API)
+        run: npm test -w web
+      - name: Build demo (base /TheBLOG/)
+        env:
+          BLOG_BASE: /${{ github.event.repository.name }}/
+        run: npm run build:demo
+      - name: Sanity check
+        run: |
+          test -f web/dist/index.html
+          test -f web/dist/404.html
+          test -f web/dist/admin/index.html
+          test -f web/dist/posts/welcome/index.html
+          ! grep -rqE "CLOUDFLARE|ADMIN_PASSWORD_HASH|JWT_SECRET" web/dist
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -27,6 +27,8 @@ jobs:
         run: npm run typecheck
       - name: Unit tests (worker on local D1/R2 via wrangler, web)
         run: npm test
+      - name: Build demo (GitHub Pages, in-browser mock API)
+        run: npm run build:demo
       - name: Build frontend (no API → shell fallback)
         run: npm run build
       - name: E2E (wrangler dev + MCP SDK client + prerender)

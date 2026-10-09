@@ -1,7 +1,7 @@
 /**
  * Markdown → HTML，结构上安全：
  * - 原始 HTML（块级与行内）一律转义，不会被当作标签；
- * - 链接只允许 http(s)、mailto、站内路径与锚点；图片只允许 http(s) 与站内路径；
+ * - 链接只允许 http(s)、mailto、站内路径与锚点；图片只允许 http(s)、站内路径与位图 base64 data URL；
  * - 外链加 rel="noopener noreferrer nofollow"。
  * 浏览器端再经过 DOMPurify（见 sanitize.ts）做第二道防线；预渲染（Node）依赖本模块本身的安全性。
  */
@@ -13,12 +13,15 @@ export function escapeHtml(s: string): string {
 
 const LINK_OK = /^(https?:\/\/|mailto:|\/(?!\/)|#)/i;
 const IMG_OK = /^(https?:\/\/|\/(?!\/))/i;
+/** 位图 data URL（演示模式里上传的图片存在浏览器本地）；不允许 SVG 等可携带脚本的类型。 */
+const DATA_IMG_OK = /^data:image\/(png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i;
 
 export function safeHref(href: string | null | undefined, img = false): string | null {
   if (!href) return null;
   const h = href.trim();
   // 去掉控制字符后再判断，防止 "java\tscript:" 之类绕过
   if (/[\u0000-\u001f\u007f]/.test(h)) return null;
+  if (img && DATA_IMG_OK.test(h)) return h;
   return (img ? IMG_OK : LINK_OK).test(h) ? h : null;
 }
 

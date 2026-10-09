@@ -4,7 +4,7 @@
  */
 import './styles.css';
 import './admin.css';
-import { request, ApiError } from './api';
+import { request, ApiError, DEMO } from './api';
 import { escapeHtml as e } from './markdown';
 import { renderSafe } from './sanitize';
 import type { Post, PostSummary, Profile, Settings } from './types';
@@ -47,11 +47,20 @@ function renderLogin(note = ''): void {
   root.innerHTML = `<form class="panel login" id="login-form">
   <h1>博客后台</h1>
   <p class="meta">请输入管理密码</p>
+  <p class="demo-hint" hidden></p>
   <div class="field"><label for="pw">密码</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="256"></div>
   <button class="btn" type="submit">登录</button>
   <p class="msg" role="status">${e(note)}</p>
 </form>`;
   const form = root.querySelector<HTMLFormElement>('#login-form')!;
+  if (DEMO) {
+    void import('./demo/client').then(({ DEMO_PASSWORD }) => {
+      const hint = form.querySelector<HTMLElement>('.demo-hint');
+      if (!hint) return;
+      hint.innerHTML = `演示密码：<code>${e(DEMO_PASSWORD)}</code>（所有改动只保存在你的浏览器里）`;
+      hint.hidden = false;
+    });
+  }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
@@ -76,7 +85,7 @@ function shell(content: string): string {
   const t = (id: typeof tab, label: string) => `<button type="button" role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}</button>`;
   return `<div class="admin-bar"><h1>博客后台</h1>
   <div class="tabs" role="tablist">${t('posts', '文章')}${t('editor', editing ? '编辑' : '写文章')}${t('profile', '资料')}${t('settings', '展示设置')}</div>
-  <div class="row"><a href="/" target="_blank" rel="noopener">查看站点</a><button class="btn btn--ghost btn--sm" type="button" id="logout">退出</button></div></div>
+  <div class="row"><a href="${e(import.meta.env.BASE_URL)}" target="_blank" rel="noopener">查看站点</a><button class="btn btn--ghost btn--sm" type="button" id="logout">退出</button></div></div>
   <p class="msg" role="status"></p>${content}`;
 }
 
@@ -144,7 +153,7 @@ function renderEditor(): void {
       fd.append('alt', file.name.replace(/\.[^.]+$/, ''));
       const r = await adminFetch<{ markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
       const pos = content.selectionStart ?? content.value.length;
-      content.value = `${content.value.slice(0, pos)}\n${r.markdown}\n${content.value.slice(pos)}`;
+      content.value = `${content.value.slice(0, pos)}\n\n${r.markdown}\n\n${content.value.slice(pos)}`;
       update();
       msg('图片已上传并插入正文');
     } catch (err) {
@@ -294,6 +303,10 @@ root.addEventListener('click', async (ev) => {
 });
 
 (async () => {
+  if (DEMO) {
+    const { mountDemoBanner } = await import('./demo/client');
+    mountDemoBanner({ siteHref: import.meta.env.BASE_URL });
+  }
   try {
     const s = await request<{ authenticated: boolean; csrfToken?: string }>('/api/auth/session', { credentials: 'include' });
     if (s.authenticated && s.csrfToken) {
