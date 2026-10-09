@@ -47,6 +47,7 @@
 
 /* ---------- 基础 ---------- */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; scroll-padding-top: calc(var(--nav-h) + 12px); }
 body {
   margin: 0; min-height: 100vh; color: var(--fg); background: var(--bg) var(--bg-grad) fixed;
@@ -541,13 +542,15 @@ usa-pagination { --usa-accent: var(--accent); }
 .ctx__tip { margin: 0.3rem 0.4rem 0.1rem; font-size: 0.72rem; color: var(--muted); }
 
 /* ---------- 音乐播放器 ---------- */
-.player { position: fixed; left: 16px; bottom: 16px; z-index: 80; display: flex; align-items: flex-end; gap: 10px; }
+.player { position: fixed; left: 16px; bottom: 16px; z-index: 80; display: flex; align-items: flex-end; gap: 10px; pointer-events: none; }
+.player > * { pointer-events: auto; }
 .player__disc { position: relative; display: grid; place-items: center; width: 52px; height: 52px; border: 0; padding: 0; border-radius: 50%; cursor: pointer; background: none; box-shadow: var(--shadow-hover); }
 .player__vinyl { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, var(--accent-2) 0 17%, #111 18% 21%, transparent 22%), repeating-radial-gradient(circle, #1c1c1f 0 2px, #2a2a2e 2px 3px); }
 .is-playing .player__vinyl { animation: spin 3.2s linear infinite; }
 .player__icon { position: relative; color: #fff; }
 .player__panel { width: 230px; padding: 0.7rem 0.8rem; border-radius: 14px; background: var(--card-solid); border: 1px solid var(--border); box-shadow: var(--shadow-hover); display: grid; gap: 0.5rem; opacity: 0; visibility: hidden; transform: translateX(-8px); transition: opacity 0.2s, transform 0.25s var(--ease), visibility 0.2s; }
-.player:hover .player__panel, .player:focus-within .player__panel { opacity: 1; visibility: visible; transform: none; }
+.player .player__panel:not(:hover):not(:focus-within) { pointer-events: none; }
+.player:hover .player__panel, .player:focus-within .player__panel { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
 .player__meta b { display: block; font-size: 0.92rem; }
 .player__meta small { color: var(--muted); font-size: 0.75rem; }
 .player__viz { position: relative; height: 64px; border-radius: 10px; background: linear-gradient(180deg, var(--soft), transparent); overflow: hidden; }
@@ -615,7 +618,7 @@ usa-toaster { z-index: 150; }
   .timeline__thumb { width: 72px; height: 52px; }
   .rightside { right: 10px; bottom: 76px; }
   .rs-btn { width: 34px; height: 34px; font-size: 0.95rem; border-radius: 9px; }
-  .rightside__panel { right: 48px; width: min(290px, calc(100vw - 80px)); }
+  .rightside__panel { position: fixed; right: 56px; left: 10px; bottom: 76px; width: auto; }
   .player { left: 10px; bottom: 10px; }
   .player__disc { width: 44px; height: 44px; }
 }
@@ -628,3 +631,10 @@ usa-toaster { z-index: 150; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
   .post-card:hover .post-card__img, .album:hover .album__img, .profile__avatar:hover, .friend:hover .friend__avatar { transform: none; }
 }
+
+/* ---------- Motionary 组件配色对齐站点主题 ---------- */
+.chapter-nav { color: var(--fg); font-size: 0.85rem; }
+.chapter-nav .usa-cn-item { background: var(--soft); }
+.chapter-nav .usa-cn-item[aria-current] { background: var(--accent-soft); color: var(--accent); }
+.chapter-nav .usa-cn-num { background: var(--border); color: var(--fg); }
+.chapter-nav [aria-current] .usa-cn-num { background: var(--accent); color: #fff; }

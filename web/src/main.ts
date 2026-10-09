@@ -169,6 +169,8 @@ async function go(href: string, opts: { pop?: boolean } = {}): Promise<void> {
   clearTimeout(slow);
   if (token !== navToken) return;
   closeDrawer();
+  closeSearch();
+  closeContextMenu();
   const swap = () => {
     swapRegion(page);
     if (!opts.pop) {
@@ -441,12 +443,12 @@ function closeContextMenu(): void {
   menu.classList.remove('is-open');
   menu.hidden = true;
 }
-document.addEventListener('contextmenu', (ev) => {
+window.addEventListener('contextmenu', (ev) => {
   const t = ev.target as HTMLElement;
   if (ev.ctrlKey || ev.shiftKey || t.closest('input, textarea, [contenteditable], .no-ctx') || matchMedia('(pointer: coarse)').matches) return;
   ev.preventDefault();
   openContextMenu(ev);
-});
+}, true);
 document.addEventListener('pointerdown', (ev) => {
   if (!(ev.target as HTMLElement).closest('#ctxmenu')) closeContextMenu();
   if (!(ev.target as HTMLElement).closest('.rs-settings, .js-settings')) document.getElementById('settings-panel')?.classList.remove('is-open');
@@ -492,7 +494,7 @@ function mountChrome(refresh = false): void {
   <div class="rightside__panel" id="settings-panel" role="dialog" aria-label="显示设置">
     <h2>${icon('settings')}显示设置</h2>
     <div class="set-row"><span>深色模式</span><usa-switch variant="daynight" class="js-dark-switch" label="深色模式"></usa-switch></div>
-    <div class="set-row set-row--col"><span>页面风格</span><usa-theme-switcher themes="light,glass,neon,neu" label="页面风格" class="js-surface"></usa-theme-switcher></div>
+    <div class="set-row set-row--col"><span>页面风格</span><usa-theme-switcher themes="light,glass,neon" label="页面风格" class="js-surface"></usa-theme-switcher></div>
     <div class="set-row set-row--col"><span>动效强度</span><usa-motion-switch class="js-motion-switch"></usa-motion-switch></div>
     <div class="set-row"><span>光标彗星拖尾</span><usa-switch variant="ios" class="js-comet-switch" label="光标彗星拖尾"></usa-switch></div>
     <div class="set-row set-row--col"><span class="muted">觉得卡可以点这里暂停动效</span><usa-pause-all label="暂停全部动效" resume-label="恢复动效" class="js-pause-all"></usa-pause-all></div>
