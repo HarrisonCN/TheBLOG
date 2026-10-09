@@ -59,4 +59,5 @@ export function defineUsed(root: ParentNode = document): Promise<unknown> {
 
 export const loadFx = () => load(fx) as Promise<typeof import('./fx')>;
 export const loadFeedback = () => load(feedback) as Promise<typeof import('./feedback')>;
+export const loadSpring = () => import('./spring');
 export const loadPage = () => load(page) as Promise<typeof import('./page')>;

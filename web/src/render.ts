@@ -403,7 +403,7 @@ export function profileCard(site: SiteData, size: Size = 'quarter', rows = 2): s
   return tile(
     size,
     `<div class="profile__top">${avatarImg(p, 'profile__avatar')}<span class="profile__online" title="在线"></span></div>
-  <h2 class="profile__name">${e(p.name)} ${ownerBadge()}</h2>
+  <h2 class="profile__name"><span class="profile__name-text">${e(p.name)}</span><span class="profile__badges">${ownerBadge()}${memberBadge('ID·0001', '站长编号', 'brushed-metal')}</span></h2>
   ${p.tagline ? `<p class="profile__tagline"><usa-shimmer-text>${e(p.tagline)}</usa-shimmer-text></p>` : ''}
   <p class="profile__roles">我是 <usa-text-rotate words="摄影专业的学生|产品体验测试者|动效库作者|夜景爱好者">摄影专业的学生</usa-text-rotate></p>
   ${counts(site)}
@@ -442,12 +442,12 @@ function postMeta(p: PostSummary, opts: { updated?: boolean } = {}): string {
 }
 
 /** 文章瓷砖：封面 + 标题 + 摘要。big 时为大瓷砖（封面铺满，文字压在渐变上）。 */
-export function postCard(p: PostSummary, i: number, size: Size = 'third', big = false, rows?: number): string {
+export function postCard(p: PostSummary, i: number, size: Size = 'third', big = false, rows?: number, featured = false): string {
   const cover = img(p.coverUrl, p.title, 'post-tile__img', { sizes: big ? '(max-width: 768px) 100vw, 640px' : '(max-width: 768px) 100vw, 400px', eager: i === 0 && big });
   const body = `<usa-spatial-card class="post-tile__spatial" max="6"><a class="post-tile__link" href="${postPath(p.slug)}">
   <span class="post-tile__cover" data-depth="1">${cover || `<span class="post-tile__ph" style="--h:${hashHue(p.slug)}">${icon('file')}</span>`}</span>
   <span class="post-tile__info" data-depth="2">
-    <span class="post-tile__chips">${p.pinned ? `<span class="chip chip--accent">${icon('pin')}置顶</span>` : ''}${p.category ? `<span class="chip">${e(p.category)}</span>` : ''}<span class="chip chip--ghost">${formatDate(pubDate(p))}</span></span>
+    <span class="post-tile__chips">${featured ? `<span class="chip chip--accent">${icon('star')}精选</span>` : ''}${p.pinned ? `<span class="chip chip--accent">${icon('pin')}置顶</span>` : ''}${p.category ? `<span class="chip">${e(p.category)}</span>` : ''}<span class="chip chip--ghost">${formatDate(pubDate(p))}</span></span>
     <span class="post-tile__title">${e(p.title)}</span>
     ${p.summary ? `<span class="post-tile__excerpt">${e(p.summary)}</span>` : ''}
     <span class="post-tile__foot">${icon('clock')}${readingMinutes(p.wordCount || 0)} 分钟 · ${formatCount(p.wordCount || 0)} 字${p.tags.length ? ` · ${p.tags.slice(0, 3).map((t) => `#${e(t)}`).join(' ')}` : ''}</span>
@@ -522,7 +522,7 @@ function statsTile(site: SiteData): string {
 function viewersTile(size: Size = 'quarter'): string {
   return tile(
     size,
-    `${kicker('eye', '谁在看网站')}<div class="viewers js-viewers"><usa-avatar-stack max="6" size="38" class="viewers__stack"></usa-avatar-stack><p class="viewers__text">正在统计在线访客…</p>
+    `${kicker('eye', '谁在看网站')}<div class="viewers js-viewers"><div class="viewers__row"><usa-presence class="viewers__me js-viewer-me" name="你" status="online" title="你（匿名）"></usa-presence><usa-avatar-stack max="6" size="38" class="viewers__stack"></usa-avatar-stack></div><p class="viewers__text">正在统计在线访客…</p>
 <p class="viewers__hint">访客默认匿名。<a href="${url('/join/')}">成为好朋友</a>后可选择公开头像。</p></div>`,
     { cls: 'viewers-tile' },
   );
@@ -564,30 +564,17 @@ function notesTile(notes: StickyNote[]): string {
   );
 }
 
-function festivalTile(list: Festival[] | undefined): string {
-  if (!list?.length) return '';
-  const now = new Date();
-  const active = activeFestival(list, now);
-  // 下一个节日（倒计时）
-  const next = list
-    .map((f) => {
-      const md = /^\d{4}-/.test(f.date) ? f.date : `${now.getFullYear()}-${f.date}`;
-      let d = new Date(`${md}T00:00:00`);
-      if (!/^\d{4}-/.test(f.date) && d < now) d = new Date(`${now.getFullYear() + 1}-${f.date}T00:00:00`);
-      return { f, d };
-    })
-    .filter((x) => !Number.isNaN(x.d.getTime()) && x.d >= new Date(now.getFullYear(), now.getMonth(), now.getDate()))
-    .sort((a, b) => a.d.getTime() - b.d.getTime())[0];
-  const f = active ?? next?.f;
+/** 节日瓷砖：只在节日期间出现（festivals 表里配置的日期范围）。 */
+export function festivalTile(list: Festival[] | undefined, now = new Date()): string {
+  const f = list?.length ? activeFestival(list, now) : null;
   if (!f) return '';
-  const days = active || !next ? 0 : Math.ceil((next.d.getTime() - now.getTime()) / 864e5);
   return tile(
     'third',
-    `${kicker('sparkles', active ? '今天是节日' : '下一个节日')}
+    `${kicker('sparkles', '今天是节日')}
   <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${e(f.message)}</usa-festival-banner>
-  <div class="fest__row"><b class="fest__name">${e(f.name)}</b><span class="fest__days">${active ? '快乐！' : `还有 <b>${days}</b> 天`}</span></div>
+  <div class="fest__row"><b class="fest__name">${e(f.name)}</b><span class="fest__days">快乐！</span></div>
   <usa-click effect="confetti" class="fest__click"><button class="btn btn--sm" type="button">${icon('sparkles')}撒花庆祝</button></usa-click>`,
-    { cls: `fest-tile${active ? ' fest-tile--on' : ''}`, attrs: `data-festival="${e(f.id)}"` },
+    { cls: 'fest-tile fest-tile--on', attrs: `data-festival="${e(f.id)}"` },
   );
 }
 
@@ -716,8 +703,8 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
   }
   const top = bento(`${s.sections.hero ? heroTile(site) : ''}${s.sections.about ? profileCard(site, 'third') : ''}${s.sections.hero || s.sections.about ? '' : ''}`, 'bento--top');
   const tiles = [
-    lead ? postCard(lead, 0, 'half', true) : '',
-    ...second.map((p, i) => postCard(p, i + 1, 'quarter', false, 2)),
+    lead ? postCard(lead, 0, 'half', true, undefined, featured.includes(lead)) : '',
+    ...second.map((p, i) => postCard(p, i + 1, 'quarter', false, 2, featured.includes(p))),
     statsTile(site),
     viewersTile('third'),
     festivalTile(site.festivals) || announceTile(site),
@@ -924,9 +911,22 @@ export function galleryPage(site: SiteData, albums: Album[]): Page {
             )
             .join(''),
           'bento--gallery',
-        )
+        ) + galleryDeck(albums)
       : bento(tile('full', '<p class="empty">还没有相册。</p>')),
   });
+}
+
+/** 画廊页的「随手翻」瓷砖：照片做成可以左右滑走的卡片（usa-swipe-deck）。 */
+function galleryDeck(albums: Album[]): string {
+  const photos = albums.flatMap((a) => a.photos.map((p) => ({ ...p, album: a }))).slice(0, 8);
+  if (!photos.length) return '';
+  return `<h2 class="section-h reveal">${icon('shuffle')}随手翻翻</h2>${bento(
+    `${tile('half', `${kicker('shuffle', '照片卡片')}<p class="muted">拖动卡片：向右「喜欢」，向左「跳过」；键盘用 ← / →。</p><usa-swipe-deck threshold="110" label="照片卡片" class="swipe swipe--photo js-photo-deck">${photos
+      .map((p) => `<article class="swipe-card swipe-card--photo">${img(p.url, p.caption, 'swipe-card__img', { sizes: '(max-width: 768px) 90vw, 420px' })}<h4>${e(p.caption || p.album.title)}</h4><small>${e(p.album.title)}</small></article>`)
+      .join('')}</usa-swipe-deck>`, { cls: 'swipe-tile', rows: 2 })}
+${tile('half', `${kicker('heart', '你喜欢的照片')}<ul class="liked-list js-liked-photos"><li class="muted">右滑的照片会出现在这里。</li></ul><usa-button deform="squash" class="js-deck-undo"><button class="btn btn--ghost btn--sm" type="button">${icon('history')}撤销上一张</button></usa-button>`, { cls: 'liked-tile', rows: 2 })}`,
+    'bento--deck',
+  )}`;
 }
 
 export function albumPage(site: SiteData, album: Album | undefined, slug: string): Page {

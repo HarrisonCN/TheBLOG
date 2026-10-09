@@ -3,7 +3,7 @@ import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
 import { applyTheme, currentMode, setMode } from './theme';
-import { defineUsed, loadFeedback, loadFx, loadPage } from './usa';
+import { defineUsed, loadFeedback, loadFx, loadPage, loadSpring } from './usa';
 import { icon } from './icons';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
@@ -58,7 +58,7 @@ async function loadSite(): Promise<void> {
     api.categories().catch(() => ({ categories: [] })),
   ]);
   site = { settings: normalizeSettings(settings), profile, posts: list.posts, total: list.total, tags: tags.tags, categories: cats.categories };
-  festivals = (await api.festivals().catch(() => ({ festivals: [] }))).festivals;
+  festivals = previewFestival((await api.festivals().catch(() => ({ festivals: [] }))).festivals);
   site.festivals = festivals;
 }
 
@@ -106,6 +106,15 @@ async function loadExtra(route: Route): Promise<Extra> {
     }),
   );
   return x;
+}
+
+/** ?festival=<id>：预览某个节日（把它的日期临时挪到今天），方便站长和自动化检查看节日瓷砖 / 横幅。只影响本次浏览。 */
+function previewFestival(list: Festival[]): Festival[] {
+  const id = new URLSearchParams(location.search).get('festival');
+  if (!id) return list;
+  const now = new Date();
+  const today = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return list.map((f) => (f.id === id ? { ...f, date: today, days: Math.max(1, f.days) } : f));
 }
 
 // ---------------------------------------------------------------- 绘制
@@ -253,6 +262,7 @@ async function toggleDark(ev?: MouseEvent): Promise<void> {
   if (prefersReducedMotion() || effectiveLevel(site.settings.animation) === 'off') return setMode(next);
   const { themeTransition } = await loadPage();
   await themeTransition(() => setMode(next), ev ? { x: ev.clientX, y: ev.clientY } : {}).catch(() => setMode(next));
+  if (currentMode() !== next) setMode(next); // 兜底：过渡被跳过时也要切换
   syncDarkControls();
 }
 function syncDarkControls(): void {
@@ -558,6 +568,15 @@ ${TRACK ? `<audio id="bgm" src="${TRACK}" preload="none" loop crossorigin="anony
     if (!b || b.closest('usa-click') || effectiveLevel(site.settings.animation) === 'off' || document.documentElement.dataset.paused) return;
     void loadFx().then((m) => m.playEffect(b, 'ripple', {}, ev).catch(() => undefined));
   });
+  // 瓷砖按下：Motionary spring() 弹簧回弹
+  document.addEventListener('pointerup', (ev) => {
+    const t = (ev.target as HTMLElement).closest<HTMLElement>('.tile');
+    if (!t || t.closest('.lab-tile, .post') || effectiveLevel(site.settings.animation) === 'off' || document.documentElement.dataset.paused) return;
+    void loadSpring().then(({ spring }) => {
+      spring(t, [{ transform: 'scale(0.985)' }, { transform: 'scale(1)' }], 'wobbly');
+      t.dataset.sprung = '1';
+    });
+  });
   mountPlayer();
 }
 
@@ -706,6 +725,24 @@ function bindLab(root: HTMLElement): void {
   }
 }
 
+// ---------------------------------------------------------------- 画廊「随手翻」
+function bindDeck(root: HTMLElement): void {
+  const deck = root.querySelector<HTMLElement & { undo?: () => void }>('.js-photo-deck');
+  const list = root.querySelector<HTMLElement>('.js-liked-photos');
+  if (!deck || !list) return;
+  const liked: string[] = [];
+  const paint = () => (list.innerHTML = liked.length ? liked.map((t) => `<li>${icon('heart')}<span>${esc(t)}</span></li>`).join('') : '<li class="muted">右滑的照片会出现在这里。</li>');
+  deck.addEventListener('usa:swipe', (ev) => {
+    const d = (ev as CustomEvent<{ card: HTMLElement; dir: string }>).detail;
+    if (d?.dir === 'right') {
+      liked.unshift(d.card.querySelector('h4')?.textContent ?? '照片');
+      paint();
+    }
+  });
+  deck.addEventListener('usa:empty', () => void notify('看完啦，撤销可以再翻一次', 'info'));
+  root.querySelector('.js-deck-undo')?.addEventListener('click', () => deck.undo?.());
+}
+
 // ---------------------------------------------------------------- 页面级交互
 function bindPage(page: Page): void {
   const root = document.getElementById('rt') ?? app;
@@ -748,6 +785,7 @@ function bindPage(page: Page): void {
       if (!like.liked) like.toggle?.(true);
     });
   }
+  bindDeck(root);
   bindCommunity(root, { notify, rerender: () => rerender() });
   bindLab(root);
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));

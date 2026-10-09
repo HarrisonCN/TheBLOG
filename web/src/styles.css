@@ -131,7 +131,7 @@ textarea { resize: vertical; min-height: 6rem; }
 .nav--hidden { transform: translateY(calc(-100% - 20px)); }
 .nav__bar {
   display: flex; align-items: center; gap: 0.75rem; height: var(--nav-h); padding: 0 10px 0 14px; border-radius: 22px;
-  background: var(--tile); border: 1px solid var(--tile-border); box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  background: var(--tile); border: 1px solid var(--tile-border); box-shadow: var(--shadow); backdrop-filter: var(--blur);
   transition: background-color 0.3s, box-shadow 0.3s;
 }
 .nav--solid .nav__bar { background: var(--tile-strong); box-shadow: var(--shadow-hover); }
@@ -193,7 +193,7 @@ body.drawer-open { overflow: hidden; }
 .bento--head { grid-auto-rows: auto; }
 .tile {
   position: relative; grid-column: span 4; min-width: 0; padding: 1.4rem 1.5rem; border-radius: var(--radius); color: var(--fg);
-  background: var(--tile); border: 1px solid var(--tile-border); box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  background: var(--tile); border: 1px solid var(--tile-border); box-shadow: var(--shadow); backdrop-filter: var(--blur);
   overflow: hidden; isolation: isolate; transition: box-shadow 0.35s var(--ease), transform 0.35s var(--ease), background-color 0.3s, border-color 0.3s;
 }
 a.tile:hover, .tile--hover:hover { box-shadow: var(--shadow-hover); transform: translateY(-3px); color: var(--fg); }
@@ -728,9 +728,20 @@ usa-toaster { z-index: 150; }
 }
 
 /* ---------- usa-spatial-card 作为瓷砖内部的倾斜层 ---------- */
-.post-tile__spatial { display: flex !important; height: 100%; padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; color: inherit !important; border-radius: inherit !important; }
+.post-tile__spatial { display: flex !important; height: 100%; padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; color: inherit !important; border-radius: inherit !important; }
 .post-tile__spatial .usa-sp-ornament { display: none; }
 .post-tile__link { height: 100%; }
 .post-tile--big .post-tile__info { flex: 1; }
 .spatial { color: var(--fg) !important; background: var(--tile-strong) !important; border-color: var(--tile-border) !important; margin-bottom: 0 !important; padding: 1.1rem 1.2rem !important; }
 .spatial h3 { color: var(--heading); }
+
+/* ---- bento v3 additions ---- */
+.profile__badges { display: inline-flex; gap: 0.35rem; align-items: center; }
+.viewers__row { display: flex; align-items: center; gap: 0.7rem; }
+.viewers__me { flex: none; --usa-presence-size: 40px; }
+.swipe--photo { min-height: 340px; max-width: 360px; }
+.swipe-card--photo { padding: 0.6rem 0.6rem 0.9rem; min-height: 300px; }
+.swipe-card__img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; margin-bottom: 0.6rem; pointer-events: none; }
+.liked-list { list-style: none; margin: 0.4rem 0 1rem; padding: 0; display: grid; gap: 6px; }
+.liked-list li { display: flex; gap: 0.5rem; align-items: center; padding: 0.55rem 0.8rem; border-radius: 14px; background: var(--tile-strong); font-size: 0.9rem; }
+.liked-list li svg { width: 16px; height: 16px; color: #ef4b6c; flex: none; }
