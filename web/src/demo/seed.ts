@@ -476,7 +476,11 @@ ${credit('beach-parasols')}`,
       { id: 1, email: 'friend1@example.com', name: '小林', avatarUrl: '', bio: '喜欢拍街头的大学生', website: '', badges: [{ code: 'FRIEND-0001', label: '第一位好朋友', style: 'pearlescent', grantedAt: day('2026-10-01T00:00:00Z') }], joinedAt: day('2026-10-01T00:00:00Z'), provider: 'email' },
       { id: 2, email: 'friend2@example.com', name: 'Momo', avatarUrl: '', bio: '前端 / 动效爱好者', website: '', badges: [], joinedAt: day('2026-10-05T00:00:00Z'), provider: 'email' },
     ],
-    files: [],
-    voice: [],
+    files: [
+      { id: 1, memberId: 2, memberName: 'Momo', name: 'iris-macro.webp', size: 182_400, contentType: 'image/webp', note: '上周拍的鸢尾，送你当素材～', status: 'pending', createdAt: day('2026-10-08T14:20:00Z'), dataUrl: photo('iris').replace('-1280', '-640') },
+    ],
+    voice: [
+      { id: 1, name: '小林', durationMs: 12_000, size: 96_000, contentType: 'audio/mp4', createdAt: day('2026-10-08T23:05:00Z'), read: false, dataUrl: asset('track.m4a') },
+    ],
   };
 }

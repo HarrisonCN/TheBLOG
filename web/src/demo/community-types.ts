@@ -78,6 +78,19 @@ export interface VoiceMessage {
   read: boolean;
   dataUrl?: string;
 }
+/** 后台仪表盘统计（GET /api/admin/stats） */
+export interface AdminStats {
+  posts: { total: number; published: number; draft: number; pinned: number; words: number };
+  categories: number;
+  tags: number;
+  guestbook: { pending: number; approved: number; hidden: number };
+  notes: { total: number; hidden: number; reported: number };
+  members: number;
+  inbox: { pendingFiles: number; unreadVoice: number };
+  /** 最近 12 个月每月发布数（YYYY-MM） */
+  monthly: { month: string; count: number }[];
+  recent: import('../types').PostSummary[];
+}
 export interface Viewer {
   sid: string;
   name: string;

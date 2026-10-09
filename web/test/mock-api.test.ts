@@ -292,8 +292,8 @@ describe('演示 mock API：新内容模型与社区功能', () => {
     expect((await api.handle('POST', '/api/members/voice', { size: 100, durationMs: 3000 }, { authorization: `Bearer ${token}` })).status).toBe(201);
     await login();
     const inbox = (await admin('GET', '/api/admin/inbox')).body as { files: unknown[]; voice: unknown[] };
-    expect(inbox.files.length).toBe(1);
-    expect(inbox.voice.length).toBe(1);
+    expect(inbox.files.length).toBe(2);
+    expect(inbox.voice.length).toBe(2);
     const g = await admin('POST', `/api/admin/members/${member.id}/badges`, { code: 'friend-0099', label: '摄影搭子' });
     expect(g.status).toBe(200);
     expect((g.body as { badges: { code: string; style: string }[] }).badges.at(-1)).toMatchObject({ code: 'FRIEND-0099', style: 'brushed-metal' });
@@ -309,5 +309,26 @@ describe('演示 mock API：新内容模型与社区功能', () => {
     await login();
     expect((await admin('PUT', '/api/admin/festivals', { festivals: [{ id: 'x', name: '测试', date: '13-45x', theme: 'lunar' }] })).status).toBe(400);
     expect((await admin('PUT', '/api/admin/festivals', { festivals: [{ id: 'x', name: '测试', date: '10-09', days: 1, theme: 'lunar', message: 'hi' }] })).status).toBe(200);
+  });
+
+  it('后台统计与分类管理', async () => {
+    expect((await get('/api/admin/stats')).status).toBe(401);
+    await login();
+    const st = (await admin('GET', '/api/admin/stats')).body as { posts: { total: number; published: number; draft: number }; monthly: unknown[]; recent: unknown[]; guestbook: { pending: number }; inbox: { pendingFiles: number; unreadVoice: number } };
+    expect(st.posts.total).toBe(st.posts.published + st.posts.draft);
+    expect(st.monthly.length).toBe(12);
+    expect(st.recent.length).toBeLessThanOrEqual(5);
+    expect(st.guestbook.pending).toBe(1);
+    expect(st.inbox).toEqual({ pendingFiles: 1, unreadVoice: 1 });
+    const cats = (await admin('GET', '/api/admin/categories')).body as { categories: { category: string; count: number }[] };
+    const first = cats.categories[0]!;
+    expect((await admin('POST', '/api/admin/categories/rename', { from: '不存在', to: 'x' })).status).toBe(404);
+    expect((await admin('POST', '/api/admin/categories/rename', { from: first.category, to: 'x'.repeat(31) })).status).toBe(400);
+    const r = await admin('POST', '/api/admin/categories/rename', { from: first.category, to: '新分类' });
+    expect(r.body).toMatchObject({ updated: first.count, to: '新分类' });
+    const after = (await admin('GET', '/api/admin/categories')).body as { categories: { category: string }[] };
+    expect(after.categories.some((c) => c.category === first.category)).toBe(false);
+    expect((await admin('POST', '/api/admin/categories/rename', { from: '新分类', to: '' })).status).toBe(200);
+    expect(((await admin('GET', '/api/admin/categories')).body as { categories: { category: string }[] }).categories.some((c) => c.category === '新分类')).toBe(false);
   });
 });

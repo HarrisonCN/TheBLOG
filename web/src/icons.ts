@@ -55,6 +55,17 @@ const P: Record<string, string> = {
   logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16.5 14.5 12 10 7.5M14.5 12H4"/>',
   upload: '<path d="M12 16V4M7 8.5 12 4l5 4.5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>',
+  inbox: '<path d="M3.5 13.5 6 5h12l2.5 8.5V19a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/><path d="M3.5 13.5h5l1 2.5h5l1-2.5h5"/>',
+  sparkles: '<path d="M12 3.5 13.6 9l5.4 1.6-5.4 1.6L12 17.5l-1.6-5.3L5 10.6 10.4 9z"/><path d="M19 3v3M17.5 4.5h3M5 17v3M3.5 18.5h3"/>',
+  award: '<circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 7 5-2.5 5 2.5-1.5-7"/>',
+  note: '<path d="M4.5 4.5h15v10l-5 5h-10z"/><path d="M14.5 19.5v-5h5"/>',
+  filter: '<path d="M4 5h16l-6 7.5V19l-4 1.5v-8z"/>',
+  bold: '<path d="M7 4.5h6a3.5 3.5 0 0 1 0 7H7zM7 11.5h7a4 4 0 0 1 0 8H7z"/>',
+  italic: '<path d="M14 4.5h-4M14 19.5h-4M14 4.5l-4 15"/>',
+  quote: '<path d="M5 17.5c0-4 1-7.5 4.5-9.5M14 17.5c0-4 1-7.5 4.5-9.5"/><circle cx="7" cy="16" r="2"/><circle cx="16" cy="16" r="2"/>',
+  code: '<path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5"/>',
+  heading: '<path d="M6 4.5v15M18 4.5v15M6 12h12"/>',
 };
 
 export type IconName = keyof typeof P;

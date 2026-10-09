@@ -1,58 +1,93 @@
 /**
- * 后台管理（/admin）：密码登录 → 短期 httpOnly 会话 Cookie；写操作带 X-CSRF-Token。
- * 浏览器里不保存任何长期密钥：CSRF token 只在内存中，刷新后从 /api/auth/session 重新获取。
+ * 后台管理（/admin）：与前台同一套 Butterfly 风格视觉。
+ * 左侧导航（手机上为抽屉）+ 顶栏 + 各管理页面；hash 路由（#/posts、#/editor/slug …），刷新与后退都能回到原页面。
+ * 登录：密码 → 短期 httpOnly 会话 Cookie；写操作带 X-CSRF-Token（只保存在内存里）。
  */
 import './styles.css';
 import './admin.css';
-import { request, ApiError, DEMO } from './api';
-import { escapeHtml as e } from './markdown';
-import { renderSafe } from './sanitize';
-import type { Post, PostSummary, Profile, Settings } from './types';
+import { request, DEMO } from './api';
+import { toggleTheme, currentMode } from './theme';
+import type { AdminStats } from './demo/community-types';
+import { e, errText, get, icon, nav, setCsrf, setOnExpired, skeleton, upgrade } from './admin/core';
+import { renderDashboard } from './admin/dashboard';
+import { renderPosts, renderEditor, renderCategories, editorDirty } from './admin/posts';
+import { renderSettings, renderProfile, renderFestivals } from './admin/site';
+import { renderContent } from './admin/content';
+import { renderGuestbook, renderNotes, renderMembers, renderInbox } from './admin/community';
 
 const root = document.getElementById('admin')!;
-let csrf = '';
-let tab: 'posts' | 'editor' | 'profile' | 'settings' = 'posts';
-let editing: Post | null = null;
 
-function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body && typeof init.body === 'string') headers.set('content-type', 'application/json');
-  if (init.method && init.method !== 'GET') headers.set('x-csrf-token', csrf);
-  return request<T>(path, { ...init, headers, credentials: 'include' }).catch((err) => {
-    if (err instanceof ApiError && err.status === 401) {
-      csrf = '';
-      renderLogin('登录已过期，请重新登录');
-    }
-    throw err;
-  });
+type Screen = (view: HTMLElement, arg: string) => Promise<void> | void;
+interface NavItem {
+  id: string;
+  label: string;
+  ic: string;
+  screen: Screen;
+  badge?: (s: AdminStats) => number;
 }
+const NAV: { group: string; items: NavItem[] }[] = [
+  { group: '概览', items: [{ id: 'dashboard', label: '仪表盘', ic: 'dashboard', screen: renderDashboard }] },
+  {
+    group: '内容',
+    items: [
+      { id: 'posts', label: '文章', ic: 'file', screen: renderPosts },
+      { id: 'editor', label: '写文章', ic: 'edit', screen: renderEditor },
+      { id: 'categories', label: '分类', ic: 'folder', screen: renderCategories },
+      { id: 'gallery', label: '画廊', ic: 'image', screen: (v) => renderContent(v, 'gallery') },
+      { id: 'friends', label: '友链', ic: 'link', screen: (v) => renderContent(v, 'friends') },
+      { id: 'favorites', label: '收藏与项目', ic: 'star', screen: (v) => renderContent(v, 'favorites') },
+    ],
+  },
+  {
+    group: '互动',
+    items: [
+      { id: 'guestbook', label: '留言板', ic: 'message', screen: renderGuestbook, badge: (s) => s.guestbook.pending },
+      { id: 'notes', label: '便利贴', ic: 'note', screen: renderNotes, badge: (s) => s.notes.hidden },
+      { id: 'members', label: '好朋友', ic: 'users', screen: renderMembers },
+      { id: 'inbox', label: '收件箱', ic: 'inbox', screen: renderInbox, badge: (s) => s.inbox.pendingFiles + s.inbox.unreadVoice },
+    ],
+  },
+  {
+    group: '站点',
+    items: [
+      { id: 'settings', label: '外观设置', ic: 'settings', screen: renderSettings },
+      { id: 'profile', label: '个人资料', ic: 'user', screen: renderProfile },
+      { id: 'festivals', label: '节日', ic: 'sparkles', screen: renderFestivals },
+    ],
+  },
+];
+const ITEMS = NAV.flatMap((g) => g.items);
 
-function msg(text: string, err = false): void {
-  const el = root.querySelector('.msg');
-  if (el) {
-    el.textContent = text;
-    el.classList.toggle('msg--err', err);
-  }
+function parseHash(): { id: string; arg: string } {
+  const m = /^#\/([a-z]+)(?:\/(.*))?$/.exec(location.hash);
+  const id = m && ITEMS.some((i) => i.id === m[1]) ? m[1]! : 'dashboard';
+  return { id, arg: m?.[2] ? decodeURIComponent(m[2]) : '' };
 }
-
-function errText(err: unknown): string {
-  if (err instanceof ApiError) {
-    const d = Array.isArray(err.details) ? '：' + (err.details as { path: string; message: string }[]).map((x) => `${x.path} ${x.message}`).join('；') : '';
-    return err.message + d;
-  }
-  return String(err);
+function go(id: string, arg = ''): void {
+  const h = `#/${id}${arg ? `/${encodeURIComponent(arg)}` : ''}`;
+  if (location.hash === h) void route();
+  else location.hash = h;
 }
+nav.go = go;
 
+// ---------------------------------------------------------------- 登录
 function renderLogin(note = ''): void {
-  root.innerHTML = `<form class="panel login" id="login-form">
+  document.body.classList.remove('adm-in');
+  root.innerHTML = `<div class="adm-login">
+<form class="card adm-login__card" id="login-form" novalidate>
+  <div class="adm-login__logo">${icon('settings')}</div>
   <h1>博客后台</h1>
-  <p class="meta">请输入管理密码</p>
+  <p class="muted">请输入管理密码</p>
   <p class="demo-hint" hidden></p>
   <div class="field"><label for="pw">密码</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="256"></div>
-  <button class="btn" type="submit">登录</button>
+  <usa-button deform="squash" morph="submit" class="adm-save adm-login__btn"><button class="btn btn--block" type="submit">登录</button></usa-button>
   <p class="msg" role="status">${e(note)}</p>
-</form>`;
+  <a class="muted adm-login__back" href="${e(import.meta.env.BASE_URL)}">${icon('arrowLeft')}返回博客</a>
+</form>
+<usa-toaster label="通知" position="top-right"></usa-toaster></div>`;
+  void upgrade(root);
   const form = root.querySelector<HTMLFormElement>('#login-form')!;
+  const msg = form.querySelector<HTMLElement>('.msg')!;
   if (DEMO) {
     void import('./demo/client').then(({ DEMO_PASSWORD }) => {
       const hint = form.querySelector<HTMLElement>('.demo-hint');
@@ -63,8 +98,17 @@ function renderLogin(note = ''): void {
   }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const btn = form.querySelector<HTMLElement & { state?: string }>('usa-button');
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
-    msg('登录中…');
+    if (!password) {
+      if (btn) btn.state = 'idle';
+      msg.textContent = '请输入密码';
+      msg.classList.add('msg--err');
+      return;
+    }
+    if (btn) btn.state = 'loading';
+    msg.textContent = '登录中…';
+    msg.classList.remove('msg--err');
     try {
       const r = await request<{ csrfToken: string }>('/api/auth/login', {
         method: 'POST',
@@ -72,235 +116,147 @@ function renderLogin(note = ''): void {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      csrf = r.csrfToken;
-      tab = 'posts';
-      void renderApp();
+      setCsrf(r.csrfToken);
+      if (btn) btn.state = 'success';
+      msg.textContent = '';
+      setTimeout(() => void boot(), 350);
     } catch (err) {
-      msg(errText(err), true);
+      if (btn) btn.state = 'error';
+      setTimeout(() => btn && (btn.state = 'idle'), 1400);
+      msg.textContent = errText(err);
+      msg.classList.add('msg--err');
     }
   });
 }
 
-function shell(content: string): string {
-  const t = (id: typeof tab, label: string) => `<button type="button" role="tab" data-tab="${id}" aria-selected="${tab === id}">${label}</button>`;
-  return `<div class="admin-bar"><h1>博客后台</h1>
-  <div class="tabs" role="tablist">${t('posts', '文章')}${t('editor', editing ? '编辑' : '写文章')}${t('profile', '资料')}${t('settings', '展示设置')}</div>
-  <div class="row"><a href="${e(import.meta.env.BASE_URL)}" target="_blank" rel="noopener">查看站点</a><button class="btn btn--ghost btn--sm" type="button" id="logout">退出</button></div></div>
-  <p class="msg" role="status"></p>${content}`;
+// ---------------------------------------------------------------- 外壳
+function shell(): void {
+  document.body.classList.add('adm-in');
+  const navHtml = NAV.map(
+    (g) => `<div class="adm-nav__group"><p class="adm-nav__title">${e(g.group)}</p>${g.items
+      .map((i) => `<a class="adm-nav__item" href="#/${i.id}" data-nav="${i.id}">${icon(i.ic)}<span>${e(i.label)}</span><b class="adm-nav__badge" data-badge="${i.id}" hidden></b></a>`)
+      .join('')}</div>`,
+  ).join('');
+  root.innerHTML = `<aside class="adm-side" id="adm-side" aria-label="后台导航">
+  <a class="adm-brand" href="#/dashboard"><span class="adm-brand__logo">W</span><span><b>博客后台</b><small>Winston's Blog</small></span></a>
+  <nav class="adm-nav">${navHtml}</nav>
+  <div class="adm-side__foot">
+    <a class="adm-nav__item" href="${e(import.meta.env.BASE_URL)}" target="_blank" rel="noopener">${icon('external')}<span>查看站点</span></a>
+    <button class="adm-nav__item" type="button" id="adm-theme">${icon(currentMode() === 'dark' ? 'sun' : 'moon')}<span>${currentMode() === 'dark' ? '浅色模式' : '深色模式'}</span></button>
+    <button class="adm-nav__item" type="button" id="adm-logout">${icon('logout')}<span>退出登录</span></button>
+  </div>
+</aside>
+<div class="adm-scrim" id="adm-scrim" hidden></div>
+<div class="adm-main">
+  <header class="adm-top">
+    <button class="adm-burger" type="button" id="adm-burger" aria-label="打开导航" aria-controls="adm-side" aria-expanded="false">${icon('menu')}</button>
+    <h1 class="adm-top__title" id="adm-title">仪表盘</h1>
+    <div class="adm-top__actions" id="adm-actions"></div>
+  </header>
+  <main class="adm-view" id="adm-view" tabindex="-1"></main>
+</div>
+<usa-toaster label="通知" position="top-right"></usa-toaster>`;
+  void upgrade(root);
 }
 
-async function renderApp(): Promise<void> {
+function setDrawer(open: boolean): void {
+  root.querySelector('#adm-side')?.classList.toggle('is-open', open);
+  const scrim = root.querySelector<HTMLElement>('#adm-scrim');
+  if (scrim) scrim.hidden = !open;
+  root.querySelector('#adm-burger')?.setAttribute('aria-expanded', String(open));
+}
+
+let stats: AdminStats | null = null;
+async function refreshBadges(): Promise<AdminStats | null> {
   try {
-    if (tab === 'posts') return await renderPosts();
-    if (tab === 'editor') return renderEditor();
-    if (tab === 'profile') return await renderProfile();
-    if (tab === 'settings') return await renderSettings();
+    stats = await get<AdminStats>('/api/admin/stats');
+  } catch {
+    return null;
+  }
+  for (const i of ITEMS) {
+    const b = root.querySelector<HTMLElement>(`[data-badge="${i.id}"]`);
+    if (!b || !i.badge) continue;
+    const n = i.badge(stats);
+    b.hidden = n <= 0;
+    b.textContent = n > 99 ? '99+' : String(n);
+  }
+  return stats;
+}
+nav.badges = refreshBadges;
+
+let current = '';
+async function route(): Promise<void> {
+  if (!root.querySelector('#adm-view')) return;
+  const { id, arg } = parseHash();
+  if (current === 'editor' && (id !== 'editor' || arg !== lastArg) && editorDirty() && !confirm('有未保存的修改，确定离开？')) {
+    history.replaceState(null, '', `#/editor${lastArg ? `/${encodeURIComponent(lastArg)}` : ''}`);
+    return;
+  }
+  current = id;
+  lastArg = arg;
+  const item = ITEMS.find((i) => i.id === id)!;
+  root.querySelectorAll<HTMLElement>('[data-nav]').forEach((a) => {
+    const on = a.dataset.nav === id;
+    a.classList.toggle('is-active', on);
+    if (on) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
+  const title = id === 'editor' && arg ? '编辑文章' : item.label;
+  root.querySelector('#adm-title')!.textContent = title;
+  document.title = `${title} · 博客后台`;
+  root.querySelector('#adm-actions')!.innerHTML = '';
+  setDrawer(false);
+  const view = root.querySelector<HTMLElement>('#adm-view')!;
+  view.className = `adm-view adm-view--${id}`;
+  view.innerHTML = skeleton(id === 'dashboard' ? 4 : 3);
+  void upgrade(view);
+  try {
+    await item.screen(view, arg);
+    void upgrade(view);
+    view.querySelectorAll('.adm-reveal').forEach((el, i) => (el as HTMLElement).style.setProperty('--i', String(Math.min(i, 8))));
   } catch (err) {
-    if (!(err instanceof ApiError && err.status === 401)) root.innerHTML = shell(`<p class="msg msg--err">${e(errText(err))}</p>`);
+    if (!root.querySelector('#adm-view')) return; // 已退回登录页
+    view.innerHTML = `<div class="card adm-card adm-error">${icon('close')}<p>${e(errText(err))}</p><button class="btn btn--ghost btn--sm" type="button" data-retry>重试</button></div>`;
+    view.querySelector('[data-retry]')?.addEventListener('click', () => void route());
   }
 }
+let lastArg = '';
 
-async function renderPosts(): Promise<void> {
-  const { posts } = await adminFetch<{ posts: PostSummary[] }>('/api/admin/posts?status=all&limit=100');
-  const rows = posts
-    .map(
-      (p) => `<tr><td><strong>${e(p.title)}</strong><br><span class="meta">/${e(p.slug)}</span></td>
-  <td><span class="badge${p.status === 'published' ? ' badge--pub' : ''}">${p.status === 'published' ? '已发布' : '草稿'}</span></td>
-  <td class="hide-sm meta">${e((p.updatedAt ?? '').slice(0, 16).replace('T', ' '))}</td>
-  <td><div class="row">
-    <button class="btn btn--sm" data-act="edit" data-slug="${e(p.slug)}">编辑</button>
-    <button class="btn btn--ghost btn--sm" data-act="${p.status === 'published' ? 'unpublish' : 'publish'}" data-slug="${e(p.slug)}">${p.status === 'published' ? '撤回' : '发布'}</button>
-    <button class="btn btn--danger btn--sm" data-act="delete" data-slug="${e(p.slug)}">删除</button>
-  </div></td></tr>`,
-    )
-    .join('');
-  root.innerHTML = shell(`<div class="panel"><div class="row row--between"><h2>全部文章（${posts.length}）</h2><button class="btn" data-act="new">写文章</button></div>
-  <table><thead><tr><th>标题</th><th>状态</th><th class="hide-sm">更新</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">还没有文章</td></tr>'}</tbody></table></div>`);
-}
-
-function renderEditor(): void {
-  const p = editing;
-  root.innerHTML = shell(`<form class="panel" id="post-form">
-  <div class="grid2"><div>
-    <div class="field"><label for="f-title">标题</label><input id="f-title" name="title" required maxlength="200" value="${e(p?.title ?? '')}"></div>
-    <div class="field"><label for="f-slug">slug（小写字母 / 数字 / 连字符，留空自动生成）</label><input id="f-slug" name="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p?.slug ?? '')}"></div>
-    <div class="field"><label for="f-summary">摘要</label><input id="f-summary" name="summary" maxlength="500" value="${e(p?.summary ?? '')}"></div>
-    <div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" name="tags" value="${e((p?.tags ?? []).join(', '))}"></div>
-    <div class="field"><label for="f-cover">封面图 URL</label><input id="f-cover" name="coverUrl" value="${e(p?.coverUrl ?? '')}"></div>
-    <div class="field"><label for="f-content">正文（Markdown）</label><textarea id="f-content" name="contentMd">${e(p?.contentMd ?? '')}</textarea></div>
-    <div class="row">
-      <button class="btn" type="submit">${p ? '保存' : '保存草稿'}</button>
-      ${p ? '' : '<button class="btn btn--ghost" type="submit" data-publish="1">保存并发布</button>'}
-      <label class="btn btn--ghost">上传图片<input type="file" id="f-image" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label>
-      ${p ? `<span class="meta">状态：${p.status === 'published' ? '已发布' : '草稿'}</span>` : ''}
-    </div>
-  </div>
-  <div><p class="meta">预览</p><div class="preview prose" id="preview"></div></div></div>
-</form>`);
-  const form = root.querySelector<HTMLFormElement>('#post-form')!;
-  const content = form.querySelector<HTMLTextAreaElement>('#f-content')!;
-  const preview = root.querySelector<HTMLElement>('#preview')!;
-  const update = () => (preview.innerHTML = renderSafe(content.value));
-  content.addEventListener('input', update);
-  update();
-  form.querySelector<HTMLInputElement>('#f-image')!.addEventListener('change', async (ev) => {
-    const file = (ev.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    msg('上传中…');
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('alt', file.name.replace(/\.[^.]+$/, ''));
-      const r = await adminFetch<{ markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
-      const pos = content.selectionStart ?? content.value.length;
-      content.value = `${content.value.slice(0, pos)}\n\n${r.markdown}\n\n${content.value.slice(pos)}`;
-      update();
-      msg('图片已上传并插入正文');
-    } catch (err) {
-      msg(errText(err), true);
-    }
-  });
-  form.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const fd = new FormData(form);
-    const publish = (ev as SubmitEvent).submitter?.hasAttribute('data-publish');
-    const slug = String(fd.get('slug') ?? '').trim();
-    const body: Record<string, unknown> = {
-      title: String(fd.get('title') ?? '').trim(),
-      summary: String(fd.get('summary') ?? '').trim(),
-      contentMd: String(fd.get('contentMd') ?? ''),
-      tags: String(fd.get('tags') ?? '').split(/[,，]/).map((t) => t.trim()).filter(Boolean),
-      coverUrl: String(fd.get('coverUrl') ?? '').trim(),
-    };
-    if (slug) body.slug = slug;
-    try {
-      if (editing) {
-        editing = await adminFetch<Post>(`/api/admin/posts/${encodeURIComponent(editing.slug)}`, { method: 'PATCH', body: JSON.stringify(body) });
-      } else {
-        if (publish) body.status = 'published';
-        editing = await adminFetch<Post>('/api/admin/posts', { method: 'POST', body: JSON.stringify(body) });
-      }
-      renderEditor();
-      msg('已保存');
-    } catch (err) {
-      msg(errText(err), true);
-    }
-  });
-}
-
-async function renderProfile(): Promise<void> {
-  const p = await adminFetch<Profile>('/api/admin/profile');
-  root.innerHTML = shell(`<form class="panel" id="profile-form">
-  <div class="field"><label for="p-name">名字</label><input id="p-name" name="name" required maxlength="60" value="${e(p.name)}"></div>
-  <div class="field"><label for="p-tagline">一句话介绍</label><input id="p-tagline" name="tagline" maxlength="120" value="${e(p.tagline)}"></div>
-  <div class="field"><label for="p-avatar">头像 URL</label><input id="p-avatar" name="avatarUrl" value="${e(p.avatarUrl)}"></div>
-  <div class="field"><label for="p-location">所在地</label><input id="p-location" name="location" maxlength="60" value="${e(p.location)}"></div>
-  <div class="field"><label for="p-links">链接（每行一个：名称 | URL）</label><textarea id="p-links" name="links" class="short">${e(p.links.map((l) => `${l.label} | ${l.url}`).join('\n'))}</textarea></div>
-  <div class="field"><label for="p-bio">简介（Markdown）</label><textarea id="p-bio" name="bioMd">${e(p.bioMd)}</textarea></div>
-  <button class="btn" type="submit">保存资料</button>
-</form>`);
-  const form = root.querySelector<HTMLFormElement>('#profile-form')!;
-  form.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const fd = new FormData(form);
-    const links = String(fd.get('links') ?? '')
-      .split('\n')
-      .map((l) => l.split('|').map((x) => x.trim()))
-      .filter((x) => x.length >= 2 && x[0] && x[1])
-      .map(([label, url]) => ({ label: label!, url: url! }));
-    try {
-      await adminFetch<Profile>('/api/admin/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({ name: fd.get('name'), tagline: fd.get('tagline'), avatarUrl: fd.get('avatarUrl'), location: fd.get('location'), bioMd: fd.get('bioMd'), links }),
-      });
-      msg('资料已保存');
-    } catch (err) {
-      msg(errText(err), true);
-    }
-  });
-}
-
-async function renderSettings(): Promise<void> {
-  const s = await adminFetch<Settings>('/api/admin/settings');
-  const sec = (k: keyof Settings['sections'], label: string) => `<label class="check"><input type="checkbox" name="sec-${k}" ${s.sections[k] ? 'checked' : ''}> ${label}</label>`;
-  const opt = (v: string, cur: string, label: string) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
-  root.innerHTML = shell(`<form class="panel" id="settings-form"><div class="grid2"><div>
-  <div class="field"><label for="s-title">站点标题</label><input id="s-title" name="siteTitle" required maxlength="80" value="${e(s.siteTitle)}"></div>
-  <div class="field"><label for="s-desc">站点描述</label><input id="s-desc" name="siteDescription" maxlength="200" value="${e(s.siteDescription)}"></div>
-  <div class="field"><label for="s-theme">默认主题</label><select id="s-theme" name="theme">${opt('system', s.theme, '跟随系统')}${opt('light', s.theme, '浅色')}${opt('dark', s.theme, '深色')}</select></div>
-  <div class="field"><label for="s-anim">动效强度</label><select id="s-anim" name="animation">${opt('off', s.animation, '关闭')}${opt('low', s.animation, '低（仅淡入）')}${opt('normal', s.animation, '标准')}${opt('high', s.animation, '强（逐字入场）')}</select></div>
-  <div class="field"><label for="s-ppp">首页文章数</label><input id="s-ppp" name="postsPerPage" type="number" min="1" max="50" value="${s.postsPerPage}"></div>
-  </div><div>
-  <p class="meta">首页显示的区块</p>
-  ${sec('hero', '顶部介绍')}${sec('featured', '精选文章')}${sec('postList', '最新文章')}${sec('tags', '标签云')}${sec('about', '关于我')}
-  <div class="field"><label for="s-feat">精选文章 slug（逗号分隔，最多 6 个）</label><input id="s-feat" name="featuredSlugs" value="${e(s.featuredSlugs.join(', '))}"></div>
-  </div></div>
-  <button class="btn" type="submit">保存设置</button>
-</form>`);
-  const form = root.querySelector<HTMLFormElement>('#settings-form')!;
-  form.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    const fd = new FormData(form);
-    const sections = Object.fromEntries((['hero', 'featured', 'postList', 'tags', 'about'] as const).map((k) => [k, fd.get(`sec-${k}`) === 'on']));
-    try {
-      await adminFetch<Settings>('/api/admin/settings', {
-        method: 'PUT',
-        body: JSON.stringify({
-          siteTitle: fd.get('siteTitle'),
-          siteDescription: fd.get('siteDescription'),
-          theme: fd.get('theme'),
-          animation: fd.get('animation'),
-          postsPerPage: Number(fd.get('postsPerPage')),
-          sections,
-          featuredSlugs: String(fd.get('featuredSlugs') ?? '').split(/[,，]/).map((x) => x.trim()).filter(Boolean),
-        }),
-      });
-      msg('设置已保存');
-    } catch (err) {
-      msg(errText(err), true);
-    }
-  });
+async function boot(): Promise<void> {
+  shell();
+  void refreshBadges();
+  await route();
 }
 
 root.addEventListener('click', async (ev) => {
   const t = ev.target as HTMLElement;
-  const tabBtn = t.closest<HTMLElement>('[data-tab]');
-  if (tabBtn) {
-    tab = tabBtn.dataset.tab as typeof tab;
-    return void renderApp();
+  if (t.closest('#adm-burger')) return setDrawer(!root.querySelector('#adm-side')?.classList.contains('is-open'));
+  if (t.closest('#adm-scrim')) return setDrawer(false);
+  if (t.closest('#adm-theme')) {
+    toggleTheme();
+    const b = root.querySelector('#adm-theme')!;
+    b.innerHTML = `${icon(currentMode() === 'dark' ? 'sun' : 'moon')}<span>${currentMode() === 'dark' ? '浅色模式' : '深色模式'}</span>`;
+    return;
   }
-  if (t.closest('#logout')) {
+  if (t.closest('#adm-logout')) {
     await request('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => undefined);
-    csrf = '';
+    setCsrf('');
+    history.replaceState(null, '', location.pathname);
     return renderLogin('已退出');
   }
-  const act = t.closest<HTMLElement>('[data-act]');
-  if (!act) return;
-  const slug = act.dataset.slug ?? '';
-  try {
-    switch (act.dataset.act) {
-      case 'new':
-        editing = null;
-        tab = 'editor';
-        return renderEditor();
-      case 'edit':
-        editing = await adminFetch<Post>(`/api/admin/posts/${encodeURIComponent(slug)}`);
-        tab = 'editor';
-        return renderEditor();
-      case 'publish':
-      case 'unpublish':
-        await adminFetch(`/api/admin/posts/${encodeURIComponent(slug)}/publish`, { method: 'POST', body: JSON.stringify({ published: act.dataset.act === 'publish' }) });
-        return await renderPosts();
-      case 'delete':
-        if (!confirm(`确定永久删除「${slug}」？`)) return;
-        await adminFetch(`/api/admin/posts/${encodeURIComponent(slug)}`, { method: 'DELETE' });
-        if (editing?.slug === slug) editing = null;
-        return await renderPosts();
-    }
-  } catch (err) {
-    msg(errText(err), true);
+  if (t.closest('.adm-nav__item[data-nav]') && t.closest<HTMLAnchorElement>('a')?.getAttribute('href') === location.hash) {
+    ev.preventDefault();
+    void route();
   }
 });
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') setDrawer(false);
+});
+window.addEventListener('hashchange', () => void route());
+window.addEventListener('beforeunload', (ev) => {
+  if (current === 'editor' && editorDirty()) ev.preventDefault();
+});
+setOnExpired(() => renderLogin('登录已过期，请重新登录'));
 
 (async () => {
   if (DEMO) {
@@ -310,8 +266,8 @@ root.addEventListener('click', async (ev) => {
   try {
     const s = await request<{ authenticated: boolean; csrfToken?: string }>('/api/auth/session', { credentials: 'include' });
     if (s.authenticated && s.csrfToken) {
-      csrf = s.csrfToken;
-      return void renderApp();
+      setCsrf(s.csrfToken);
+      return void boot();
     }
   } catch {
     /* 未连接到 API 时也显示登录框 */

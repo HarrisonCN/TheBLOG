@@ -5,7 +5,7 @@
  */
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
-import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
+import type { AdminStats, Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 
 export interface KV {
   getItem(key: string): string | null;
@@ -263,6 +263,9 @@ export class DemoBackend {
         if (m === 'PATCH' || m === 'PUT') return ok(this.updateSettings(body));
       }
       if (sub === '/images' && m === 'POST') return ok(this.image(body), 201);
+      if (sub === '/stats' && m === 'GET') return ok(this.stats());
+      if (sub === '/categories' && m === 'GET') return ok({ categories: this.allCategories() });
+      if (sub === '/categories/rename' && m === 'POST') return ok(this.renameCategory(body));
       mt = /^\/content\/([a-z]+)$/.exec(sub);
       if (mt && isContentKey(mt[1]!)) {
         const key = mt[1] as ContentKey;
@@ -525,6 +528,64 @@ export class DemoBackend {
     const alt = (isStr(o.alt) ? o.alt : '').replace(/[[\]\n\r]/g, '').slice(0, 100);
     const key = `demo/${this.now().getTime().toString(36)}`;
     return { key, url: o.dataUrl, contentType, size, markdown: `![${alt}](${o.dataUrl})` };
+  }
+
+  // ---------------------------------------------------------------- 后台：统计 / 分类管理
+  stats(): AdminStats {
+    const db = this.db();
+    const pub = db.posts.filter((p) => p.status === 'published');
+    const months: { month: string; count: number }[] = [];
+    const now = this.now();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const key = d.toISOString().slice(0, 7);
+      months.push({ month: key, count: pub.filter((p) => (p.publishedAt ?? '').startsWith(key)).length });
+    }
+    return {
+      posts: { total: db.posts.length, published: pub.length, draft: db.posts.length - pub.length, pinned: db.posts.filter((p) => p.pinned).length, words: db.posts.reduce((n, p) => n + wordCount(p.contentMd), 0) },
+      categories: new Set(db.posts.map((p) => p.category).filter(Boolean)).size,
+      tags: new Set(db.posts.flatMap((p) => p.tags)).size,
+      guestbook: { pending: db.guestbook.filter((g) => g.status === 'pending').length, approved: db.guestbook.filter((g) => g.status === 'approved').length, hidden: db.guestbook.filter((g) => g.status === 'hidden').length },
+      notes: { total: db.notes.length, hidden: db.notes.filter((n) => n.hidden).length, reported: db.notes.filter((n) => n.reports > 0).length },
+      members: db.members.length,
+      inbox: { pendingFiles: db.files.filter((f) => f.status === 'pending').length, unreadVoice: db.voice.filter((v) => !v.read).length },
+      monthly: months,
+      recent: db.posts.slice().sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)).slice(0, 5).map(summary),
+    };
+  }
+
+  /** 后台分类列表：含草稿 */
+  private allCategories(): (CategoryCount & { published: number })[] {
+    const counts = new Map<string, { count: number; published: number }>();
+    for (const p of this.db().posts) {
+      if (!p.category) continue;
+      const c = counts.get(p.category) ?? { count: 0, published: 0 };
+      c.count++;
+      if (p.status === 'published') c.published++;
+      counts.set(p.category, c);
+    }
+    return [...counts].map(([category, c]) => ({ category, ...c })).sort((a, b) => b.count - a.count || (a.category < b.category ? -1 : 1));
+  }
+
+  /** 重命名 / 合并分类；to 为空字符串表示清除（文章变为未分类） */
+  private renameCategory(input: unknown): { from: string; to: string; updated: number } {
+    const o = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const issues: Issue[] = [];
+    const from = strField(o, 'from', issues, { min: 1, max: 30, required: true });
+    const to = strField(o, 'to', issues, { max: 30, required: true });
+    check(issues);
+    const db = structuredClone(this.db());
+    let updated = 0;
+    const ts = this.now().toISOString();
+    for (const p of db.posts) {
+      if (p.category !== from) continue;
+      p.category = to || null;
+      p.updatedAt = ts;
+      updated++;
+    }
+    if (!updated) throw new MockError(404, 'not_found', `分类「${from}」不存在`);
+    this.save(db);
+    return { from: from!, to: to!, updated };
   }
 
   // ---------------------------------------------------------------- 内容 / 搜索
