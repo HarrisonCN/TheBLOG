@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aboutPage, appHtml, archivesPage, categoryPage, chapterize, guestbookPage, homePage, notFoundPage, parseRoute, postPage, privacyPage, renderRoute, routePath, tagPage,
+  aboutPage, appHtml, archivesPage, festivalTile, galleryPage, categoryPage, chapterize, guestbookPage, homePage, notFoundPage, parseRoute, postPage, privacyPage, renderRoute, routePath, tagPage,
 } from '../src/render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, type Post, type SiteData } from '../src/types';
 
@@ -31,29 +31,42 @@ describe('路由', () => {
 });
 
 describe('视图', () => {
-  it('首页：全屏首图 + 打字机副标题、左右交替卡片、置顶、分页、侧栏', () => {
+  it('首页：bento 瓷砖 —— 首图（打字机 / 渐变字）、个人卡片（珍珠母贝 + 拉丝金属徽章）、文章瓷砖、资讯、谁在看、音乐、公告', () => {
     const p = homePage(site);
-    expect(p.top).toContain('class="hero"');
+    expect(p.top).toContain('class="tile tile--twothird tile--r2 reveal hero"');
     expect(p.top).toContain('<usa-typewriter');
+    expect(p.top).toContain('<usa-gradient-text');
+    expect(p.top).toContain('badge--pearl');
+    expect(p.top).toContain('badge--metal');
+    expect(p.main).toContain('class="bento bento--home"');
     expect(p.main).toContain('你好 &lt;world&gt;');
     expect(p.main).toContain('置顶');
-    expect(p.main).toContain('发表于');
-    expect(p.main).toContain('更新于');
+    expect(p.main).toContain('<usa-spatial-card');
     expect(p.main).toContain('href="/posts/hello/"');
-    expect(p.main).toContain('<usa-pagination total="2" page="1"');
-    expect(p.main).toContain('href="/page/2/"');
-    expect(p.aside).toContain('公告');
-    expect(p.aside).toContain('<strong>公告</strong>');
-    expect(p.aside).toContain('谁在看网站');
-    expect(p.aside).toContain('网站资讯');
+    expect(p.main).toContain('网站资讯');
+    expect(p.main).toContain('谁在看网站');
+    expect(p.main).toContain('<usa-presence');
+    expect(p.main).toContain('<usa-avatar-stack');
+    expect(p.main).toContain('<strong>公告</strong>');
+    expect(p.main).toContain('注册成为好朋友');
+    expect(p.main).toContain('js-viz');
+    expect(p.main).not.toContain('<usa-festival-banner');
     const p2 = homePage(site, 2);
     expect(p2.main).toContain('post-card');
     expect(p2.main).toContain('第二篇');
-    expect(p2.main).not.toContain('class="featured');
+    expect(p2.main).toContain('<usa-pagination total="2" page="2"');
+    expect(p2.top).not.toContain('hero');
     const off = homePage({ ...site, settings: { ...site.settings, sections: { ...site.settings.sections, hero: false, announcement: false, about: false } } });
-    expect(off.top).not.toContain('class="hero"');
-    expect(off.aside).not.toContain('widget--announce');
-    expect(off.aside).not.toContain('profile__avatar');
+    expect(off.top).not.toContain(' hero"');
+    expect(off.main).not.toContain('widget--announce');
+    expect(off.top).not.toContain('profile__avatar');
+  });
+
+  it('节日瓷砖只在节日期间出现', () => {
+    const fest = [{ id: 'x', name: '测试节', date: '10-08', days: 2, theme: 'fireworks', message: '快乐' }] as never;
+    expect(festivalTile(fest, new Date(2026, 9, 8, 12))).toContain('<usa-festival-banner');
+    expect(festivalTile(fest, new Date(2026, 9, 9, 12))).toContain('测试节');
+    expect(festivalTile(fest, new Date(2026, 9, 11, 12))).toBe('');
   });
 
   it('整页：导航下拉、搜索与深色按钮、路由过渡容器、页脚', () => {
@@ -73,8 +86,9 @@ describe('视图', () => {
     expect(p.main).toContain('CC BY-NC-SA 4.0');
     expect(p.main).toContain('下一篇');
     expect(p.main).toContain('<usa-scroll-progress');
-    expect(p.aside).toContain('<usa-chapter-nav');
-    expect(p.aside).toContain('href="#h-小节"');
+    expect(p.main).toContain('<usa-chapter-nav');
+    expect(p.main).toContain('href="#h-小节"');
+    expect(p.main).toContain('<usa-like');
   });
 
   it('章节切分', () => {
@@ -85,8 +99,9 @@ describe('视图', () => {
   });
 
   it('归档、标签、分类、留言、隐私、404', () => {
-    expect(archivesPage(site).main).toContain('<usa-date-picker');
+    expect(archivesPage(site).top).toContain('<usa-date-picker');
     expect(archivesPage(site).main).toContain('id="y2026"');
+    expect(galleryPage(site, [{ slug: 'a', title: 'A', description: '', date: '2026', cover: '', photos: [{ url: 'https://x/y.webp', caption: 'c' }] }] as never).main).toContain('<usa-swipe-deck');
     expect(tagPage(site, '摄影').top).toContain('1 篇文章');
     expect(categoryPage(site, '生活').main).toContain('第二篇');
     expect(guestbookPage(site, [{ id: 1, name: '<b>x</b>', content: 'hi', website: 'javascript:alert(1)', status: 'approved', createdAt: '2026-10-01T00:00:00Z' }]).main).not.toContain('javascript:');

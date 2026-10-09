@@ -81,7 +81,7 @@ const soft = (p, fallback) => get(p).catch(() => fallback);
 if (API || DEMO) {
   try {
     const [settings, profile, list, tags, cats] = await Promise.all([get('/api/settings'), get('/api/profile'), get('/api/posts?limit=100'), get('/api/tags'), soft('/api/categories', { categories: [] })]);
-    const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags, categories: cats.categories };
+    const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags, categories: cats.categories, festivals: (await soft('/api/festivals', { festivals: [] })).festivals };
     const extra = {
       gallery: (await soft('/api/content/gallery', { items: [] })).items,
       friends: (await soft('/api/content/friends', { items: [] })).items,
