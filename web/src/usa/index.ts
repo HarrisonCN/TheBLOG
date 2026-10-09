@@ -16,10 +16,10 @@ const widgets: Loader = () => import('./widgets');
 
 const MAP: Record<string, Loader> = {
   'usa-typewriter': text, 'usa-shimmer-text': text, 'usa-text-rotate': text, 'usa-gradient-text': text,
-  'usa-button': click, 'usa-like': click, 'usa-double-tap': click, 'usa-hold': click, 'usa-icon-morph': click,
+  'usa-button': click, 'usa-click': click, 'usa-checkbox': click, 'usa-like': click, 'usa-double-tap': click, 'usa-hold': click, 'usa-icon-morph': click,
   'usa-spinner': feedback, 'usa-skeleton': feedback, 'usa-check': feedback, 'usa-toaster': feedback,
   'usa-scroll-progress': reveal,
-  'usa-splash': page, 'usa-motion-switch': page,
+  'usa-splash': page, 'usa-motion-switch': page, 'usa-cursor': page, 'usa-loading-bar': page,
   'usa-avatar-stack': ui,
   'usa-anim-icon': svg,
   'usa-blobs': background,
