@@ -135,12 +135,42 @@ export const albumSchema = z.object({
 });
 export const favoriteSchema = z.object({ title: text(80).min(1), url: safeUrl, description: text(200).default(''), group: text(30).default('') });
 
-export const CONTENT_KEYS = ['friends', 'gallery', 'favorites'] as const;
+// ---------- 扩展栏目（与 web/src/sections.ts 的字段规格一致） ----------
+const str = (max: number) => z.string().trim().max(max).default('');
+const req = (max: number) => z.string().trim().min(1).max(max);
+const int = (min: number, max: number, d = min) => z.number().int().min(min).max(max).default(d);
+const strList = (max: number, each: number) => z.array(z.string().trim().min(1).max(each)).max(max).default([]);
+const ghName = z.string().trim().max(100).regex(/^[A-Za-z0-9_.-]*$/, 'owner / repo 只能包含字母、数字、._-').default('');
+const imageUrl = z.union([safeUrl, z.string().max(3_000_000).regex(/^data:image\/(png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i)]);
+export const nowItemSchema = z.object({ kind: z.enum(['doing', 'learning', 'reading', 'listening', 'watching', 'playing']).default('doing'), title: req(60), since: str(20), progress: int(0, 100), url: optionalUrl.default(''), detail: str(200) });
+export const workSchema = z.object({
+  title: req(60), id: slugSchema, url: imageUrl, series: str(30), date: str(20), location: str(40), camera: str(40), lens: str(60), focal: str(20), aperture: str(20), shutter: str(20), iso: str(10),
+  width: int(0, 20000), height: int(0, 20000), tags: strList(8, 20), credit: str(200), creditUrl: optionalUrl.default(''),
+});
+export const gearItemSchema = z.object({ name: req(60), brand: str(30), category: z.enum(['相机', '镜头', '手机', '配件', '电脑与外设', '软件']).default('相机'), rating: int(1, 5, 3), since: str(20), url: optionalUrl.default(''), note: str(200) });
+export const shelfItemSchema = z.object({ kind: z.enum(['book', 'movie', 'music', 'game']).default('book'), title: req(60), creator: str(60), year: str(10), status: z.enum(['doing', 'done', 'want']).default('done'), rating: int(0, 5), url: optionalUrl.default(''), note: str(200) });
+export const timelineItemSchema = z.object({ date: req(20), kind: z.enum(['study', 'work', 'project', 'life', 'award']).default('life'), title: req(60), url: optionalUrl.default(''), detail: str(300) });
+export const changelogEntrySchema = z.object({ version: req(20), date: req(20), type: z.enum(['feature', 'improve', 'fix', 'weekly']).default('feature'), title: req(80), items: strList(20, 200) });
+export const repoSchema = z.object({ title: req(40), owner: ghName, repo: ghName, language: str(20), status: z.enum(['active', 'wip', 'archived', 'private']).default('active'), stars: int(0, 10_000_000), forks: int(0, 10_000_000), url: optionalUrl.default(''), topics: strList(8, 30), description: str(240) });
+export const SECTION_KEYS = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos'] as const;
+export type SectionKey = (typeof SECTION_KEYS)[number];
+export const sectionSchemas = {
+  now: z.array(nowItemSchema).max(30),
+  works: z.array(workSchema).max(120).refine((a) => new Set(a.map((x) => x.id)).size === a.length, '作品 id 不能重复'),
+  gear: z.array(gearItemSchema).max(80),
+  shelf: z.array(shelfItemSchema).max(200),
+  timeline: z.array(timelineItemSchema).max(100),
+  changelog: z.array(changelogEntrySchema).max(100),
+  repos: z.array(repoSchema).max(40),
+} as const;
+
+export const CONTENT_KEYS = ['friends', 'gallery', 'favorites', ...SECTION_KEYS] as const;
 export type ContentKey = (typeof CONTENT_KEYS)[number];
 export const contentSchemas = {
   friends: z.array(friendSchema).max(100),
   gallery: z.array(albumSchema).max(50).refine((a) => new Set(a.map((x) => x.slug)).size === a.length, '相册 slug 不能重复'),
   favorites: z.array(favoriteSchema).max(200),
+  ...sectionSchemas,
 } as const;
 export type Friend = z.infer<typeof friendSchema>;
 export type Album = z.infer<typeof albumSchema>;

@@ -11,7 +11,7 @@ import { b64Decode } from './crypto';
 import { storeImage, MAX_IMAGE_BYTES } from './images';
 import * as svc from './service';
 import { COMMUNITY_TOOLS } from './community-mcp';
-import { CONTENT_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
+import { CONTENT_KEYS, SECTION_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
 
 export const SERVER_INFO = { name: 'winston-blog', title: 'Winston 的博客', version: '0.2.0' };
 export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -143,8 +143,8 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'get_site_content',
     title: '获取站点内容',
-    description: '获取友链（friends）、画廊相册（gallery）或收藏（favorites）列表。',
-    input: z.object({ key: z.enum(CONTENT_KEYS).describe('friends | gallery | favorites') }),
+    description: '获取站点内容列表：友链 friends、画廊 gallery、收藏 favorites，以及扩展栏目 now（此刻）、works（作品集）、gear（器材）、shelf（书影音）、timeline（时间线）、changelog（更新日志）、repos（开源项目）。',
+    input: z.object({ key: z.enum(CONTENT_KEYS).describe(CONTENT_KEYS.join(' | ')) }),
     annotations: { readOnlyHint: true, openWorldHint: false },
     run: async (env, a) => ({ key: a.key, items: await svc.getContent(env, a.key) }),
   },
@@ -171,6 +171,14 @@ export const TOOLS: ToolDef[] = [
     input: z.object({ items: z.array(favoriteSchema).max(200) }),
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     run: async (env, a) => ({ items: await svc.setContent(env, 'favorites', a.items) }),
+  },
+  {
+    name: 'update_section',
+    title: '更新扩展栏目',
+    description: '用新列表整体替换一个扩展栏目：now（此刻）、works（作品集）、gear（器材）、shelf（书影音）、timeline（时间线）、changelog（更新日志）、repos（开源项目）。字段见 get_site_content 返回的现有条目；先读取再修改。',
+    input: z.object({ key: z.enum(SECTION_KEYS), items: z.array(z.record(z.string(), z.unknown())).max(200) }),
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    run: async (env, a) => ({ key: a.key, items: await svc.setContent(env, a.key, a.items) }),
   },
   {
     name: 'list_guestbook',

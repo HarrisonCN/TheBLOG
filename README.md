@@ -65,7 +65,8 @@ scripts/e2e.mjs         端到端测试
 - **动效**：滚动入场（`motionary/core` 的 `reveal`）、标题逐词 / 逐字入场（`motionary/runtime/text`）、文章阅读进度条（`motionary/runtime/scroll`）。后台可调强度 off / low / normal / high；`prefers-reduced-motion: reduce` 时完全关闭。
 - **后台 /admin**：密码登录 → 1 小时有效的 httpOnly + Secure + SameSite=Strict 会话 Cookie（`__Host-` 前缀、HS256 JWT）；写操作必须带 `X-CSRF-Token`（与会话绑定，只存在内存）；同一 IP 15 分钟内失败 5 次即 429。可写 / 改 / 删 / 发布文章、Markdown 实时预览、上传图片、改资料、改展示设置（主题、显示哪些区块、精选文章、动效强度、每页数量）。
 - **社区模块**：好朋友（邮箱验证码，可选 Google 登录只取名字和头像）、徽章（珍珠 / 拉丝金属，编号全站唯一）、谁在看网站、便利贴墙、上传与语音留言（R2，仅站长可见）、节日横幅、我的项目。
-- **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
+- **扩展栏目**：此刻（/now/，近况 + 进度条）、作品集（/works/，按系列筛选 + 灯箱大图 + EXIF 参数，方向键 / 滑动切换，`#id` 直达）、器材（/gear/）、书影音（/shelf/，按类型 / 状态筛选）、时间线（/timeline/）、更新日志与周报（/changelog/）、开源项目（/opensource/，浏览器从 GitHub 公开 API 刷新星标，失败显示快照）、数据（/stats/，写作热力图 + 每月发文 + 分类占比）、全站搜索（/search/?q=）、订阅（/subscribe/，`rss.xml` + `feed.json`）。首页新增「此刻与作品」一组瓷砖。全部在后台「栏目」分组里在线编辑，数据存在 `site_content`（迁移 `0005_sections.sql`）；新站点这些栏目默认是空的，空栏目不会出现在首页。
+- **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
 
@@ -91,6 +92,8 @@ scripts/e2e.mjs         端到端测试
 | GET/POST/DELETE | `/api/admin/members[/:id[/badges[/:code]]]` | 好朋友、徽章颁发 / 收回 |
 | GET/POST/DELETE | `/api/admin/notes[/:id]` · `/api/admin/inbox[/files\|voice/:id[/raw]]` | 便利贴审核 · 上传 / 语音收件箱 |
 | GET/PUT | `/api/admin/festivals` · `/api/admin/projects` | 节日与项目 |
+| GET | `/api/content/:key` | 站点内容：`friends` `gallery` `favorites` `now` `works` `gear` `shelf` `timeline` `changelog` `repos` |
+| GET/PUT | `/api/admin/content/:key` | 整体替换上面任一列表（`{ "items": [...] }`，按字段规则校验） |
 
 后台接口接受 **会话 Cookie + CSRF**（浏览器）或 **`Authorization: Bearer <token>`**（脚本 / MCP）。
 
@@ -185,7 +188,8 @@ cd ..
 
 ```bash
 npx wrangler pages project create winston-blog --production-branch main
-BLOG_API_URL=https://blog.example.com npm run build      # 预渲染线上内容；失败会自动回退为空壳
+BLOG_API_URL=https://blog.example.com BLOG_SITE_URL=https://blog.example.com/ npm run build
+# BLOG_API_URL：预渲染线上内容，失败会自动回退为空壳；BLOG_SITE_URL：站点绝对地址，用来生成 rss.xml / feed.json（不设就跳过订阅源）
 npx wrangler pages deploy web/dist --project-name winston-blog --branch main
 ```
 

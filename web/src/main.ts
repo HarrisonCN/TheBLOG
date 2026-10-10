@@ -1,4 +1,5 @@
 import './styles.css';
+import './sections.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -12,6 +13,7 @@ import {
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
 import { initCommunity, bindCommunity } from './community';
+import { bindSections } from './sections-client';
 
 setMarkdownRenderer(renderSafe);
 setBasePath(import.meta.env.BASE_URL);
@@ -87,6 +89,13 @@ async function loadExtra(route: Route): Promise<Extra> {
         case 'friends':
         case 'gallery':
         case 'favorites':
+        case 'now':
+        case 'works':
+        case 'gear':
+        case 'shelf':
+        case 'timeline':
+        case 'changelog':
+        case 'repos':
           x[k] = (extra[k] as never) ?? ((await api.content(k).catch(() => ({ items: [] }))).items as never);
           extra[k] = x[k] as never;
           return;
@@ -788,6 +797,7 @@ function bindPage(page: Page): void {
   bindDeck(root);
   bindCommunity(root, { notify, rerender: () => rerender() });
   bindLab(root);
+  bindSections(root, { notify, searchIndex: () => api.searchIndex(), basePath: url('') });
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
 

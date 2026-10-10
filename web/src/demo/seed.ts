@@ -6,6 +6,8 @@
  * - 头像 SVG 与背景音乐（合成的原创旋律）为本仓库原创。
  * 不包含任何真实账号、密钥或个人隐私信息。
  */
+import type { SectionMap } from '../sections';
+import { createSectionSeed } from './sections-seed';
 import type { Album, Favorite, Friend, Post, Profile, Settings } from '../types';
 import credits from '../../demo-assets/photos/credits.json';
 import type { Festival, Project, Member, StickyNote, GuestbookItem } from './community-types';
@@ -26,6 +28,13 @@ export interface DemoDb {
   members: Member[];
   files: import('./community-types').UploadedFile[];
   voice: import('./community-types').VoiceMessage[];
+  now: SectionMap['now'];
+  works: SectionMap['works'];
+  gear: SectionMap['gear'];
+  shelf: SectionMap['shelf'];
+  timeline: SectionMap['timeline'];
+  changelog: SectionMap['changelog'];
+  repos: SectionMap['repos'];
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */
@@ -353,6 +362,115 @@ ${credit('forest-road')}`,
 ${credit('beach-parasols')}`,
     },
     {
+      slug: 'mcp-blog-endpoint',
+      title: '给博客接上 MCP：让 AI 帮我起草文章',
+      summary: '博客的 Worker 自带一个 MCP 端点：AI 助手可以列文章、写草稿、传图片，但发布永远要我点头。',
+      tags: ['MCP', 'AI', 'Cloudflare'],
+      coverUrl: photo('pudong-night'),
+      category: '前端',
+      pinned: false,
+      wordCount: 0,
+      status: 'published',
+      publishedAt: '2026-10-06T12:00:00.000Z',
+      createdAt: '2026-10-05T12:00:00.000Z',
+      updatedAt: '2026-10-06T12:00:00.000Z',
+      contentMd: `> 示例文章：演示站里的内容都可以在后台改掉。
+
+写博客最难的不是写，而是**开始写**。所以我给博客的 Worker 加了一个 MCP（Model Context Protocol）端点，让 AI 助手能直接帮我起草。
+
+## 它能做什么
+
+- 列出文章、标签和分类，知道我写过什么；
+- 创建和修改**草稿**、上传配图；
+- 读取和更新友链、收藏这类站点内容。
+
+## 它不能做什么
+
+发布永远需要我自己在后台确认。MCP 用的是单独的 API Token，和后台密码分开；Token 只在服务器上保存哈希。
+
+## 和 mcp-gateway 一起用
+
+我自己的 [mcp-gateway](https://github.com/HarrisonCN/mcp-gateway) 可以把博客端点和其他 MCP 服务器聚合到一起，统一做鉴权和限流。仓库里有一份示例配置。
+
+${credit('pudong-night')}`,
+    },
+    {
+      slug: 'coloros-beta-notes',
+      title: '系统内测笔记：我是怎么写体验反馈的',
+      summary: '参加手机系统公测一年多，总结出一份反馈模板：一句话结论、复现步骤、预期与实际、影响范围。',
+      tags: ['ColorOS', '体验测试', '产品'],
+      coverUrl: photo('field-bindweed'),
+      category: '产品',
+      pinned: false,
+      wordCount: 0,
+      status: 'published',
+      publishedAt: '2026-09-20T10:00:00.000Z',
+      createdAt: '2026-09-19T10:00:00.000Z',
+      updatedAt: '2026-09-20T10:00:00.000Z',
+      contentMd: `> 示例文章：演示站里的内容都可以在后台改掉。
+
+参加系统公测（我用的是 ColorOS）之后，我发现**一条好反馈的价值远远大于十条“好卡”**。
+
+## 我的反馈模板
+
+1. **一句话结论**：在哪个界面、做了什么、出了什么问题；
+2. **复现步骤**：从解锁开始写，每一步一行；
+3. **预期 vs 实际**：分开写，不要混在一起；
+4. **影响范围**：必现还是偶现？换个应用 / 重启后还有吗？
+5. **附件**：录屏比截图更有用，开发者选项里打开“显示触摸操作”。
+
+## 动效问题怎么描述
+
+“掉帧”太模糊。我会写：*从桌面上滑进入多任务时，卡片在第 2～3 帧有明显停顿*，再附上 120 fps 的录屏。
+
+## 不要做的事
+
+- 不在反馈里抱怨情绪，只描述事实；
+- 不泄露未公开的功能截图——内测协议要遵守。
+
+${credit('field-bindweed')}`,
+    },
+    {
+      slug: 'scroll-motion-budget',
+      title: '滚动动效的性能预算',
+      summary: '一个页面里同时跑多少动画才算多？我给自己定的预算：首屏传输、主线程时间和掉帧率三条线。',
+      tags: ['动效', '性能', '前端'],
+      coverUrl: photo('baltic-view'),
+      category: '前端',
+      pinned: false,
+      wordCount: 0,
+      status: 'published',
+      publishedAt: '2026-10-02T09:00:00.000Z',
+      createdAt: '2026-10-01T09:00:00.000Z',
+      updatedAt: '2026-10-02T09:00:00.000Z',
+      contentMd: `> 示例文章：演示站里的内容都可以在后台改掉。
+
+这个博客用了很多动效，所以我给它定了一份**性能预算**，每次改版都要过线。
+
+## 三条线
+
+| 指标 | 预算 |
+| --- | --- |
+| 首屏 JS（gzip） | 不超过 60 KB，其余组件按需加载 |
+| 长任务 | 首屏没有超过 50 ms 的主线程任务 |
+| 滚动掉帧 | 中端手机上 95% 的帧在 16.7 ms 内 |
+
+## 怎么做到
+
+- **按需加载**：页面上出现哪个 \`<usa-*>\` 标签才加载对应的组件块；
+- **只动 transform 和 opacity**，不动布局属性；
+- **IntersectionObserver** 代替 scroll 事件；
+- 屏幕外的动画暂停，系统开启“减少动态效果”时直接关掉位移。
+
+\`\`\`ts
+const io = new IntersectionObserver((entries) => {
+  for (const e of entries) e.target.classList.toggle('is-in', e.isIntersecting);
+}, { rootMargin: '0px 0px -10% 0px' });
+\`\`\`
+
+${credit('baltic-view')}`,
+    },
+    {
       slug: 'film-simulation-draft',
       title: '草稿：我的三套胶片模拟参数',
       summary: '还没写完的草稿，演示后台里“草稿”状态的样子。',
@@ -478,5 +596,6 @@ ${credit('beach-parasols')}`,
     ],
     files: [],
     voice: [],
+    ...createSectionSeed(photo, PHOTO_CREDITS),
   };
 }

@@ -200,6 +200,35 @@ describe('站点内容与留言板', () => {
     expect((await call(env, '/api/admin/content/friends', { method: 'PUT', body: { items: [] } })).status).toBe(401);
   });
 
+  it('扩展栏目（此刻 / 作品集 / 器材 / 书影音 / 时间线 / 更新日志 / 开源）：默认空、整体替换、补默认值并校验', async () => {
+    for (const k of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos']) {
+      const r = await call(env, `/api/content/${k}`);
+      expect(r.status).toBe(200);
+      expect(((await r.json()) as any).items).toEqual([]);
+    }
+    const now = await call(env, '/api/admin/content/now', { method: 'PUT', token: API_TOKEN, body: { items: [{ kind: 'playing', title: 'Counter-Strike 2' }] } });
+    expect(now.status).toBe(200);
+    expect(((await (await call(env, '/api/content/now')).json()) as any).items).toEqual([{ kind: 'playing', title: 'Counter-Strike 2', since: '', progress: 0, url: '', detail: '' }]);
+    const repos = await call(env, '/api/admin/content/repos', { method: 'PUT', token: API_TOKEN, body: { items: [{ title: 'Motionary', owner: 'HarrisonCN', repo: 'Motionary', stars: 3, topics: ['motion'] }] } });
+    expect(repos.status).toBe(200);
+    expect(((await repos.json()) as any).items[0]).toMatchObject({ status: 'active', forks: 0, topics: ['motion'] });
+    const bad = [
+      ['works', [{ title: 'x', id: 'Bad Id', url: 'https://a.example/x.jpg' }]],
+      ['works', [{ title: 'x', id: 'a', url: 'javascript:alert(1)' }]],
+      ['works', [{ title: 'x', id: 'a', url: '/a.jpg' }, { title: 'y', id: 'a', url: '/b.jpg' }]],
+      ['now', [{ kind: 'sleeping', title: 'x' }]],
+      ['now', [{ title: 'x', progress: 101 }]],
+      ['gear', [{ name: 'x', rating: 9 }]],
+      ['shelf', [{ title: 'x', url: 'javascript:1' }]],
+      ['timeline', [{ title: 'x' }]],
+      ['changelog', [{ version: 'v1', date: '2026-10-10', title: 'x', items: new Array(21).fill('a') }]],
+      ['repos', [{ title: 'x', owner: '../evil' }]],
+    ] as const;
+    for (const [k, items] of bad) expect((await call(env, `/api/admin/content/${k}`, { method: 'PUT', token: API_TOKEN, body: { items } })).status, k).toBe(400);
+    const cleared = await call(env, '/api/admin/content/now', { method: 'PUT', token: API_TOKEN, body: { items: [] } });
+    expect(cleared.status).toBe(200);
+  });
+
   it('留言：公开提交为待审核，审核后公开；校验与跨站拒绝', async () => {
     const r = await call(env, '/api/guestbook', { body: { name: '访客', content: '你好呀', website: 'https://a.example' } });
     expect(r.status).toBe(201);
