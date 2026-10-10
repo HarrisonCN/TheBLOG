@@ -10,6 +10,9 @@ import { escapeHtml as e, plainText, renderMarkdown, safeHref } from './markdown
 import { festivalIcon, icon, SOCIAL_ICON, stripEmoji } from './icons';
 import type { Album, CategoryCount, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SiteData, TagCount } from './types';
 import { activeFestival, type Festival, type Project, type PublicMember, type StickyNote } from './demo/community-types';
+import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
+export { rssXml, jsonFeed } from './sections';
+import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
@@ -51,6 +54,16 @@ export type Route =
   | { name: 'privacy' }
   | { name: 'join' }
   | { name: 'mailbox' }
+  | { name: 'now' }
+  | { name: 'works' }
+  | { name: 'gear' }
+  | { name: 'shelf' }
+  | { name: 'timeline' }
+  | { name: 'changelog' }
+  | { name: 'opensource' }
+  | { name: 'stats' }
+  | { name: 'search' }
+  | { name: 'subscribe' }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -65,7 +78,19 @@ const STATIC: Record<string, Route['name']> = {
   '/privacy': 'privacy',
   '/join': 'join',
   '/mailbox': 'mailbox',
+  '/now': 'now',
+  '/works': 'works',
+  '/gear': 'gear',
+  '/shelf': 'shelf',
+  '/timeline': 'timeline',
+  '/changelog': 'changelog',
+  '/opensource': 'opensource',
+  '/stats': 'stats',
+  '/search': 'search',
+  '/subscribe': 'subscribe',
 };
+/** 扩展栏目的静态路由（预渲染用） */
+export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe'] as const;
 
 function decode(s: string): string | null {
   try {
@@ -157,7 +182,7 @@ export function readingMinutes(words: number): number {
 export function formatCount(n: number): string {
   return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
-function hashHue(s: string): number {
+export function hashHue(s: string): number {
   let h = 0;
   for (const ch of s) h = (h * 31 + ch.codePointAt(0)!) % 360;
   return h;
@@ -206,13 +231,20 @@ export interface Extra {
   guestbook?: GuestbookEntry[];
   notes?: StickyNote[];
   members?: PublicMember[];
+  now?: NowItem[];
+  works?: Work[];
+  gear?: GearItem[];
+  shelf?: ShelfItem[];
+  timeline?: TimelineItem[];
+  changelog?: ChangelogEntry[];
+  repos?: Repo[];
 }
 
 /** 每个路由需要额外拉取的数据。 */
 export function needs(r: Route): (keyof Extra)[] {
   switch (r.name) {
     case 'home':
-      return r.page === 1 ? ['gallery', 'notes', 'friends', 'members'] : [];
+      return r.page === 1 ? ['gallery', 'notes', 'friends', 'members', 'now', 'works', 'repos', 'changelog', 'shelf'] : [];
     case 'post':
       return ['post'];
     case 'gallery':
@@ -226,6 +258,17 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['guestbook', 'notes'];
     case 'about':
       return ['members'];
+    case 'now':
+    case 'works':
+    case 'gear':
+    case 'shelf':
+    case 'timeline':
+    case 'changelog':
+      return [r.name];
+    case 'opensource':
+      return ['repos', 'changelog'];
+    case 'stats':
+      return ['changelog'];
     default:
       return [];
   }
@@ -244,20 +287,27 @@ export const NAV: NavItem[] = [
     label: '文章',
     icon: 'book',
     href: '/archives/',
-    match: ['archives', 'tags', 'tag', 'categories', 'category', 'post'],
+    match: ['archives', 'tags', 'tag', 'categories', 'category', 'post', 'search', 'stats', 'subscribe'],
     children: [
       { label: '归档', icon: 'archive', href: '/archives/' },
       { label: '标签', icon: 'tag', href: '/tags/' },
       { label: '分类', icon: 'folder', href: '/categories/' },
+      { label: '搜索', icon: 'search', href: '/search/' },
+      { label: '数据', icon: 'chart', href: '/stats/' },
+      { label: '订阅', icon: 'rss', href: '/subscribe/' },
     ],
   },
   {
     label: '百宝箱',
     icon: 'box',
     href: '/gallery/',
-    match: ['gallery', 'album', 'favorites'],
+    match: ['gallery', 'album', 'favorites', 'works', 'gear', 'shelf', 'opensource'],
     children: [
+      { label: '作品集', icon: 'aperture', href: '/works/' },
       { label: '画廊', icon: 'image', href: '/gallery/' },
+      { label: '器材', icon: 'camera', href: '/gear/' },
+      { label: '书影音', icon: 'library', href: '/shelf/' },
+      { label: '开源项目', icon: 'code', href: '/opensource/' },
       { label: '收藏与项目', icon: 'star', href: '/favorites/' },
     ],
   },
@@ -277,9 +327,12 @@ export const NAV: NavItem[] = [
     label: '关于',
     icon: 'user',
     href: '/about/',
-    match: ['about', 'privacy'],
+    match: ['about', 'privacy', 'now', 'timeline', 'changelog'],
     children: [
       { label: '关于我', icon: 'user', href: '/about/' },
+      { label: '此刻', icon: 'clock', href: '/now/' },
+      { label: '时间线', icon: 'history', href: '/timeline/' },
+      { label: '更新日志', icon: 'list', href: '/changelog/' },
       { label: '隐私说明', icon: 'eye', href: '/privacy/' },
     ],
   },
@@ -352,19 +405,19 @@ export function footer(site: SiteData): string {
 }
 
 // ---------------------------------------------------------------- 瓷砖
-type Size = 'xl' | 'l' | 'm' | 's' | 'full' | 'half' | 'third' | 'twothird' | 'quarter';
+export type Size = 'xl' | 'l' | 'm' | 's' | 'full' | 'half' | 'third' | 'twothird' | 'quarter';
 /** 一个 bento 瓷砖。size 决定在 12 列网格里的跨度；rows 决定行跨度。 */
-function tile(size: Size, body: string, o: { cls?: string; rows?: number; tag?: string; attrs?: string; label?: string; href?: string } = {}): string {
+export function tile(size: Size, body: string, o: { cls?: string; rows?: number; tag?: string; attrs?: string; label?: string; href?: string } = {}): string {
   const tag = o.href ? 'a' : (o.tag ?? 'section');
   const href = o.href ? ` href="${o.href}"` : '';
   return `<${tag} class="tile tile--${size}${o.rows ? ` tile--r${o.rows}` : ''} reveal${o.cls ? ` ${o.cls}` : ''}"${href}${o.label ? ` aria-label="${e(o.label)}"` : ''}${o.attrs ? ` ${o.attrs}` : ''}>${body}</${tag}>`;
 }
-const kicker = (ic: string, text: string) => `<p class="tile__kicker">${icon(ic)}<span>${text}</span></p>`;
-const more = (href: string, text = '查看全部') => `<a class="tile__more" href="${href}">${text}${icon('arrowRight')}</a>`;
-const bento = (inner: string, cls = '', attrs = '') => `<div class="bento${cls ? ` ${cls}` : ''}"${attrs ? ` ${attrs}` : ''}>${inner}</div>`;
+export const kicker = (ic: string, text: string) => `<p class="tile__kicker">${icon(ic)}<span>${text}</span></p>`;
+export const more = (href: string, text = '查看全部') => `<a class="tile__more" href="${href}">${text}${icon('arrowRight')}</a>`;
+export const bento = (inner: string, cls = '', attrs = '') => `<div class="bento${cls ? ` ${cls}` : ''}"${attrs ? ` ${attrs}` : ''}>${inner}</div>`;
 
 /** 页首瓷砖：大标题 + 副标题 + 可选背景图。 */
-function pageHead(title: string, sub = '', image?: string | null, extra = ''): string {
+export function pageHead(title: string, sub = '', image?: string | null, extra = ''): string {
   return bento(
     tile('full', `${image ? `<div class="head-tile__bg"${bgStyle(image)}></div>` : ''}<div class="head-tile__body"><h1 class="head-tile__title" data-split>${e(title)}</h1>${sub ? `<p class="head-tile__sub">${sub}</p>` : ''}</div>${extra}`, {
       cls: `head-tile${image ? ' head-tile--img' : ''}`,
@@ -466,7 +519,7 @@ function pagination(page: number, pages: number): string {
 }
 
 // ---------------------------------------------------------------- 页面
-function shell(site: SiteData, route: Route, o: Partial<Page> & { title: string }): Page {
+export function shell(site: SiteData, route: Route, o: Partial<Page> & { title: string }): Page {
   const t = o.title === site.settings.siteTitle ? o.title : `${o.title} | ${site.settings.siteTitle}`;
   return {
     title: t,
@@ -726,7 +779,7 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
     title: s.siteTitle,
     description: s.siteDescription,
     top,
-    main: `${bento(tiles, 'bento--home', 'id="content"')}${more2}`,
+    main: `${bento(tiles, 'bento--home', 'id="content"')}${homeSections(site, x)}${more2}`,
     kind: 'page--home',
   });
 }
@@ -1183,6 +1236,26 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return joinPage(site);
     case 'mailbox':
       return mailboxPage(site);
+    case 'now':
+      return nowPage(site, x.now ?? []);
+    case 'works':
+      return worksPage(site, x.works ?? []);
+    case 'gear':
+      return gearPage(site, x.gear ?? []);
+    case 'shelf':
+      return shelfPage(site, x.shelf ?? []);
+    case 'timeline':
+      return timelinePage(site, x.timeline ?? []);
+    case 'changelog':
+      return changelogPage(site, x.changelog ?? []);
+    case 'opensource':
+      return opensourcePage(site, x.repos ?? [], x.changelog ?? []);
+    case 'stats':
+      return statsPage(site, x.changelog ?? []);
+    case 'search':
+      return searchPage(site);
+    case 'subscribe':
+      return subscribePage(site);
     default:
       return notFoundPage(site);
   }

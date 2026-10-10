@@ -64,6 +64,15 @@ const P: Record<string, string> = {
   dragon: '<path d="M3 15c3-4 6 2 9-2s6 2 9-2"/><path d="M3 19c3-4 6 2 9-2s6 2 9-2"/><path d="M16 6.5a3 3 0 1 1 3 3"/>',
   envelope: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 8.5c4 3 10 3 14 0"/><circle cx="12" cy="11.5" r="2"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  music: '<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  gamepad: '<path d="M7 7h10a5 5 0 0 1 4.9 6l-.7 3.5a2.5 2.5 0 0 1-4.3 1.2L14.5 15h-5l-2.4 2.7a2.5 2.5 0 0 1-4.3-1.2L2.1 13A5 5 0 0 1 7 7z"/><path d="M7.5 10v3M6 11.5h3"/><circle cx="16" cy="10.5" r=".6"/><circle cx="17.5" cy="12.5" r=".6"/>',
+  aperture: '<circle cx="12" cy="12" r="8.5"/><path d="m14.3 3.8-4.6 8M20.2 10.2h-9.2M17.6 18.6l-4.6-8M9.7 20.2l4.6-8M3.8 13.8h9.2M6.4 5.4l4.6 8"/>',
+  library: '<path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16 5.2 3.8-1 3.2 15.2-3.8 1z"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2M3 12.5h18"/>',
+  code: '<path d="m8.5 7-5 5 5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/>',
+  fork: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 11.5V17"/>',
+  lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  zoom: '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5M11 8v6M8 11h6"/>',
 };
 
 export type IconName = keyof typeof P;

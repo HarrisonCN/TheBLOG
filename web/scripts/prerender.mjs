@@ -91,6 +91,7 @@ if (API || DEMO) {
       notes: (await soft('/api/notes', { notes: [] })).notes,
       members: (await soft('/api/members', { members: [] })).members,
     };
+    for (const k of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos']) extra[k] = (await soft(`/api/content/${k}`, { items: [] })).items;
     // 每个页面只嵌入它需要的额外数据
     const emit = (route, x = {}) => {
       const want = R.needs(route);
@@ -103,7 +104,16 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(site.posts.length / per));
     for (let n = 1; n <= pages; n++) emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox']) emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES]) emit({ name });
+    // 订阅源：RSS 2.0 + JSON Feed（需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
+    const siteUrl = DEMO ? (process.env.BLOG_SITE_URL ?? `https://harrisoncn.github.io${BASE}`) : process.env.BLOG_SITE_URL;
+    if (siteUrl) {
+      const feed = { title: settings.siteTitle, description: settings.siteDescription, siteUrl, posts: list.posts };
+      writeFileSync(join(dist, 'rss.xml'), R.rssXml(feed));
+      writeFileSync(join(dist, 'feed.json'), R.jsonFeed(feed));
+    } else {
+      console.warn('[prerender] 未设置 BLOG_SITE_URL（站点的绝对地址），跳过 rss.xml / feed.json。');
+    }
     // Pages 按解码后的路径查找文件；含路径分隔符或以 . 开头的标签 / 分类不生成静态页（浏览器端回退渲染）
     for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) emit({ name: 'tag', tag: t.tag });
     for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) emit({ name: 'category', category: c.category });
@@ -136,7 +146,8 @@ if (DEMO) {
 }
 
 // 2) Cloudflare Pages 响应头
-const connect = ["'self'", API_BASE && new URL(API_BASE).origin].filter(Boolean).join(' ');
+// api.github.com：开源项目页从 GitHub 公开 API 刷新星标数（只读、匿名）
+const connect = ["'self'", API_BASE && new URL(API_BASE).origin, 'https://api.github.com'].filter(Boolean).join(' ');
 const img = ["'self'", 'https:', 'data:'].join(' ');
 writeFileSync(
   join(dist, '_headers'),

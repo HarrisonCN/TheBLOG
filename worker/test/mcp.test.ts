@@ -11,7 +11,7 @@ afterAll(disposeEnv);
 const EXPECTED_TOOLS = [
   'list_posts', 'get_post', 'create_post', 'update_post', 'delete_post', 'publish_post',
   'get_profile', 'update_profile', 'get_settings', 'update_settings', 'upload_image',
-  'list_categories', 'get_site_content', 'update_friends', 'update_gallery', 'update_favorites', 'list_guestbook', 'moderate_guestbook',
+  'list_categories', 'get_site_content', 'update_friends', 'update_gallery', 'update_favorites', 'update_section', 'list_guestbook', 'moderate_guestbook',
   'list_members', 'grant_badge', 'revoke_badge', 'list_sticky_notes', 'moderate_sticky_note', 'list_inbox', 'moderate_inbox', 'get_festivals', 'set_festivals', 'set_projects',
 ];
 
@@ -71,6 +71,17 @@ describe('MCP 传输层', () => {
 });
 
 describe('MCP 工具', () => {
+  it('update_section：整体替换扩展栏目并校验；get_site_content 读回', async () => {
+    const r = await tool(env, 'update_section', { key: 'now', items: [{ kind: 'learning', title: 'WebGPU', progress: 30 }] });
+    expect(r.isError).toBe(false);
+    expect(r.structuredContent.items[0]).toEqual({ kind: 'learning', title: 'WebGPU', since: '', progress: 30, url: '', detail: '' });
+    const g = await tool(env, 'get_site_content', { key: 'now' });
+    expect(g.structuredContent.items).toHaveLength(1);
+    const bad = await tool(env, 'update_section', { key: 'repos', items: [{ title: 'x', url: 'javascript:alert(1)' }] });
+    expect(bad.isError).toBe(true);
+    const unknown = await tool(env, 'update_section', { key: 'friends', items: [] });
+    expect(unknown.isError).toBe(true);
+  });
   it('create → get → update → publish → list → delete', async () => {
     const c = await tool(env, 'create_post', { title: 'MCP Post', slug: 'mcp-post', contentMd: '# 来自 MCP', tags: ['mcp'] });
     expect(c.isError).toBe(false);

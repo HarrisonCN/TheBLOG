@@ -81,7 +81,7 @@ try {
   await client.connect(transport);
   assert(client.getServerVersion()?.name === 'winston-blog', `initialize 成功，协议 ${transport.protocolVersion ?? '(未知)'}`);
   const { tools } = await client.listTools();
-  assert(tools.length === 28, `tools/list 返回 ${tools.length} 个工具`);
+  assert(tools.length === 29, `tools/list 返回 ${tools.length} 个工具`);
 
   const slug = 'e2e-hello-mcp';
   let r = await client.callTool({ name: 'create_post', arguments: { title: 'E2E 初稿', slug, contentMd: '初稿内容', tags: ['e2e'] } });
@@ -110,7 +110,7 @@ try {
   assert(withCsrf.status === 200, '带 CSRF token 的写请求成功');
 
   step('前端构建 + 预渲染（BLOG_API_URL 指向本地 Worker）');
-  execFileSync('npm', ['run', 'build'], { cwd: webDir, env: { ...env, BLOG_API_URL: BASE }, stdio: 'pipe' });
+  execFileSync('npm', ['run', 'build'], { cwd: webDir, env: { ...env, BLOG_API_URL: BASE, BLOG_SITE_URL: 'https://blog.example.com/' }, stdio: 'pipe' });
   const postHtml = join(webDir, 'dist', 'posts', slug, 'index.html');
   assert(existsSync(postHtml), `生成 dist/posts/${slug}/index.html`);
   const html = readFileSync(postHtml, 'utf8');
@@ -121,6 +121,11 @@ try {
   assert(home.includes(`href="/posts/${slug}/"`) && home.includes('精选'), '首页列出该文章且显示精选');
   assert(existsSync(join(webDir, 'dist', 'tags', 'e2e', 'index.html')), '生成标签页 /tags/e2e/');
   assert(readFileSync(join(webDir, 'dist', 'about', 'index.html'), 'utf8').includes('长沙'), '关于页包含后台修改的资料');
+  for (const p of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe']) assert(existsSync(join(webDir, 'dist', p, 'index.html')), `生成扩展栏目 /${p}/`);
+  const rss = readFileSync(join(webDir, 'dist', 'rss.xml'), 'utf8');
+  assert(rss.includes(`<link>https://blog.example.com/posts/${slug}/</link>`), 'rss.xml 含 MCP 发布的文章（绝对链接）');
+  assert(JSON.parse(readFileSync(join(webDir, 'dist', 'feed.json'), 'utf8')).items.length > 0, 'feed.json 有效');
+  assert(readFileSync(join(webDir, 'dist', '_headers'), 'utf8').includes('https://api.github.com'), 'CSP 允许读取 GitHub 公开 API（开源页星标）');
   console.log('\n✅ E2E 全部通过');
 } catch (e) {
   console.error('\n❌ E2E 失败：', e.message);

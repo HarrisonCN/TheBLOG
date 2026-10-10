@@ -70,6 +70,7 @@ jobs:
       - name: Build frontend (prerender from production API)
         env:
           BLOG_API_URL: ${{ vars.BLOG_ORIGIN }}
+          BLOG_SITE_URL: ${{ vars.BLOG_ORIGIN }}
         run: npm run build
       - name: Deploy Pages
         run: npx wrangler pages deploy web/dist --project-name "${{ vars.PAGES_PROJECT || 'winston-blog' }}" --branch main

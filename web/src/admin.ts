@@ -14,9 +14,10 @@ import { toggleTheme } from './theme';
 import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings } from './types';
 import { normalizeSettings } from './types';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
+import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox';
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -27,6 +28,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '概览', items: [['dash', 'dashboard', '仪表盘']] },
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目']] },
+  { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
   { group: '社区', items: [['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
@@ -154,6 +156,7 @@ async function go(next?: View): Promise<void> {
       case 'festivals': return await renderFestivals();
       case 'members': return await renderMembers();
       case 'inbox': return await renderInbox();
+      default: if (isSectionKey(view)) return await renderSection(view);
     }
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 401)) mount(tile('full', `<p class="adm-msg adm-msg--err is-on">${e(errText(err))}</p>`));
@@ -514,7 +517,7 @@ async function renderProfile(): Promise<void> {
 }
 
 // ============================================================ 通用列表编辑器（友链 / 收藏 / 画廊 / 项目 / 节日）
-interface FieldDef { key: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select'; options?: string[]; wide?: boolean; placeholder?: string }
+interface FieldDef { key: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select' | 'list' | 'lines'; options?: string[]; optionLabels?: Record<string, string>; wide?: boolean; placeholder?: string }
 function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T[]; fields: FieldDef[]; blank: T; title: (x: T) => string; preview?: (x: T) => string; save: (items: T[]) => Promise<unknown> }): void {
   let items = o.items.map((x) => ({ ...x }));
   const card = (x: T, i: number) => `<div class="adm-item" data-i="${i}">
@@ -523,13 +526,13 @@ function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T
   <div class="adm-item__fields">${o.fields
     .map((f) => {
       const v = x[f.key];
-      const val = Array.isArray(v) ? '' : String(v ?? '');
+      const val = Array.isArray(v) ? (f.type === 'list' ? v.join('，') : f.type === 'lines' ? v.join('\n') : '') : String(v ?? '');
       const name = `${f.key}`;
       const input =
-        f.type === 'textarea'
+        f.type === 'textarea' || f.type === 'lines'
           ? `<textarea name="${name}" class="adm-short" placeholder="${e(f.placeholder ?? '')}">${e(f.key === 'photos' ? photosText(v as Album['photos']) : val)}</textarea>`
           : f.type === 'select'
-            ? `<select name="${name}">${(f.options ?? []).map((op) => `<option${op === val ? ' selected' : ''}>${e(op)}</option>`).join('')}</select>`
+            ? `<select name="${name}">${(f.options ?? []).map((op) => `<option value="${e(op)}"${op === val ? ' selected' : ''}>${e(f.optionLabels?.[op] ?? op)}</option>`).join('')}</select>`
             : `<input name="${name}" ${f.type === 'number' ? 'type="number" min="0"' : ''} value="${e(val)}" placeholder="${e(f.placeholder ?? '')}">`;
       return `<label class="field${f.wide ? ' field--wide' : ''}"><span>${e(f.label)}</span>${input}</label>`;
     })
@@ -544,7 +547,7 @@ function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T
       for (const f of o.fields) {
         const inp = el.querySelector<HTMLInputElement>(`[name="${f.key}"]`);
         if (!inp) continue;
-        x[f.key] = f.key === 'photos' ? parsePhotos(inp.value) : f.type === 'number' ? Number(inp.value) || 0 : inp.value.trim();
+        x[f.key] = f.key === 'photos' ? parsePhotos(inp.value) : f.type === 'number' ? Number(inp.value) || 0 : f.type === 'list' ? toList(inp.value) : f.type === 'lines' ? toList(inp.value, true) : inp.value.trim();
       }
       return x as T;
     });
@@ -608,6 +611,32 @@ async function renderContent(key: ContentKey): Promise<void> {
       fields: [{ key: 'title', label: '标题' }, { key: 'slug', label: 'slug' }, { key: 'date', label: '日期' }, { key: 'cover', label: '封面 URL' }, { key: 'description', label: '描述', wide: true }, { key: 'photos', label: '照片', type: 'textarea', wide: true, placeholder: 'https://… | 说明' }],
     });
   }
+}
+
+/** 扩展栏目（此刻 / 作品集 / 器材 / 书影音 / 时间线 / 更新日志 / 开源项目）：按 sections.ts 的字段规格生成表单。 */
+async function renderSection(key: SectionKey): Promise<void> {
+  const spec = SECTION_SPECS[key];
+  const { items } = await optional(adminFetch<{ items: Record<string, unknown>[] }>(`/api/admin/content/${key}`), { items: [] });
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  mount(listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
+  const fields: FieldDef[] = spec.fields.map((f) => ({
+    key: f.key,
+    label: f.label,
+    wide: f.wide,
+    placeholder: 'placeholder' in f ? f.placeholder : undefined,
+    ...(f.t === 'int' ? { type: 'number' as const } : f.t === 'enum' ? { type: 'select' as const, options: [...f.options], optionLabels: f.labels } : f.t === 'list' ? { type: f.lines ? ('lines' as const) : ('list' as const) } : f.t === 'str' && f.textarea ? { type: 'textarea' as const } : {}),
+  }));
+  const blank = Object.fromEntries(spec.fields.map((f) => [f.key, f.t === 'int' ? f.min : f.t === 'enum' ? f.options[0] : f.t === 'list' ? [] : ''])) as Record<string, unknown>;
+  const thumb = (u: unknown) => (typeof u === 'string' && u ? `<img src="${e(rawUrl(u))}" alt="" loading="lazy">` : '');
+  listEditor<Record<string, unknown>>({
+    id: 'list',
+    items,
+    blank,
+    title: (x) => String(x.title ?? x.name ?? x.version ?? '') + (x.date ? ` · ${String(x.date)}` : ''),
+    preview: key === 'works' ? (x) => thumb(x.url) : undefined,
+    save: (list) => put(`/api/admin/content/${key}`, { items: list }),
+    fields,
+  });
 }
 
 async function renderProjects(): Promise<void> {

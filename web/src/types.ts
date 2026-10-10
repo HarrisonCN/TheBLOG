@@ -1,3 +1,4 @@
+import type { SectionKey, SectionMap } from './sections';
 export interface PostSummary {
   id: number;
   slug: string;
@@ -95,8 +96,8 @@ export interface Favorite {
   description: string;
   group: string;
 }
-export type ContentKey = 'friends' | 'gallery' | 'favorites';
-export interface ContentMap {
+export type ContentKey = 'friends' | 'gallery' | 'favorites' | SectionKey;
+export interface ContentMap extends SectionMap {
   friends: Friend[];
   gallery: Album[];
   favorites: Favorite[];

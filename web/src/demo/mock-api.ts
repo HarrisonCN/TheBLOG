@@ -5,6 +5,7 @@
  */
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 
 export interface KV {
@@ -111,7 +112,7 @@ function summary(p: Post): PostSummary {
   return rest;
 }
 
-const CONTENT_KEYS: ContentKey[] = ['friends', 'gallery', 'favorites'];
+const CONTENT_KEYS: ContentKey[] = ['friends', 'gallery', 'favorites', ...SECTION_KEYS];
 const isContentKey = (k: string): k is ContentKey => (CONTENT_KEYS as string[]).includes(k);
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'] as const;
@@ -137,7 +138,12 @@ export class DemoBackend {
       const raw = this.storage.getItem(DB_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as DemoDb;
-        if (parsed?.version === 2 && Array.isArray(parsed.posts)) db = parsed;
+        if (parsed?.version === 2 && Array.isArray(parsed.posts)) {
+          // 旧版本地数据没有新栏目：用种子数据补齐
+          const seed = SECTION_KEYS.some((k) => !Array.isArray(parsed[k])) ? createSeed(this.base) : null;
+          if (seed) for (const k of SECTION_KEYS) if (!Array.isArray(parsed[k])) (parsed as unknown as Record<string, unknown>)[k] = seed[k];
+          db = parsed;
+        }
       }
     } catch {
       db = null;
@@ -543,6 +549,14 @@ export class DemoBackend {
 
   private setContent(key: ContentKey, items: unknown): unknown[] {
     if (!Array.isArray(items)) throw new MockError(400, 'validation_error', 'items 必须是数组');
+    if (isSectionKey(key)) {
+      const r = validateSection(key, items);
+      check(r.issues);
+      const db = structuredClone(this.db());
+      (db as unknown as Record<string, unknown>)[key] = r.items;
+      this.save(db);
+      return r.items;
+    }
     const issues: Issue[] = [];
     const max = key === 'favorites' ? 200 : key === 'gallery' ? 50 : 100;
     if (items.length > max) issues.push({ path: 'items', message: `最多 ${max} 项` });
