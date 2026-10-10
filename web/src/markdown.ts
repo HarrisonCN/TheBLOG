@@ -6,6 +6,7 @@
  * 浏览器端再经过 DOMPurify（见 sanitize.ts）做第二道防线；预渲染（Node）依赖本模块本身的安全性。
  */
 import { Marked, type Tokens } from 'marked';
+import { highlight, langLabel } from './highlight';
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -41,6 +42,11 @@ const marked = new Marked({
     heading(this: any, token: Tokens.Heading) {
       const text = this.parser.parseInline(token.tokens);
       return `<h${token.depth} id="${escapeHtml(headingId(token.text))}">${text}</h${token.depth}>\n`;
+    },
+    // 代码块：语言标签 + 轻量高亮；复制按钮由浏览器端加上（DOMPurify 不允许正文里出现 <button>）
+    code(token: Tokens.Code) {
+      const label = langLabel(token.lang);
+      return `<pre class="code" tabindex="0"${label ? ` data-lang="${escapeHtml(label)}"` : ''}><code>${highlight(token.text.replace(/\n$/, ''), token.lang)}</code></pre>\n`;
     },
     html(token: Tokens.HTML | Tokens.Tag) {
       return escapeHtml(token.text);

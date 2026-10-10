@@ -68,6 +68,13 @@ scripts/e2e.mjs         端到端测试
 - **后台 /admin**：密码登录 → 1 小时有效的 httpOnly + Secure + SameSite=Strict 会话 Cookie（`__Host-` 前缀、HS256 JWT）；写操作必须带 `X-CSRF-Token`（与会话绑定，只存在内存）；同一 IP 15 分钟内失败 5 次即 429。可写 / 改 / 删 / 发布文章、Markdown 实时预览、上传图片、改资料、改展示设置（主题、显示哪些区块、精选文章、动效强度、每页数量）。
 - **社区模块**：好朋友（邮箱验证码，可选 Google 登录只取名字和头像）、徽章（珍珠 / 拉丝金属，编号全站唯一）、谁在看网站、便利贴墙、上传与语音留言（R2，仅站长可见）、节日横幅、我的项目。
 - **扩展栏目**：此刻（/now/，近况 + 进度条）、作品集（/works/，按系列筛选 + 灯箱大图 + EXIF 参数，方向键 / 滑动切换，`#id` 直达）、器材（/gear/）、书影音（/shelf/，按类型 / 状态筛选）、时间线（/timeline/）、更新日志与周报（/changelog/）、开源项目（/opensource/，浏览器从 GitHub 公开 API 刷新星标，失败显示快照）、数据（/stats/，写作热力图 + 每月发文 + 分类占比）、全站搜索（/search/?q=）、订阅（/subscribe/，`rss.xml` + `feed.json`）。首页新增「此刻与作品」一组瓷砖。全部在后台「栏目」分组里在线编辑，数据存在 `site_content`（迁移 `0005_sections.sql`）；新站点这些栏目默认是空的，空栏目不会出现在首页。
+- **⌘K / Ctrl K 命令面板**：一个框搜文章（标题 / 标签 / 正文片段，模糊匹配并高亮）、页面、分类、标签，也能执行操作（切换深浅色、复制链接、随便看一篇、回到顶部、分享本文、打开 RSS）；↑↓ 选择、Enter 打开（⌘/Ctrl + Enter 新标签页）、Esc 关闭，焦点不会跑出对话框；空输入时显示「最近」、最新文章、常用页面；没有结果时一键去 /search/ 全文搜索。`/` 也能打开。
+- **代码块**：轻量语法高亮（JS/TS、JSON、CSS、HTML、Shell、Python、YAML、SQL，构建期就输出，无运行时依赖）、语言标签、复制按钮；可横向滚动的代码块能用键盘聚焦。标题悬停出现 `#`，点击复制本节链接。
+- **表情回应**：文章末尾 👍 ❤️ 🎉 🤯 🤔 📷 六个固定表情，匿名、同一访客同一表情只算一次（服务器只存加盐 IP 哈希，D1 限流 10 分钟 60 次），可以撤销；接口 `GET/POST /api/posts/:slug/reactions`（迁移 `0006_reactions.sql`，首次部署新版 Worker 前要先 `wrangler d1 migrations apply blog --remote`；deploy.yml 会自动执行）。旧 Worker 没有接口时自动隐藏。
+- **继续阅读**：每篇文章读到的位置只记在访客自己的浏览器里（localStorage，最多 20 篇）；再打开时底部提示「上次读到 42% · 继续阅读」，首页侧栏「继续阅读」列出读了一半的文章，可一键清除。
+- **分享海报**：文章页「分享」打开分享面板：复制链接、系统分享（Web Share API，支持时连海报一起分享）、下载分享海报（封面 + 标题 + 摘要 + 指向本文的二维码，在浏览器里用 canvas 生成，二维码用 [uqr](https://github.com/unjs/uqr)）。
+- **离线（PWA）**：`manifest.webmanifest` + service worker（范围只限站点前缀，GitHub Pages 演示版是 `/TheBLOG/`；不缓存 `/admin`、`/api`、`/mcp`）。页面网络优先、带哈希的资源缓存优先、图片和字体后台更新；看过的页面离线也能打开，没缓存的显示离线页，顶部提示「离线中」。在浏览器里执行 `localStorage.setItem('blog-no-sw','1')` 可关闭注册。
+- **SEO**：每页 canonical、Open Graph、Twitter 卡片；文章页加 `article:*` 与 JSON-LD（BlogPosting）；构建时生成 `sitemap.xml` 与 `robots.txt`（需要 `BLOG_SITE_URL`，演示版自动使用 GitHub Pages 地址）。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -94,6 +101,7 @@ scripts/e2e.mjs         端到端测试
 | GET/POST/DELETE | `/api/admin/members[/:id[/badges[/:code]]]` | 好朋友、徽章颁发 / 收回 |
 | GET/POST/DELETE | `/api/admin/notes[/:id]` · `/api/admin/inbox[/files\|voice/:id[/raw]]` | 便利贴审核 · 上传 / 语音收件箱 |
 | GET/PUT | `/api/admin/festivals` · `/api/admin/projects` | 节日与项目 |
+| GET/POST | `/api/posts/:slug/reactions` | 表情回应计数 / `{ "emoji": "👍", "on": true \| false }`（固定 6 个表情，同一来源 10 分钟 60 次） |
 | GET | `/api/content/:key` | 站点内容：`friends` `gallery` `favorites` `now` `works` `gear` `shelf` `timeline` `changelog` `repos` |
 | GET/PUT | `/api/admin/content/:key` | 整体替换上面任一列表（`{ "items": [...] }`，按字段规则校验） |
 
@@ -221,7 +229,7 @@ API token 需要的权限（Account 级）：**Workers Scripts: Edit**、**D1: E
 
 ## 第三方依赖与许可
 
-本项目 MIT。运行时依赖：`motionary`（MIT）、`marked`（MIT）、`dompurify`（MPL-2.0 OR Apache-2.0）、`zod`（MIT）。开发依赖：`wrangler`、`@cloudflare/workers-types`、`@modelcontextprotocol/sdk`、`vite`、`vitest`、`typescript`。
+本项目 MIT。运行时依赖：`motionary`（MIT）、`marked`（MIT）、`dompurify`（MPL-2.0 OR Apache-2.0）、`uqr`（MIT，分享海报的二维码，按需加载）、`zod`（MIT）。开发依赖：`wrangler`、`@cloudflare/workers-types`、`@modelcontextprotocol/sdk`、`vite`、`vitest`、`typescript`。
 
 ## 图片致谢
 

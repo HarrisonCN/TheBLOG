@@ -6,6 +6,7 @@ import { serveImage, uploadFromRequest } from './images';
 import { CONTENT_KEYS, listQuerySchema, type ContentKey } from './schema';
 import * as svc from './service';
 import { routeAdmin as communityAdmin, routePublic as communityPublic } from './community';
+import { routeReactions } from './reactions';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -68,6 +69,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
 
   // ---------- 社区（好朋友 / 便利贴 / 在线 / 上传 / 节日 / 项目） ----------
   if (m === 'POST') checkOrigin(req, env);
+  const reactions = await routeReactions(req, env, path, () => readJson(req, 1024));
+  if (reactions) return reactions;
   const community = await communityPublic(req, env, path, url, () => readJson(req, 16 * 1024));
   if (community) return community;
 
