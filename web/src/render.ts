@@ -11,6 +11,8 @@ import { festivalIcon, icon, SOCIAL_ICON, stripEmoji } from './icons';
 import type { Album, CategoryCount, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SiteData, TagCount } from './types';
 import { activeFestival, type Festival, type Project, type PublicMember, type StickyNote } from './demo/community-types';
 import { REACTIONS } from './reactions-core';
+import { noteTextHtml } from './note-style-view';
+import { DEFAULT_NOTE_STYLE, EFFECT_LABELS, FONT_LABELS, INK_PRESETS, NOTE_EFFECTS, NOTE_FONTS, NOTE_SIZES, SIZE_LABELS } from './note-style';
 import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
 export { rssXml, jsonFeed } from './sections';
 import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
@@ -379,7 +381,7 @@ export function navbar(site: SiteData, route: Route): string {
       <button class="nav__btn nav__btn--search js-search" type="button" aria-label="搜索">${icon('search')}</button>
       <button class="nav__btn js-theme" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
       <a class="nav__btn nav__me js-me" href="${url('/join/')}" aria-label="好朋友登录 / 注册" title="好朋友登录 / 注册">${icon('user')}</a>
-      <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer">${icon('menu')}</button>
+      <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('menu')}</usa-icon-morph></button>
     </div>
   </div>
 </header>`;
@@ -395,7 +397,7 @@ export function drawer(site: SiteData): string {
   return `<div class="drawer" id="drawer" hidden>
   <div class="drawer__mask js-drawer-close"></div>
   <aside class="drawer__panel" aria-label="菜单">
-    <div class="drawer__head">${avatarImg(site.profile, 'drawer__avatar')}<div><strong>${e(site.profile.name)}</strong>${counts(site)}</div><button class="nav__btn js-drawer-close" type="button" aria-label="关闭菜单">${icon('close')}</button></div>
+    <div class="drawer__head">${avatarImg(site.profile, 'drawer__avatar')}<div><strong>${e(site.profile.name)}</strong>${counts(site)}</div><button class="nav__btn drawer__close js-drawer-close" type="button" aria-label="关闭菜单" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('close')}</usa-icon-morph></button></div>
     <button class="drawer__search js-search" type="button">${icon('search')}<span>搜索文章、主题或关键词…</span></button>
     <nav class="drawer__nav">${groups}</nav>
   </aside>
@@ -672,9 +674,28 @@ function featuredPanel(list: PostSummary[]): string {
 }
 
 function latestPanel(list: PostSummary[], page: number, pages: number, total: number): string {
-  return `<section class="panel panel--latest" aria-labelledby="h-latest">${secHead('clock', page > 1 ? `最新文章 · 第 ${page} 页` : '最新文章', page > 1 ? `全部 ${total} 篇` : '持续更新创作与思考', url('/archives/'), 'h-latest')}
-  <div class="llist">${list.length ? list.map(postRow).join('') : '<p class="empty">还没有文章。</p>'}</div>
+  return `<section class="panel panel--latest js-paged" aria-labelledby="h-latest">${secHead('clock', page > 1 ? `最新文章 · 第 ${page} 页` : '最新文章', page > 1 ? `全部 ${total} 篇` : '持续更新创作与思考', url('/archives/'), 'h-latest')}
+  <div class="llist" id="latest-list">${listRows(list)}</div>
   ${pagination(page, pages)}</section>`;
+}
+const listRows = (list: PostSummary[]) => (list.length ? list.map(postRow).join('') : '<p class="empty">还没有文章。</p>');
+
+/** 栏目内翻页用：只取「最新文章」这一栏需要替换的部分（标题、副标题、列表、分页条、页面标题）。 */
+export function latestParts(site: SiteData, page: number): { page: number; pages: number; title: string; sub: string; rows: string; pager: string; docTitle: string } | null {
+  const per = Math.max(1, site.settings.postsPerPage);
+  const pages = Math.max(1, Math.ceil(site.posts.length / per));
+  if (!Number.isInteger(page) || page < 1 || page > pages) return null;
+  const list = site.posts.slice((page - 1) * per, page * per);
+  const t = site.settings.siteTitle;
+  return {
+    page,
+    pages,
+    title: page > 1 ? `最新文章 · 第 ${page} 页` : '最新文章',
+    sub: page > 1 ? `全部 ${site.total} 篇` : '持续更新创作与思考',
+    rows: listRows(list),
+    pager: pagination(page, pages),
+    docTitle: page > 1 ? `第 ${page} 页 | ${t}` : t,
+  };
 }
 
 /** 侧栏卡片外壳 */
@@ -744,7 +765,7 @@ function notesCard(notes: StickyNote[]): string {
     'notes-card',
     `${secHead('pin', '访客便签', '', url('/guestbook/#wall'))}${
       list.length
-        ? `<ul class="notes-mini">${list.map((n, i) => `<li class="note note--${e(n.color)}" style="--r:${[-2, 1.5, -1, 2][i % 4]}deg"><p>${e(n.content)}</p><small>— ${e(n.name)}</small></li>`).join('')}</ul>`
+        ? `<ul class="notes-mini">${list.map((n, i) => `<li class="note note--${e(n.color)}" style="--r:${[-2, 1.5, -1, 2][i % 4]}deg"><p>${noteTextHtml(n.content, n.style, n.color)}</p><small>— ${e(n.name)}</small></li>`).join('')}</ul>`
         : '<p class="empty">还没有便签，来贴第一张吧。</p>'
     }<a class="btn btn--soft btn--block" href="${url('/guestbook/#wall')}">${icon('plus')}贴一张便签</a>`,
     '访客便签',
@@ -1092,12 +1113,9 @@ export function guestbookPage(site: SiteData, entries: GuestbookEntry[] = [], no
   <textarea id="gb-content" name="content" rows="4" maxlength="1000" required placeholder="说点什么吧……（留言需要审核后显示）"></textarea>
   <div class="gb-form__foot"><span class="muted">请文明发言 · 不收集你的邮箱与 IP</span><usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn" type="submit">${icon('message')}发送</button></usa-button></div>
 </form>`;
-  const wall = `${secHead('pin', '便签墙', '贴一句话给路过的人看 · 被 3 位访客举报会自动隐藏')}<usa-sticky-wall label="访客便利贴" class="sticky-wall js-sticky-wall">${notes.filter((n) => !n.hidden).map((n) => `<p data-color="${e(n.color)}" data-id="${n.id}">${e(n.content)}<small>— ${e(n.name)}</small></p>`).join('')}</usa-sticky-wall>
+  const wall = `${secHead('pin', '便签墙', '贴一句话给路过的人看 · 被 3 位访客举报会自动隐藏')}<usa-sticky-wall label="访客便利贴" class="sticky-wall js-sticky-wall">${notes.filter((n) => !n.hidden).map((n) => `<p data-color="${e(n.color)}" data-id="${n.id}">${noteTextHtml(n.content, n.style, n.color)}<small>— ${e(n.name)}</small></p>`).join('')}</usa-sticky-wall>
 <form class="note-form js-note-form" autocomplete="off">
-  <input name="name" maxlength="20" placeholder="昵称" required aria-label="昵称">
-  <input name="content" maxlength="60" placeholder="写一句话贴在墙上（60 字以内）" required aria-label="便利贴内容">
-  <select name="color" aria-label="便签颜色"><option value="yellow">黄色便签</option><option value="pink">粉色便签</option><option value="blue">蓝色便签</option><option value="green">绿色便签</option></select>
-  <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn btn--primary" type="submit">${icon('pin')}贴上去</button></usa-button>
+${noteComposer()}
 </form>`;
   return shell(site, { name: 'guestbook' }, {
     title: '留言板',
@@ -1105,6 +1123,36 @@ export function guestbookPage(site: SiteData, entries: GuestbookEntry[] = [], no
     top: pageHead('留言与便签', `${entries.length} 条留言 · ${notes.filter((n) => !n.hidden).length} 张便签`),
     main: bento(`${tile('half', form, { cls: 'gb-tile' })}${tile('half', `${kicker('users', '大家说')}${list}`, { cls: 'comments-tile' })}${tile('full', wall, { cls: 'wall-tile', attrs: 'id="wall"' })}`),
   });
+}
+
+/** 便签编辑器：文字 + 纸张 + 文字样式 DIY（颜色 / 字体 / 字号 / 粗斜体 / 特效），右侧实时预览。 */
+export function noteComposer(): string {
+  const d = DEFAULT_NOTE_STYLE;
+  const radios = (name: string, list: readonly string[], labels: Record<string, string>, cur: string) =>
+    list.map((v) => `<label class="seg"><input type="radio" name="${name}" value="${v}"${v === cur ? ' checked' : ''}><span>${labels[v]}</span></label>`).join('');
+  const swatches = INK_PRESETS.map((c) => `<label class="ink" title="${c.label}"><input type="radio" name="ink" value="${c.hex}"${c.hex === d.color ? ' checked' : ''}><span style="--sw:${c.hex}"></span><b class="visually-hidden">${c.label}</b></label>`).join('');
+  return `<div class="note-compose">
+  <div class="note-compose__fields">
+    <div class="note-compose__row"><input name="name" maxlength="20" placeholder="昵称" required aria-label="昵称">
+    <select name="color" aria-label="便签纸颜色"><option value="yellow">黄色便签</option><option value="pink">粉色便签</option><option value="blue">蓝色便签</option><option value="green">绿色便签</option></select></div>
+    <input name="content" maxlength="60" placeholder="写一句话贴在墙上（60 字以内）" required aria-label="便利贴内容">
+    <details class="note-diy js-note-diy">
+      <summary>${icon('edit')}<span>文字样式 DIY</span><small class="muted">颜色 · 字体 · 字号 · 特效</small></summary>
+      <fieldset class="diy-group"><legend>文字颜色</legend><div class="inks">${swatches}<label class="ink ink--custom" title="自定义颜色"><input type="radio" name="ink" value="custom"><span class="ink__wheel"></span><b class="visually-hidden">自定义颜色</b></label><input type="color" name="customColor" value="#155e75" aria-label="自定义文字颜色" class="ink__picker"></div>
+      <p class="diy-hint js-ink-hint muted" role="status"></p></fieldset>
+      <fieldset class="diy-group"><legend>字体</legend><div class="segs">${radios('font', NOTE_FONTS, FONT_LABELS, d.font)}</div></fieldset>
+      <fieldset class="diy-group"><legend>字号</legend><div class="segs">${radios('size', NOTE_SIZES, SIZE_LABELS, d.size)}</div></fieldset>
+      <fieldset class="diy-group"><legend>字形</legend><div class="segs"><label class="seg"><input type="checkbox" name="bold"><span><b>粗体</b></span></label><label class="seg"><input type="checkbox" name="italic"><span><i>斜体</i></span></label></div></fieldset>
+      <fieldset class="diy-group"><legend>特效</legend><div class="segs">${radios('effect', NOTE_EFFECTS, EFFECT_LABELS, d.effect)}</div><p class="muted small">系统开启「减少动态效果」时，会动的特效显示为静态。</p></fieldset>
+      <button class="link-btn js-diy-reset" type="button">${icon('refresh')}恢复默认样式</button>
+    </details>
+  </div>
+  <figure class="note-preview" aria-label="便签预览">
+    <div class="note-preview__paper js-note-preview" data-paper="yellow"><p class="js-note-preview-text">${noteTextHtml('写一句话贴在墙上', d)}</p><small>— <span class="js-note-preview-name">你的昵称</span></small></div>
+    <figcaption class="muted small">实时预览</figcaption>
+  </figure>
+  <usa-button deform="squash" morph="submit" class="js-submit-btn note-compose__submit"><button class="btn btn--primary" type="submit">${icon('pin')}贴上去</button></usa-button>
+</div>`;
 }
 
 export function aboutPage(site: SiteData, members: PublicMember[] = []): Page {

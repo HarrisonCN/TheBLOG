@@ -9,6 +9,7 @@ import { clientIp, getCookie } from './auth';
 import { randomToken, sha256Hex, timingSafeEqual } from './crypto';
 import { sniffImageType } from './images';
 import { validate } from './service';
+import { isDefaultStyle, validateNoteStyle, type NoteStyle } from './note-style';
 
 const nowIso = () => new Date().toISOString();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -336,11 +337,34 @@ export async function presence(req: Request, env: Env, input: unknown) {
 }
 
 // ============================================================ 便利贴
-export interface StickyNote { id: number; name: string; content: string; color: 'yellow' | 'pink' | 'blue' | 'green'; reports: number; hidden: boolean; createdAt: string }
-interface NoteRow { id: number; name: string; content: string; color: StickyNote['color']; reports: number; hidden: number; created_at: string }
-const rowToNote = (r: NoteRow): StickyNote => ({ id: r.id, name: r.name, content: r.content, color: r.color, reports: r.reports, hidden: !!r.hidden, createdAt: r.created_at });
+export interface StickyNote { id: number; name: string; content: string; color: 'yellow' | 'pink' | 'blue' | 'green'; style: NoteStyle | null; reports: number; hidden: boolean; createdAt: string }
+interface NoteRow { id: number; name: string; content: string; color: StickyNote['color']; style?: string | null; reports: number; hidden: number; created_at: string }
+/** 读库时再校验一遍样式：库里有任何不合法的值都按默认样式（null）返回，绝不把原样数据交给前端。 */
+function rowStyle(r: NoteRow): NoteStyle | null {
+  if (!r.style) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(r.style);
+  } catch {
+    return null;
+  }
+  const v = validateNoteStyle(raw, r.color);
+  return v.ok && !isDefaultStyle(v.style) ? v.style : null;
+}
+const rowToNote = (r: NoteRow): StickyNote => ({ id: r.id, name: r.name, content: r.content, color: r.color, style: rowStyle(r), reports: r.reports, hidden: !!r.hidden, createdAt: r.created_at });
 
-export const noteCreateSchema = z.object({ name: text(20).min(1), content: text(60).min(1), color: z.enum(['yellow', 'pink', 'blue', 'green']).optional().default('yellow') });
+export const noteCreateSchema = z
+  .object({ name: text(20).min(1), content: text(60).min(1), color: z.enum(['yellow', 'pink', 'blue', 'green']).optional().default('yellow'), style: z.unknown().optional() })
+  .strict()
+  .transform((v, ctx) => {
+    // 样式对象用和前端同一份校验器（note-style.ts）：白名单字段、枚举、#rrggbb、与纸张的对比度
+    const st = validateNoteStyle(v.style ?? null, v.color);
+    if (!st.ok) {
+      ctx.addIssue({ code: 'custom', path: ['style'], message: st.error });
+      return z.NEVER;
+    }
+    return { name: v.name, content: v.content, color: v.color, style: v.style === undefined || v.style === null || isDefaultStyle(st.style) ? null : st.style };
+  });
 export const noteModerateSchema = z.object({ id: z.number().int().positive(), action: z.enum(['show', 'hide', 'delete']) });
 export const NOTE_HIDE_AT = 3;
 
@@ -352,7 +376,7 @@ export async function listNotes(env: Env, opts: { all?: boolean } = {}): Promise
 export async function createNote(req: Request, env: Env, input: unknown): Promise<StickyNote> {
   const v = validate(noteCreateSchema, input);
   await rateLimit(env, 'note', await ipKey(req, env), 5, 600, '便利贴贴得太快啦，10 分钟后再来');
-  const r = await env.DB.prepare('INSERT INTO sticky_notes (name, content, color, created_at) VALUES (?, ?, ?, ?) RETURNING *').bind(v.name, v.content, v.color, nowIso()).first<NoteRow>();
+  const r = await env.DB.prepare('INSERT INTO sticky_notes (name, content, color, style, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *').bind(v.name, v.content, v.color, v.style ? JSON.stringify(v.style) : null, nowIso()).first<NoteRow>();
   return rowToNote(r!);
 }
 

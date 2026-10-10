@@ -4,11 +4,14 @@
  */
 import './styles.css';
 import './admin.css';
+import './motion-ui.css';
 import { request, ApiError, API_BASE, DEMO } from './api';
 import { escapeHtml as e } from './markdown';
 import { renderSafe } from './sanitize';
 import { icon } from './icons';
 import { defineUsed } from './usa';
+import { resultIconHtml } from './result-icon';
+import { installIconMotion } from './icon-motion';
 import { backdrop, festivalText, memberBadge } from './render';
 import { toggleTheme } from './theme';
 import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SocialIcon } from './types';
@@ -55,7 +58,10 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 function msg(text: string, err = false): void {
   const el = root.querySelector<HTMLElement>('.adm-msg');
   if (!el) return;
-  el.textContent = text;
+  // 结果图标：Motionary <usa-check>（描入 + 弹一下）；文字单独放一个 span
+  el.innerHTML = text ? `${resultIconHtml(err ? 'error' : 'success', 18)}<span></span>` : '';
+  el.querySelector('span')?.append(text);
+  void defineUsed(el);
   el.classList.toggle('adm-msg--err', err);
   el.classList.toggle('is-on', !!text);
   clearTimeout(toastTimer);
@@ -875,6 +881,7 @@ root.addEventListener('click', async (ev) => {
     const { mountDemoBanner } = await import('./demo/client');
     mountDemoBanner({ siteHref: import.meta.env.BASE_URL });
   }
+  installIconMotion();
   const fromHash = location.hash.slice(1) as View;
   if (fromHash in TITLE) view = fromHash;
   try {

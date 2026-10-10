@@ -7,6 +7,7 @@ import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSumm
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
 import { isReaction, REACTION_SET } from '../reactions-core';
 import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
+import { isDefaultStyle, validateNoteStyle } from '../note-style';
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 
 export interface KV {
@@ -685,9 +686,12 @@ export class DemoBackend {
     const name = strField(o, 'name', issues, { min: 1, max: 20, required: true });
     const content = strField(o, 'content', issues, { min: 1, max: 60, required: true });
     const color = (NOTE_COLORS as readonly string[]).includes(o.color as string) ? (o.color as StickyNote['color']) : 'yellow';
+    const st = validateNoteStyle(o.style, color);
+    if (!st.ok) issues.push({ path: 'style', message: st.error });
     check(issues);
     const db = structuredClone(this.db());
-    const note: StickyNote = { id: Math.max(0, ...db.notes.map((n) => n.id)) + 1, name: name!, content: content!, color, reports: 0, hidden: false, createdAt: this.now().toISOString() };
+    const style = o.style === undefined || o.style === null || !st.ok || isDefaultStyle(st.style) ? null : st.style;
+    const note: StickyNote = { id: Math.max(0, ...db.notes.map((n) => n.id)) + 1, name: name!, content: content!, color, style, reports: 0, hidden: false, createdAt: this.now().toISOString() };
     db.notes.push(note);
     if (db.notes.length > 60) db.notes.splice(0, db.notes.length - 60);
     this.save(db);

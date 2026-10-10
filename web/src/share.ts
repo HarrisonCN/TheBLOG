@@ -5,6 +5,7 @@
  */
 import { encode } from 'uqr';
 import { icon } from './icons';
+import { flashResult } from './result-icon';
 
 export interface ShareInfo {
   title: string;
@@ -213,8 +214,8 @@ export async function openShareDialog(info: ShareInfo, notify: (m: string, t?: '
     const input = dlg.querySelector<HTMLInputElement>('.share-dlg__url input')!;
     input.select();
     void (navigator.clipboard?.writeText(info.url) ?? Promise.reject())
-      .then(() => notify('链接已复制', 'success'))
-      .catch(() => notify('请手动复制输入框里的链接', 'info'));
+      .then(() => (flashResult(dlg.querySelector<HTMLElement>('.js-share-copy')!, 'success'), notify('链接已复制', 'success')))
+      .catch(() => (flashResult(dlg.querySelector<HTMLElement>('.js-share-copy')!, 'error'), notify('请手动复制输入框里的链接', 'info')));
   });
   dlg.querySelector('.js-share-native')?.addEventListener('click', () => {
     const file = blob ? new File([blob], posterFileName(info.title), { type: 'image/png' }) : null;

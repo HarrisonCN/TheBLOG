@@ -1,3 +1,4 @@
+import type { NoteStyle } from '../note-style';
 /** 社区功能（好朋友、上传、语音、便利贴、节日、徽章）的数据类型：前端、演示 mock 与 Worker 保持一致。 */
 export type BadgeStyle = 'pearlescent' | 'brushed-metal';
 export interface Badge {
@@ -51,6 +52,8 @@ export interface StickyNote {
   name: string;
   content: string;
   color: 'yellow' | 'pink' | 'blue' | 'green';
+  /** 发帖人 DIY 的文字样式（严格校验过的对象；旧便签为 null → 默认样式）。 */
+  style?: NoteStyle | null;
   reports: number;
   hidden: boolean;
   createdAt: string;

@@ -252,3 +252,5 @@
 .adm-login__back { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
 .adm-brand__logo { border-radius: 50%; background: linear-gradient(135deg, #2f6bff, #7aa7ff); box-shadow: 0 6px 14px -6px rgb(47 107 255 / 0.6); }
 .adm-top h1 { font-family: var(--serif); letter-spacing: 0; }
+.adm-msg.is-on { display: inline-flex; align-items: center; gap: 0.5rem; }
+.adm-msg--err usa-check { --usa-check-color: #fff; }

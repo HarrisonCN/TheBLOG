@@ -1,0 +1,133 @@
+/* ===== 动效 / 交互升级：描边图标、结果图标、转场遮罩、栏目内翻页、菜单图标变形、便签文字 DIY ===== */
+
+/* ---------- 1) 会动的描边图标（icon-motion.ts）---------- */
+svg.si { overflow: visible; }
+html.si-on svg.si:not(.si-in) > * { stroke-dasharray: 1 1; stroke-dashoffset: 1; opacity: 0; }
+html.si-on svg.si.si-in > * { stroke-dasharray: 1 1; animation: si-draw 0.72s cubic-bezier(0.65, 0, 0.35, 1) var(--si-d, 0ms) both; }
+@keyframes si-draw {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  8% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* ---------- 2) 结果图标（Motionary <usa-check>）---------- */
+usa-check.result-ico { flex: none; --usa-check-color: #0b7a52; }
+usa-check.result-ico[data-kind="error"] { --usa-check-color: #c81e1e; }
+usa-check.result-ico[data-kind="warning"] { --usa-check-color: #a15c07; }
+:root[data-theme="dark"] usa-check.result-ico { --usa-check-color: #5fd38c; }
+:root[data-theme="dark"] usa-check.result-ico[data-kind="error"] { --usa-check-color: #ff8a8a; }
+:root[data-theme="dark"] usa-check.result-ico[data-kind="warning"] { --usa-check-color: #f5c451; }
+usa-toaster .usa-toast usa-check.result-ico { width: 22px; height: 22px; margin-top: 1px; }
+.code-copy usa-check.result-ico, .bm usa-check.result-ico, .btn usa-check.result-ico { width: 16px; height: 16px; }
+
+/* ---------- 3) 进入二级界面的白色遮罩（route-veil.ts）---------- */
+.route-veil {
+  position: fixed; inset: 0; z-index: 2147482000; display: grid; place-items: center;
+  background: var(--tile, #fff); clip-path: circle(0 at 50% 50%); pointer-events: auto; contain: strict;
+}
+:root[data-theme="dark"] .route-veil { background: var(--tile, #131b2a); }
+.route-veil__loader { opacity: 0; transform: translateY(6px) scale(0.96); transition: opacity 0.18s ease, transform 0.25s ease; color: var(--accent, #2563eb); --usa-spinner-color: var(--accent, #2563eb); }
+.route-veil.is-loading .route-veil__loader { opacity: 1; transform: none; }
+html[data-veil="open"] { cursor: progress; }
+
+/* ---------- 4) 栏目内翻页：只在列表上转 ring（list-pager.ts）---------- */
+.js-paged { position: relative; }
+.js-paged .llist { transition: opacity 0.2s ease; }
+.js-paged.is-paging .llist { opacity: 0.38; pointer-events: none; }
+.list-busy { position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none; }
+.list-busy usa-spinner { position: absolute; left: 50%; top: var(--ring-y, 120px); transform: translate(-50%, -50%); color: var(--accent, #2563eb); --usa-spinner-color: var(--accent, #2563eb); }
+.lrow--in { animation: lrow-in 0.42s cubic-bezier(0.25, 1, 0.5, 1) var(--in-d, 0ms) both; }
+@keyframes lrow-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.sec-head__title:focus { outline: none; }
+.sec-head__title:focus-visible { outline: 2px solid var(--accent, #2563eb); outline-offset: 4px; border-radius: 6px; }
+
+/* ---------- 5) 菜单 ↔ 关闭：Motionary <usa-icon-morph> ---------- */
+.menu-morph { display: inline-grid; place-items: center; width: 22px; height: 22px; line-height: 0; pointer-events: none; }
+.menu-morph svg { width: 22px; height: 22px; }
+.menu-morph path { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- 6) 便签文字 DIY ---------- */
+.ns { color: var(--ns-c, #3f3a2e); display: inline; font-size: var(--ns-fs, 1em); line-height: 1.35; overflow-wrap: anywhere; }
+.ns--f-sans { font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+.ns--f-serif { font-family: "Noto Serif SC", "Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", Georgia, serif; }
+.ns--f-kai { font-family: "Kaiti SC", "STKaiti", "KaiTi", "BiauKai", "AR PL UKai CN", "Noto Serif SC", serif; }
+.ns--f-hand { font-family: "Comic Sans MS", "Segoe Print", "Bradley Hand", "Xingkai SC", "STXingkai", "Kaiti SC", "KaiTi", cursive, system-ui; }
+.ns--f-round { font-family: ui-rounded, "SF Pro Rounded", "Yuanti SC", "YouYuan", "Varela Round", "Hiragino Maru Gothic ProN", system-ui, sans-serif; }
+.ns--f-mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "Noto Sans Mono CJK SC", monospace; }
+.ns--s-s { --ns-fs: 0.88em; }
+.ns--s-m { --ns-fs: 1em; }
+.ns--s-l { --ns-fs: 1.22em; }
+.ns--s-xl { --ns-fs: 1.48em; }
+.ns--b { font-weight: 700; }
+.ns--i { font-style: italic; }
+.ns--fx-shadow { text-shadow: 1px 2px 0 rgb(0 0 0 / 0.18); }
+.ns--fx-glow { text-shadow: 0 0 6px color-mix(in srgb, var(--ns-c) 45%, transparent), 0 0 1px color-mix(in srgb, var(--ns-c) 60%, transparent); }
+.ns--fx-gradient {
+  background: linear-gradient(100deg, var(--ns-c) 10%, color-mix(in srgb, var(--ns-c) 70%, #7c3aed) 55%, color-mix(in srgb, var(--ns-c) 72%, #be185d) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.ns__c { display: inline-block; white-space: pre; }
+.ns--fx-wobble .ns__c { animation: ns-wobble 1.6s ease-in-out calc(var(--i) * -110ms) infinite; }
+@keyframes ns-wobble { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-2px) rotate(-4deg); } 75% { transform: translateY(1px) rotate(3deg); } }
+.ns--fx-rainbow .ns__c { color: hsl(calc(var(--i) * 32) 72% 32%); animation: ns-rainbow 3.2s linear calc(var(--i) * -140ms) infinite; }
+@keyframes ns-rainbow {
+  0% { color: hsl(0 72% 32%); } 16% { color: hsl(30 80% 28%); } 33% { color: hsl(140 70% 24%); }
+  50% { color: hsl(200 80% 28%); } 66% { color: hsl(250 60% 40%); } 83% { color: hsl(310 60% 34%); } 100% { color: hsl(360 72% 32%); }
+}
+.ns--fx-typewriter { display: inline-block; border-right: 2px solid var(--ns-c); padding-right: 2px; clip-path: inset(0 0 0 0); animation: ns-type calc(var(--ns-n) * 90ms + 300ms) steps(var(--ns-n), end) 0.3s both, ns-caret 0.8s step-end infinite; }
+@keyframes ns-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ns-caret { 50% { border-right-color: transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .ns--anim, .ns--anim .ns__c { animation: none !important; transform: none !important; clip-path: none !important; }
+  .ns--fx-typewriter { border-right-color: transparent; }
+}
+html[data-motion="off"] .ns--anim, html[data-motion="off"] .ns--anim .ns__c, html[data-paused] .ns--anim, html[data-paused] .ns--anim .ns__c { animation: none !important; transform: none !important; clip-path: none !important; }
+
+/* 编辑器 + 实时预览 */
+.note-form .note-compose { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 1rem 1.2rem; align-items: start; width: 100%; }
+.note-compose__fields { display: grid; gap: 0.6rem; min-width: 0; }
+.note-compose__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; }
+.note-compose input:not([type="radio"]):not([type="checkbox"]):not([type="color"]), .note-compose select { min-width: 0; width: 100%; }
+.note-compose__submit { grid-column: 1 / -1; justify-self: start; }
+.note-diy { border: 1px solid var(--hairline, rgb(0 0 0 / 0.08)); border-radius: 14px; padding: 0.2rem 0.8rem; background: color-mix(in srgb, var(--tile) 70%, transparent); }
+.note-diy > summary { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; padding: 0.55rem 0; color: var(--heading); font-weight: 600; list-style: none; }
+.note-diy > summary::-webkit-details-marker { display: none; }
+.note-diy > summary small { font-weight: 400; margin-left: auto; }
+.note-diy[open] > summary { border-bottom: 1px solid var(--hairline, rgb(0 0 0 / 0.08)); margin-bottom: 0.4rem; }
+.diy-group { border: 0; margin: 0 0 0.55rem; padding: 0; min-width: 0; }
+.diy-group legend { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.3rem; padding: 0; }
+.segs, .inks { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.seg { position: relative; }
+.seg input, .ink input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.seg span { display: inline-flex; align-items: center; min-height: 32px; padding: 0 0.7rem; border-radius: 999px; border: 1px solid var(--tile-border, rgb(0 0 0 / 0.1)); background: var(--tile); color: var(--text); font-size: 0.86rem; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.seg input:checked + span { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.seg input:focus-visible + span, .ink input:focus-visible + span { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; }
+.ink span { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--sw); border: 2px solid var(--tile); box-shadow: 0 0 0 1px var(--tile-border, rgb(0 0 0 / 0.15)); cursor: pointer; }
+.ink input:checked + span { box-shadow: 0 0 0 2px var(--accent, #2563eb); }
+.ink__wheel { background: conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444) !important; }
+.ink__picker { width: 36px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; display: none; }
+.inks.is-custom .ink__picker { display: inline-block; }
+.diy-hint:empty { display: none; }
+.diy-hint { margin: 0.35rem 0 0; font-size: 0.8rem; }
+.note-preview { margin: 0; display: grid; gap: 0.35rem; justify-items: center; position: sticky; top: calc(var(--nav-h, 64px) + 12px); }
+.note-preview__paper { position: relative; width: 180px; min-height: 140px; padding: 22px 14px 14px; box-sizing: border-box; background: #fef08a; color: #3f3a2e; transform: rotate(-1.5deg); box-shadow: 0 12px 18px -12px rgb(0 0 0 / 0.45), inset 0 -12px 18px -14px rgb(0 0 0 / 0.25); font: 500 14px/1.4 "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive, system-ui; }
+.note-preview__paper::before { content: ''; position: absolute; top: 6px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fca5a5, #dc2626 70%); }
+.note-preview__paper[data-paper="pink"] { background: #fbcfe8; }
+.note-preview__paper[data-paper="blue"] { background: #bae6fd; }
+.note-preview__paper[data-paper="green"] { background: #bbf7d0; }
+.note-preview__paper p { margin: 0 0 0.4rem; }
+.note-preview__paper small { color: rgb(40 36 20 / 0.85); font-size: 0.78rem; }
+@media (max-width: 720px) {
+  .note-form .note-compose { grid-template-columns: minmax(0, 1fr); }
+  .note-preview { position: static; order: -1; }
+}
+
+/* ---------- 减少动态效果：所有动效关掉 / 缩短 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html.si-on svg.si > * { animation: none !important; stroke-dashoffset: 0 !important; opacity: 1 !important; }
+  .lrow--in { animation: none; }
+  .route-veil__loader { transition: none; }
+}
+/* 便签表单现在只有一个编辑器子元素：覆盖旧的四列网格 */
+.note-form, .wall-tile .note-form { display: block !important; grid-template-columns: none !important; }

@@ -1,3 +1,4 @@
+import type { NoteStyle } from './note-style';
 import type { Festival, Project, PublicMember, StickyNote, Viewer } from './demo/community-types';
 import type { CategoryCount, ContentKey, ContentMap, GuestbookEntry, Post, PostSummary, Profile, SearchDoc, Settings, TagCount } from './types';
 
@@ -71,7 +72,7 @@ export const api = {
   projects: () => request<{ items: Project[] }>('/api/projects'),
   members: () => request<{ members: PublicMember[] }>('/api/members'),
   notes: () => request<{ notes: StickyNote[] }>('/api/notes'),
-  postNote: (body: { name: string; content: string; color: string }) => request<StickyNote>('/api/notes', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
+  postNote: (body: { name: string; content: string; color: string; style?: NoteStyle }) => request<StickyNote>('/api/notes', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
   reportNote: (id: number) => request<{ ok: true }>(`/api/notes/${id}/report`, { method: 'POST', headers: JSON_H, body: '{}' }),
   presence: (body: { sid: string; page: string }) => request<{ viewers: Viewer[]; total: number }>('/api/presence', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
   register: (body: { name: string; email: string; bio?: string }) => request<{ sent: true; demoCode?: string }>('/api/members/register', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),
