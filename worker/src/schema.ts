@@ -169,8 +169,17 @@ const coord = (max: number) =>
     .transform((v) => (v === '' ? '' : String(Math.round(Number(v) * 10) / 10)))
     .default('');
 export const nowItemSchema = z.object({ kind: z.enum(['doing', 'learning', 'reading', 'listening', 'watching', 'playing']).default('doing'), title: req(60), since: str(20), progress: int(0, 100), url: optionalUrl.default(''), detail: str(200) });
+/** EXIF 字段：空字符串，或符合格式（与 web/src/sections.ts 的 WORK_EXIF_RULES 一致）。 */
+const fmt = (max: number, re: RegExp, message: string) => z.string().trim().max(max).refine((v) => v === '' || re.test(v), message).default('');
+const plain = (max: number, what: string) => fmt(max, /^[^\u0000-\u001f\u007f<>]*$/, `${what}不能包含控制字符或尖括号`);
 export const workSchema = z.object({
-  title: req(60), id: slugSchema, url: imageUrl, series: str(30), date: str(20), location: str(40), camera: str(40), lens: str(60), focal: str(20), aperture: str(20), shutter: str(20), iso: str(10),
+  title: req(60), id: slugSchema, url: imageUrl, series: str(30),
+  date: fmt(20, /^\d{4}(-\d{2}(-\d{2}( \d{2}:\d{2})?)?)?$/, '拍摄时间格式：2026-09-12 或 2026-09-12 18:42'),
+  location: plain(40, '地点'), camera: plain(40, '机身'), lens: plain(60, '镜头'),
+  focal: fmt(20, /^\d{1,4}(\.\d{1,2})? ?mm$/, '焦距格式：24mm'),
+  aperture: fmt(20, /^[fF]\/\d{1,2}(\.\d{1,2})?$/, '光圈格式：f/1.8'),
+  shutter: fmt(20, /^(1\/\d{1,5}|\d{1,4}(\.\d{1,2})?)s?$/, '快门格式：1/120s 或 2s'),
+  iso: fmt(10, /^\d{1,6}$/, 'ISO 只能是数字'),
   width: int(0, 20000), height: int(0, 20000), tags: strList(8, 20), credit: str(200), creditUrl: optionalUrl.default(''),
   // 照片地图：逐张选择公开（geo=on）才会上地图；坐标保存时就粗化到 0.1°（约 11 km），精确位置不进数据库
   geo: z.enum(['off', 'on']).default('off'), lat: coord(90), lng: coord(180),

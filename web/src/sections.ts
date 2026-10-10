@@ -148,6 +148,21 @@ export const REPO_STATUS: Record<Repo['status'], string> = { active: '活跃维�
 export const GEAR_CATEGORIES: GearCategory[] = ['相机', '镜头', '手机', '配件', '电脑与外设', '软件'];
 
 // ---------------------------------------------------------------- 字段规格（校验 + 后台表单）
+/**
+ * 作品集 EXIF 字段的格式（空字符串总是允许）。上传照片时自动读出的值符合这些格式；手填也按同样规则校验。
+ * 与 worker/src/schema.ts 的 workSchema 保持一致。
+ */
+export const WORK_EXIF_RULES: Record<string, readonly [RegExp, string]> = {
+  date: [/^\d{4}(-\d{2}(-\d{2}( \d{2}:\d{2})?)?)?$/, '拍摄时间格式：2026-09-12 或 2026-09-12 18:42'],
+  focal: [/^\d{1,4}(\.\d{1,2})? ?mm$/, '焦距格式：24mm'],
+  aperture: [/^[fF]\/\d{1,2}(\.\d{1,2})?$/, '光圈格式：f/1.8'],
+  shutter: [/^(1\/\d{1,5}|\d{1,4}(\.\d{1,2})?)s?$/, '快门格式：1/120s 或 2s'],
+  iso: [/^\d{1,6}$/, 'ISO 只能是数字'],
+  camera: [/^[^\u0000-\u001f\u007f<>]*$/, '机身不能包含控制字符或尖括号'],
+  lens: [/^[^\u0000-\u001f\u007f<>]*$/, '镜头不能包含控制字符或尖括号'],
+  location: [/^[^\u0000-\u001f\u007f<>]*$/, '地点不能包含控制字符或尖括号'],
+};
+
 export type FieldSpec =
   | { key: string; label: string; t: 'str'; max: number; required?: boolean; wide?: boolean; textarea?: boolean; placeholder?: string }
   | { key: string; label: string; t: 'url'; required?: boolean; image?: boolean; wide?: boolean; placeholder?: string }
@@ -187,7 +202,7 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       { key: 'id', label: 'id（小写字母-数字）', t: 'str', max: 60, required: true },
       { key: 'url', label: '图片 URL', t: 'url', image: true, required: true, wide: true },
       { key: 'series', label: '系列', t: 'str', max: 30 },
-      { key: 'date', label: '拍摄日期', t: 'str', max: 20, placeholder: '2026-09-12' },
+      { key: 'date', label: '拍摄时间', t: 'str', max: 20, placeholder: '2026-09-12 18:42' },
       { key: 'location', label: '地点', t: 'str', max: 40 },
       { key: 'camera', label: '机身', t: 'str', max: 40 },
       { key: 'lens', label: '镜头', t: 'str', max: 60 },
@@ -338,6 +353,10 @@ export function validateSection<K extends SectionKey>(key: K, input: unknown): {
     }
     if (key === 'works' && out.id && !ID.test(String(out.id))) bad('id', 'id 只能包含小写字母、数字和连字符');
     if (key === 'works') {
+      for (const [k, [re, message]] of Object.entries(WORK_EXIF_RULES)) {
+        const v = String(out[k] ?? '');
+        if (v && !re.test(v)) bad(k, message);
+      }
       for (const [k, max] of [['lat', 90], ['lng', 180]] as const) {
         const raw = String(out[k] ?? '');
         const c = coarseCoord(raw, max);

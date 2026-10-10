@@ -257,3 +257,19 @@
 
 /* AA：后台浅色主题里的次要文字在半透明卡片上加深一点（#5b6577 在白底上 5.9:1） */
 :root:not([data-theme="dark"]) .adm-layout { --muted: #5b6577; }
+
+/* 上传照片：EXIF 预填面板 */
+.adm-exif-tile[hidden] { display: none; }
+.adm-exif { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 1rem; margin-top: 0.6rem; }
+.adm-exif__pv img { width: 100%; height: auto; max-height: 220px; object-fit: contain; border-radius: 12px; background: var(--soft); }
+.adm-exif__pv p { margin: 0.35rem 0 0; }
+.adm-exif__status { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; font-weight: 600; }
+.adm-exif__status .si, .adm-exif__status svg { width: 1.1rem; height: 1.1rem; flex: none; }
+.adm-exif__geo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; margin: 0.3rem 0 0.7rem; padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--soft); }
+.adm-exif__geo .adm-check { margin: 0; font-weight: 600; }
+@media (max-width: 700px) {
+  .adm-exif { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 说明文字里的链接：不只靠颜色区分（axe link-in-text-block） */
+.adm-tile p.muted a { text-decoration: underline; text-underline-offset: 2px; }

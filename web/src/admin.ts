@@ -21,6 +21,7 @@ import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, P
 import { normalizeSettings } from './types';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
 import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
+import { coarseLabel, GEO_LABEL, gpsForSave, PhotoError, preparePhoto, type PreparedPhoto } from './photo-upload';
 
 /** 博客首页（部署前缀） */
 const SITE_HOME = import.meta.env.BASE_URL || '/';
@@ -278,11 +279,48 @@ async function renderPosts(): Promise<void> {
 }
 
 async function uploadImage(file: File): Promise<{ url: string; markdown: string }> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('alt', file.name.replace(/\.[^.]+$/, ''));
-  return adminFetch<{ url: string; markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
+  return (await uploadPhoto(file)).res;
 }
+
+/** 上传前在浏览器里读 EXIF、去掉文件里的 EXIF / GPS（photo-upload.ts），再上传处理后的文件。 */
+async function uploadPhoto(file: File): Promise<{ res: { url: string; markdown: string }; prep: PreparedPhoto }> {
+  const prep = await preparePhoto(file);
+  const fd = new FormData();
+  fd.append('file', prep.file);
+  fd.append('alt', file.name.replace(/\.[^.]+$/, '').slice(0, 100));
+  const res = await adminFetch<{ url: string; markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
+  return { res, prep };
+}
+
+const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif';
+const EXIF_FIELDS = [
+  ['date', '拍摄时间', '2026-09-12 18:42'],
+  ['camera', '机身 / 手机', 'iPhone 15 Pro'],
+  ['lens', '镜头', ''],
+  ['focal', '焦距', '24mm'],
+  ['aperture', '光圈', 'f/1.8'],
+  ['shutter', '快门', '1/120s'],
+  ['iso', 'ISO', '100'],
+] as const;
+
+/** 读出的 EXIF：可编辑字段 + 位置开关（默认不勾选）。原始坐标不写进任何输入框。 */
+function exifPanelHtml(prep: PreparedPhoto, url: string, extra: string, actions: string): string {
+  const f = prep.fields;
+  const gps = prep.gps;
+  return `<div class="adm-exif">
+  <div class="adm-exif__pv"><img src="${e(rawUrl(url))}" alt="" width="${prep.width || 160}" height="${prep.height || 120}"><p class="muted small">${prep.width && prep.height ? `${prep.width} × ${prep.height} · ` : ''}${e(prep.notes.join(' · ') || '文件里没有元数据')}</p></div>
+  <div class="adm-exif__body">
+    <p class="adm-exif__status" role="status">${f ? `${icon('check')}已从照片读取 EXIF，可以修改` : `${icon('camera')}照片里没有 EXIF，请手动填写`}</p>
+    <div class="adm-grid2">${extra}${EXIF_FIELDS.map(([k, label, ph]) => `<label class="field"><span>${label}</span><input name="exif-${k}" data-exif="${k}" maxlength="${k === 'lens' ? 60 : k === 'camera' ? 40 : 20}" value="${e(f?.[k] ?? '')}" placeholder="${e(ph)}"></label>`).join('')}</div>
+    ${gps ? `<div class="adm-exif__geo"><label class="adm-check"><input type="checkbox" data-exif-geo> ${e(GEO_LABEL)}</label><span class="muted small">照片带有位置：${e(coarseLabel(gps))}。不勾选就不保存任何位置；勾选只保存粗化到 0.1° 的坐标，精确坐标不会上传。</span></div>` : '<p class="muted small adm-exif__geo">照片里没有 GPS 位置。</p>'}
+    <div class="adm-row">${actions}</div>
+  </div>
+</div>`;
+}
+const exifValues = (box: HTMLElement): Record<string, string> =>
+  Object.fromEntries([...box.querySelectorAll<HTMLInputElement>('[data-exif]')].map((i) => [i.dataset.exif!, i.value.trim()]));
+const geoChecked = (box: HTMLElement) => !!box.querySelector<HTMLInputElement>('[data-exif-geo]')?.checked;
+const photoErr = (err: unknown) => (err instanceof PhotoError ? err.message : errText(err));
 
 async function renderEditor(): Promise<void> {
   const p = editing;
@@ -299,9 +337,9 @@ async function renderEditor(): Promise<void> {
   <div class="field"><label for="f-series">系列连载（可选，同名文章按发布时间组成系列）</label><input id="f-series" name="series" maxlength="40" value="${e(p?.series ?? '')}"></div>
   <div class="field"><label for="f-summary">摘要</label><input id="f-summary" name="summary" maxlength="500" value="${e(p?.summary ?? '')}"></div>
   <div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" name="tags" value="${e((p?.tags ?? []).join(', '))}"></div>
-  <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label></div></div>
+  <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="${PHOTO_ACCEPT}" hidden></label></div></div>
   <label class="adm-check"><input type="checkbox" name="pinned" ${p?.pinned ? 'checked' : ''}> 置顶这篇文章</label>
-  <div class="field"><div class="adm-row adm-row--between"><label for="f-content">正文（Markdown）</label><label class="btn btn--ghost btn--sm">${icon('image')}插入图片<input type="file" id="f-image" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label></div><textarea id="f-content" name="contentMd" class="adm-md">${e(p?.contentMd ?? '')}</textarea></div>
+  <div class="field"><div class="adm-row adm-row--between"><label for="f-content">正文（Markdown）</label><label class="btn btn--ghost btn--sm">${icon('image')}插入图片<input type="file" id="f-image" accept="${PHOTO_ACCEPT}" hidden></label></div><textarea id="f-content" name="contentMd" class="adm-md">${e(p?.contentMd ?? '')}</textarea></div>
   <div class="adm-row">
     <button class="btn" type="submit">${icon('check')}${p ? '保存' : '保存草稿'}</button>
     ${p ? `<button class="btn btn--ghost" type="button" data-act="${p.status === 'published' ? 'unpublish' : 'publish'}" data-slug="${e(p.slug)}">${p.status === 'published' ? '撤回发布' : '发布'}</button>` : '<button class="btn btn--ghost" type="submit" data-publish="1">保存并发布</button>'}
@@ -310,7 +348,8 @@ async function renderEditor(): Promise<void> {
 </form>`,
       'adm-editor',
     ) +
-      tile('half', `${head('eye', '实时预览')}<article class="adm-preview" id="preview"></article>`, 'adm-preview-tile'),
+      tile('half', `${head('eye', '实时预览')}<article class="adm-preview" id="preview"></article>`, 'adm-preview-tile') +
+      tile('full', '', 'adm-exif-tile', 'id="post-exif" hidden'),
   );
   const form = root.querySelector<HTMLFormElement>('#post-form')!;
   const content = form.querySelector<HTMLTextAreaElement>('#f-content')!;
@@ -335,9 +374,9 @@ async function renderEditor(): Promise<void> {
     try {
       (form.elements.namedItem('coverUrl') as HTMLInputElement).value = (await uploadImage(file)).url;
       update();
-      msg('封面已上传');
+      msg('封面已上传（已去除 EXIF / GPS）');
     } catch (err) {
-      msg(errText(err), true);
+      msg(photoErr(err), true);
     }
   });
   form.querySelector<HTMLInputElement>('#f-image')!.addEventListener('change', async (ev) => {
@@ -345,13 +384,28 @@ async function renderEditor(): Promise<void> {
     if (!file) return;
     msg('上传中…');
     try {
-      const r = await uploadImage(file);
+      const { res: r, prep } = await uploadPhoto(file);
       const pos = content.selectionStart ?? content.value.length;
-      content.value = `${content.value.slice(0, pos)}\n\n${r.markdown}\n\n${content.value.slice(pos)}`;
+      const before = `${content.value.slice(0, pos)}\n\n${r.markdown}\n`;
+      content.value = `${before}\n${content.value.slice(pos)}`;
       update();
-      msg('图片已上传并插入正文');
+      const box = root.querySelector<HTMLElement>('#post-exif')!;
+      box.hidden = false;
+      box.innerHTML = `${head('aperture', '照片参数')}${exifPanelHtml(prep, r.url, '', `<button class="btn btn--soft btn--sm" type="button" data-exif-caption>${icon('plus')}在图片下插入参数说明</button>`)}`;
+      box.querySelector('[data-exif-caption]')!.addEventListener('click', () => {
+        const v = exifValues(box);
+        const g = gpsForSave(prep.gps, geoChecked(box));
+        const parts = [v.camera, v.focal, v.aperture, v.shutter, v.iso && `ISO ${v.iso}`, v.date, g.geo === 'on' && `约 ${g.lat}, ${g.lng}`].filter(Boolean);
+        if (!parts.length) return msg('没有可插入的参数', true);
+        const at = content.value.indexOf(r.markdown);
+        const end = at < 0 ? content.value.length : at + r.markdown.length;
+        content.value = `${content.value.slice(0, end)}\n*${parts.join(' · ').replace(/[*_[\]]/g, '')}*${content.value.slice(end)}`;
+        update();
+        msg('已插入参数说明');
+      });
+      msg(`图片已上传并插入正文${prep.notes.length ? `（${prep.notes.join('，')}）` : ''}`);
     } catch (err) {
-      msg(errText(err), true);
+      msg(photoErr(err), true);
     }
   });
   form.addEventListener('submit', async (ev) => {
@@ -550,7 +604,7 @@ async function renderProfile(): Promise<void> {
 
 // ============================================================ 通用列表编辑器（友链 / 收藏 / 画廊 / 项目 / 节日）
 interface FieldDef { key: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select' | 'list' | 'lines'; options?: string[]; optionLabels?: Record<string, string>; wide?: boolean; placeholder?: string }
-function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T[]; fields: FieldDef[]; blank: T; title: (x: T) => string; preview?: (x: T) => string; save: (items: T[]) => Promise<unknown> }): void {
+function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T[]; fields: FieldDef[]; blank: T; title: (x: T) => string; preview?: (x: T) => string; save: (items: T[]) => Promise<unknown> }): { add: (x: T) => Promise<void> } {
   let items = o.items.map((x) => ({ ...x }));
   const card = (x: T, i: number) => `<div class="adm-item" data-i="${i}">
   <div class="adm-item__head">${o.preview ? `<span class="adm-item__pv">${o.preview(x)}</span>` : ''}<b>${e(o.title(x) || '（未命名）')}</b>
@@ -619,6 +673,14 @@ function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T
       msg(errText(err), true);
     }
   });
+  return {
+    async add(x: T) {
+      read();
+      items.push(x);
+      paint();
+      await o.save(items);
+    },
+  };
 }
 const photosText = (ph: Album['photos'] | undefined) => (ph ?? []).map((p) => `${p.url} | ${p.caption}`).join('\n');
 const parsePhotos = (s: string): Album['photos'] =>
@@ -650,7 +712,11 @@ async function renderSection(key: SectionKey): Promise<void> {
   const spec = SECTION_SPECS[key];
   const { items } = await optional(adminFetch<{ items: Record<string, unknown>[] }>(`/api/admin/content/${key}`), { items: [] });
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  mount(listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
+  const uploadTile =
+    key === 'works'
+      ? tile('full', `${head('upload', '从照片添加', `<label class="btn btn--sm">${icon('upload')}选择照片<input type="file" id="work-photo" accept="${PHOTO_ACCEPT}" hidden></label>`)}<p class="muted small">上传时在浏览器里自动读取 EXIF（拍摄时间、手机 / 机身、镜头、焦距、光圈、快门、ISO），并从文件中去掉 EXIF 和 GPS。位置默认不公开。</p><div id="work-photo-panel"></div>`, 'adm-photo-tile')
+      : '';
+  mount(uploadTile + listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
   const fields: FieldDef[] = spec.fields.map((f) => ({
     key: f.key,
     label: f.label,
@@ -660,7 +726,7 @@ async function renderSection(key: SectionKey): Promise<void> {
   }));
   const blank = Object.fromEntries(spec.fields.map((f) => [f.key, f.t === 'int' ? f.min : f.t === 'enum' ? f.options[0] : f.t === 'list' ? [] : ''])) as Record<string, unknown>;
   const thumb = (u: unknown) => (typeof u === 'string' && u ? `<img src="${e(rawUrl(u))}" alt="" loading="lazy">` : '');
-  listEditor<Record<string, unknown>>({
+  const list = listEditor<Record<string, unknown>>({
     id: 'list',
     items,
     blank,
@@ -668,6 +734,45 @@ async function renderSection(key: SectionKey): Promise<void> {
     preview: key === 'works' ? (x) => thumb(x.url) : undefined,
     save: (list) => put(`/api/admin/content/${key}`, { items: list }),
     fields,
+  });
+  if (key === 'works') bindWorkPhoto(blank, list.add);
+}
+
+/** 作品集「从照片添加」：读 EXIF → 预填 → 位置开关（默认关）→ 加入列表并保存。 */
+function bindWorkPhoto(blank: Record<string, unknown>, add: (x: Record<string, unknown>) => Promise<void>): void {
+  const input = root.querySelector<HTMLInputElement>('#work-photo');
+  const panel = root.querySelector<HTMLElement>('#work-photo-panel');
+  if (!input || !panel) return;
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    msg('读取 EXIF 并上传中…');
+    try {
+      const { res, prep } = await uploadPhoto(file);
+      const d = prep.fields?.date ?? '';
+      const id = `p-${(d.replace(/\D/g, '').slice(0, 12) || Date.now().toString(36))}`.toLowerCase();
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 60) || '新作品';
+      panel.innerHTML = exifPanelHtml(
+        prep,
+        res.url,
+        `<label class="field"><span>标题</span><input name="exif-title" data-exif="title" maxlength="60" value="${e(title)}" required></label><label class="field"><span>id</span><input name="exif-id" data-exif="id" maxlength="60" value="${e(id)}"></label><label class="field"><span>地点</span><input name="exif-location" data-exif="location" maxlength="40" placeholder="例如：桂林"></label>`,
+        `<button class="btn btn--sm" type="button" data-exif-add>${icon('check')}添加到作品集并保存</button>`,
+      );
+      panel.querySelector('[data-exif-add]')!.addEventListener('click', async () => {
+        const v = exifValues(panel);
+        try {
+          await add({ ...blank, ...v, url: res.url, width: prep.width, height: prep.height, ...gpsForSave(prep.gps, geoChecked(panel)) });
+          panel.innerHTML = '';
+          msg('已添加到作品集并保存');
+        } catch (err) {
+          msg(errText(err), true);
+        }
+      });
+      msg(`照片已上传${prep.notes.length ? `（${prep.notes.join('，')}）` : ''}`);
+    } catch (err) {
+      msg(photoErr(err), true);
+    }
   });
 }
 

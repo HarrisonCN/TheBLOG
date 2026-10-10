@@ -3,6 +3,7 @@
  * 与 Worker 的 REST 接口保持相同的路径、状态码和返回结构，数据存在 localStorage，
  * 每位访客的改动只留在自己的浏览器里。没有服务器、没有真实账号、没有密钥。
  */
+import { stripMetadata } from '../exif';
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
 import { isReaction, REACTION_SET } from '../reactions-core';
@@ -37,6 +38,21 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATA_IMG = /^data:image\/(png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i;
 const SAFE_URL = /^(https?:\/\/[^\s<>"']+|\/[^\s<>"']*)$/i;
 const LINK_URL = /^(https?:\/\/[^\s<>"']+|mailto:[^\s<>"']+|\/[^\s<>"']*)$/i;
+/** 与 Worker storeImage 一致：存图前再无损去一次 EXIF / GPS（JPEG / PNG / WebP）。 */
+function stripDataUrl(dataUrl: string, type: string): string {
+  try {
+    const bin = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const r = stripMetadata(bytes);
+    if (!r.changed) return dataUrl;
+    let out = '';
+    for (let i = 0; i < r.bytes.length; i += 0x8000) out += String.fromCharCode(...r.bytes.subarray(i, i + 0x8000));
+    return `data:${type};base64,${btoa(out)}`;
+  } catch {
+    return dataUrl;
+  }
+}
+
 export const MAX_IMAGE_BYTES = 1_500_000;
 
 /** 内存版 KV（Node 测试、或浏览器禁用 localStorage 时的兜底）。 */
@@ -613,7 +629,8 @@ export class DemoBackend {
     const contentType = /^data:([^;]+);/.exec(o.dataUrl)![1]!;
     const alt = (isStr(o.alt) ? o.alt : '').replace(/[[\]\n\r]/g, '').slice(0, 100);
     const key = `demo/${this.now().getTime().toString(36)}`;
-    return { key, url: o.dataUrl, contentType, size, markdown: `![${alt}](${o.dataUrl})` };
+    const url = stripDataUrl(o.dataUrl, contentType);
+    return { key, url, contentType, size, markdown: `![${alt}](${url})` };
   }
 
   // ---------------------------------------------------------------- 内容 / 搜索

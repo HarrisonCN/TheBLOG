@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import { HttpError } from './http';
+import { stripMetadata } from './exif';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -42,6 +43,8 @@ export async function storeImage(env: Env, bytes: Uint8Array, declaredType: stri
   if (!sniffed || !TYPES[sniffed] || (type && type !== 'application/octet-stream' && type !== sniffed)) {
     throw new HttpError(415, 'unsupported_image', '仅支持 PNG / JPEG / WebP / GIF / AVIF 图片');
   }
+  // 兜底：浏览器上传前已经去掉 EXIF / GPS；MCP upload_image 或旧客户端传来的 JPEG / PNG / WebP 在这里再无损去一次
+  bytes = stripMetadata(bytes).bytes;
   const d = new Date();
   const key = `images/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}.${TYPES[sniffed]}`;
   await env.IMAGES.put(key, bytes, { httpMetadata: { contentType: sniffed, cacheControl: 'public, max-age=31536000, immutable' } });
