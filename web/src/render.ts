@@ -244,7 +244,7 @@ export interface Extra {
 export function needs(r: Route): (keyof Extra)[] {
   switch (r.name) {
     case 'home':
-      return r.page === 1 ? ['gallery', 'notes', 'friends', 'members', 'now', 'works', 'repos', 'changelog', 'shelf'] : [];
+      return r.page === 1 ? ['notes', 'now', 'works', 'repos', 'changelog', 'shelf'] : [];
     case 'post':
       return ['post'];
     case 'gallery':
@@ -281,58 +281,68 @@ interface NavItem {
   match?: Route['name'][];
   children?: NavItem[];
 }
+/** 顶部导航：首页 / 文章 / 专题 / 摄影 / 技术 / 关于。每个栏目下拉里放原来的二级页面，所有栏目都能从这里到达。 */
 export const NAV: NavItem[] = [
   { label: '首页', icon: 'home', href: '/', match: ['home'] },
   {
     label: '文章',
     icon: 'book',
     href: '/archives/',
-    match: ['archives', 'tags', 'tag', 'categories', 'category', 'post', 'search', 'stats', 'subscribe'],
+    match: ['archives', 'post', 'search', 'stats', 'subscribe'],
     children: [
       { label: '归档', icon: 'archive', href: '/archives/' },
-      { label: '标签', icon: 'tag', href: '/tags/' },
-      { label: '分类', icon: 'folder', href: '/categories/' },
       { label: '搜索', icon: 'search', href: '/search/' },
       { label: '数据', icon: 'chart', href: '/stats/' },
-      { label: '订阅', icon: 'rss', href: '/subscribe/' },
+      { label: 'RSS 订阅', icon: 'rss', href: '/subscribe/' },
     ],
   },
   {
-    label: '百宝箱',
-    icon: 'box',
-    href: '/gallery/',
-    match: ['gallery', 'album', 'favorites', 'works', 'gear', 'shelf', 'opensource'],
+    label: '专题',
+    icon: 'folder',
+    href: '/categories/',
+    match: ['categories', 'category', 'tags', 'tag', 'shelf', 'favorites'],
     children: [
-      { label: '作品集', icon: 'aperture', href: '/works/' },
-      { label: '画廊', icon: 'image', href: '/gallery/' },
-      { label: '器材', icon: 'camera', href: '/gear/' },
+      { label: '分类专题', icon: 'folder', href: '/categories/' },
+      { label: '标签', icon: 'tag', href: '/tags/' },
       { label: '书影音', icon: 'library', href: '/shelf/' },
-      { label: '开源项目', icon: 'code', href: '/opensource/' },
       { label: '收藏与项目', icon: 'star', href: '/favorites/' },
     ],
   },
   {
-    label: '社交',
-    icon: 'users',
-    href: '/guestbook/',
-    match: ['guestbook', 'links', 'join', 'mailbox'],
+    label: '摄影',
+    icon: 'camera',
+    href: '/works/',
+    match: ['works', 'gallery', 'album', 'gear'],
     children: [
-      { label: '留言板', icon: 'message', href: '/guestbook/' },
-      { label: '友链', icon: 'link', href: '/links/' },
-      { label: '成为好朋友', icon: 'heart', href: '/join/' },
-      { label: '信箱', icon: 'mail', href: '/mailbox/' },
+      { label: '作品集', icon: 'aperture', href: '/works/' },
+      { label: '画廊', icon: 'image', href: '/gallery/' },
+      { label: '器材', icon: 'camera', href: '/gear/' },
+    ],
+  },
+  {
+    label: '技术',
+    icon: 'code',
+    href: '/opensource/',
+    match: ['opensource', 'changelog'],
+    children: [
+      { label: '开源项目', icon: 'code', href: '/opensource/' },
+      { label: '更新日志', icon: 'list', href: '/changelog/' },
+      { label: '技术文章', icon: 'book', href: '/categories/%E5%89%8D%E7%AB%AF/' },
     ],
   },
   {
     label: '关于',
     icon: 'user',
     href: '/about/',
-    match: ['about', 'privacy', 'now', 'timeline', 'changelog'],
+    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox'],
     children: [
       { label: '关于我', icon: 'user', href: '/about/' },
       { label: '此刻', icon: 'clock', href: '/now/' },
       { label: '时间线', icon: 'history', href: '/timeline/' },
-      { label: '更新日志', icon: 'list', href: '/changelog/' },
+      { label: '留言与便签', icon: 'message', href: '/guestbook/' },
+      { label: '友链', icon: 'link', href: '/links/' },
+      { label: '成为好朋友', icon: 'heart', href: '/join/' },
+      { label: '信箱', icon: 'mail', href: '/mailbox/' },
       { label: '隐私说明', icon: 'eye', href: '/privacy/' },
     ],
   },
@@ -346,28 +356,35 @@ export function navIndex(route: Route): number {
   return NAV.findIndex((it) => navActive(it, route));
 }
 
-/** 顶部悬浮导航：玻璃胶囊 + <usa-nav-morph> 滑动指示器。 */
+/** 站点字标：站点名 + 一句话标语（衬线体）。 */
+function brand(site: SiteData, cls = 'brand'): string {
+  return `<a class="${cls}" href="${url('/')}" aria-label="${e(site.settings.siteTitle)} 首页"><span class="${cls}__name">${e(site.settings.siteTitle)}</span>${site.settings.siteDescription ? `<span class="${cls}__tag">${e(site.settings.siteDescription)}</span>` : ''}</a>`;
+}
+
+/** 顶部导航：字标、栏目（下划线表示当前）、搜索胶囊（⌘K）、深浅色、好朋友登录。 */
 export function navbar(site: SiteData, route: Route): string {
   const items = NAV.map((it) => {
     const cur = navActive(it, route) ? ' aria-current="page"' : '';
-    if (!it.children) return `<div class="menu"${cur}><a class="menu__link" href="${url(it.href!)}"><span>${it.label}</span></a></div>`;
-    return `<div class="menu menu--group"${cur}><a class="menu__link" href="${url(it.href!)}" aria-haspopup="true"><span>${it.label}</span>${icon('chevronDown', 'menu__caret')}</a>
+    if (!it.children) return `<div class="menu"${cur}><a class="menu__link" href="${url(it.href!)}">${it.label}</a></div>`;
+    return `<div class="menu menu--group"${cur}><a class="menu__link" href="${url(it.href!)}" aria-haspopup="true">${it.label}</a>
   <div class="menu__drop" role="menu">${it.children.map((c) => `<a role="menuitem" href="${url(c.href!)}">${icon(c.icon)}<span>${c.label}</span></a>`).join('')}</div></div>`;
   }).join('');
   return `<header class="nav" id="nav">
-  <div class="nav__bar">
-    <a class="nav__brand" href="${url('/')}" aria-label="${e(site.settings.siteTitle)} 首页"><span class="nav__logo" aria-hidden="true">${e(site.profile.name.slice(0, 1) || 'W')}</span><span class="nav__brand-text">${e(site.settings.siteTitle)}</span></a>
-    <nav class="nav__menus" aria-label="主导航"><usa-nav-morph indicator="pill" label="主导航">${items}</usa-nav-morph></nav>
+  <div class="nav__bar wrap">
+    ${brand(site)}
+    <nav class="nav__menus" aria-label="主导航">${items}</nav>
     <div class="nav__tools">
-      <button class="nav__btn js-search" type="button" aria-label="搜索" title="搜索 (Ctrl K)">${icon('search')}</button>
+      <button class="nav__search js-search" type="button" aria-label="搜索（Ctrl K）">${icon('search')}<span class="nav__search-text">搜索文章、主题或关键词…</span><kbd class="nav__kbd">⌘K</kbd></button>
+      <button class="nav__btn nav__btn--search js-search" type="button" aria-label="搜索">${icon('search')}</button>
       <button class="nav__btn js-theme" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
+      <a class="nav__btn nav__me js-me" href="${url('/join/')}" aria-label="好朋友登录 / 注册" title="好朋友登录 / 注册">${icon('user')}</a>
       <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer">${icon('menu')}</button>
     </div>
   </div>
 </header>`;
 }
 
-/** 手机端菜单：从顶部展开的卡片。 */
+/** 手机端菜单：从右侧滑出的面板。 */
 export function drawer(site: SiteData): string {
   const groups = NAV.map(
     (it) => `<div class="drawer__group"><a class="drawer__link" href="${url(it.href!)}">${icon(it.icon)}<span>${it.label}</span></a>${
@@ -378,6 +395,7 @@ export function drawer(site: SiteData): string {
   <div class="drawer__mask js-drawer-close"></div>
   <aside class="drawer__panel" aria-label="菜单">
     <div class="drawer__head">${avatarImg(site.profile, 'drawer__avatar')}<div><strong>${e(site.profile.name)}</strong>${counts(site)}</div><button class="nav__btn js-drawer-close" type="button" aria-label="关闭菜单">${icon('close')}</button></div>
+    <button class="drawer__search js-search" type="button">${icon('search')}<span>搜索文章、主题或关键词…</span></button>
     <nav class="drawer__nav">${groups}</nav>
   </aside>
 </div>`;
@@ -391,15 +409,28 @@ function counts(site: SiteData): string {
 </div>`;
 }
 
+/** 页脚引语（站长可以改这里）。 */
+export const FOOTER_QUOTE = '保持好奇，持续创作，在平凡的日子里，发现不平凡的美。';
+
 export function footer(site: SiteData): string {
   const year = new Date().getFullYear();
   const first = site.posts.length ? ymd(pubDate(site.posts[site.posts.length - 1]!)).y : String(year);
+  const col = (title: string, links: [string, string][]) => `<div class="footer__col"><h2>${title}</h2><ul>${links.map(([l, h]) => `<li><a href="${url(h)}">${l}</a></li>`).join('')}</ul></div>`;
   return `<footer class="footer">
+  <div class="footer__art" aria-hidden="true"></div>
   <div class="wrap footer__inner">
-    <div><p class="footer__brand">${e(site.settings.siteTitle)}</p><p class="muted">${e(site.settings.siteDescription)}</p></div>
-    <div class="footer__links"><a href="${url('/archives/')}">归档</a><a href="${url('/gallery/')}">画廊</a><a href="${url('/guestbook/')}">留言板</a><a href="${url('/privacy/')}">隐私说明</a><a href="${url('/admin/')}" rel="nofollow">后台</a></div>
-    <div class="footer__meta"><p>©${first === String(year) ? year : `${first} – ${year}`} ${e(site.profile.name)} ${icon('heart', 'footer__heart')} 动效：<a href="https://github.com/HarrisonCN/Motionary" target="_blank" rel="noopener noreferrer">Motionary</a></p>
-    <p class="muted js-runtime" data-since="${e(site.posts.length ? pubDate(site.posts[site.posts.length - 1]!) : '')}"></p></div>
+    <div class="footer__about">
+      ${brand(site, 'fbrand')}
+      ${socialRow(site.profile, 'socials footer__social')}
+      <div class="viewers js-viewers"><usa-avatar-stack max="5" size="26" class="viewers__stack"></usa-avatar-stack><span class="viewers__text">正在统计在线访客…</span></div>
+      <p class="footer__copy">© ${first === String(year) ? year : `${first} – ${year}`} ${e(site.settings.siteTitle)} · 动效：<a href="https://github.com/HarrisonCN/Motionary" target="_blank" rel="noopener noreferrer">Motionary</a> · <a href="${url('/admin/')}" rel="nofollow">后台</a></p>
+    </div>
+    <nav class="footer__cols" aria-label="页脚导航">
+      ${col('内容', [['最新文章', '/archives/'], ['热门标签', '/tags/'], ['专题合集', '/categories/'], ['作品集', '/works/'], ['搜索', '/search/']])}
+      ${col('关于', [['关于我', '/about/'], ['此刻', '/now/'], ['时间线', '/timeline/'], ['留言与便签', '/guestbook/'], ['友链', '/links/']])}
+      ${col('更多', [['RSS 订阅', '/subscribe/'], ['开源项目', '/opensource/'], ['更新日志', '/changelog/'], ['数据', '/stats/'], ['隐私说明', '/privacy/']])}
+    </nav>
+    <figure class="footer__quote"><blockquote>“${e(FOOTER_QUOTE)}”</blockquote><figcaption>—— ${e(site.profile.name)}</figcaption></figure>
   </div>
 </footer>`;
 }
@@ -431,37 +462,55 @@ export function pageHead(title: string, sub = '', image?: string | null, extra =
 export function ownerBadge(): string {
   return `<usa-fx class="badge-fx" effect="pearlescent" trigger="load"><span class="badge badge--pearl" title="站长">站长</span></usa-fx>`;
 }
-/** 好朋友徽章：拉丝金属 / 珍珠母贝材质，刻有自定义编号。 */
+/** 好朋友徽章：拉丝金属 / 珍珠母贝材质，刻有自定义编号（社交 ID）。 */
 export function memberBadge(code: string, label: string, style: 'pearlescent' | 'brushed-metal' = 'brushed-metal'): string {
   const cls = style === 'pearlescent' ? 'badge--pearl' : 'badge--metal';
   return `<usa-fx class="badge-fx" effect="${style}" trigger="load"><span class="badge ${cls}" title="${e(label)}"><span class="badge__code">${e(code)}</span></span></usa-fx>`;
 }
+/** 认证标记（站长） */
+export const verifiedMark = () => `<span class="verified" role="img" aria-label="站长认证" title="站长认证">${icon('verified')}</span>`;
 
-function socialLinks(p: Profile): string {
-  return p.links
+/**
+ * 社交图标一排。带「社交 ID」（handle）的图标点开会弹出 ID 卡片（可复制、可打开主页）；
+ * 没有 JS 时就是普通链接。
+ */
+export function socialRow(p: Profile, cls = 'socials'): string {
+  const items = p.links
     .map((l) => {
       const href = safeHref(l.url);
       if (!href) return '';
       const ext = /^https?:/i.test(href);
-      return `<usa-click effect="burst" class="social-click"><a class="social" href="${e(href)}" title="${e(l.label)}" aria-label="${e(l.label)}"${ext ? ' target="_blank" rel="noopener noreferrer me"' : ''}>${icon(SOCIAL_ICON[l.icon ?? 'link'] ?? 'link')}</a></usa-click>`;
+      const handle = (l.handle ?? '').trim();
+      const ic = SOCIAL_ICON[l.icon ?? 'link'] ?? 'link';
+      return `<a class="soc${handle ? ' js-soc' : ''}" href="${e(href)}" title="${e(handle ? `${l.label}：${handle}` : l.label)}" aria-label="${e(handle ? `${l.label}（社交 ID：${handle}）` : l.label)}"${handle ? ` data-handle="${e(handle)}" data-label="${e(l.label)}" data-icon="${e(ic)}" aria-haspopup="dialog"` : ''}${ext ? ' target="_blank" rel="noopener noreferrer me"' : ''}>${icon(ic)}</a>`;
     })
     .join('');
+  return items ? `<div class="${cls}">${items}</div>` : '';
 }
 
-/** 个人卡片瓷砖（首页 / 关于页共用）。 */
-export function profileCard(site: SiteData, size: Size = 'quarter', rows = 2): string {
+/** 个人卡片数字：「文章」自动统计，其余来自资料里的 stats（示例数字可在后台修改）。 */
+function profileStats(site: SiteData): [string, string][] {
+  const own = (site.profile.stats ?? []).slice(0, 2).map((s) => [s.value, s.label] as [string, string]);
+  return [[String(site.total), '文章'], ...(own.length ? own : ([[String(site.tags.length), '标签'], [String(site.categories.length), '分类']] as [string, string][]))];
+}
+
+/** 个人卡片（首页侧栏 / 关于页共用）：山景封面、圆形头像、认证标记、社交 ID 徽章、身份、简介、社交图标、数字。 */
+export function profileCard(site: SiteData, size: Size = 'quarter', rows?: number): string {
   const p = site.profile;
-  const home = safeHref(p.homeUrl);
-  const social = socialLinks(p);
+  const role = p.role || '';
   return tile(
     size,
-    `<div class="profile__top">${avatarImg(p, 'profile__avatar')}<span class="profile__online" title="在线"></span></div>
-  <h2 class="profile__name"><span class="profile__name-text">${e(p.name)}</span><span class="profile__badges">${ownerBadge()}${memberBadge('ID·0001', '站长编号', 'brushed-metal')}</span></h2>
-  ${p.tagline ? `<p class="profile__tagline"><usa-shimmer-text>${e(p.tagline)}</usa-shimmer-text></p>` : ''}
-  <p class="profile__roles">我是 <usa-text-rotate words="摄影专业的学生|产品体验测试者|动效库作者|夜景爱好者">摄影专业的学生</usa-text-rotate></p>
-  ${counts(site)}
-  <div class="profile__actions">${home ? `<usa-button deform="dent" haptic class="profile__follow"><a class="btn" href="${e(home)}" target="_blank" rel="noopener noreferrer">${icon('github')}<span>Follow</span></a></usa-button>` : ''}${social ? `<div class="profile__social">${social}</div>` : ''}</div>`,
-    { cls: 'profile', rows, label: '个人卡片' },
+    `<div class="pc__cover" aria-hidden="true"></div>
+  <div class="pc__avatar">${avatarImg(p, 'pc__img')}</div>
+  <h2 class="pc__name"><span class="pc__name-text">${e(p.name)}</span>${verifiedMark()}</h2>
+  ${role ? `<p class="pc__role">${e(role)}</p>` : ''}
+  ${p.tagline ? `<p class="pc__bio">${e(p.tagline)}</p>` : ''}
+  <p class="pc__ids">${ownerBadge()}${memberBadge('ID·0001', '站长社交 ID', 'brushed-metal')}</p>
+  ${socialRow(p, 'socials pc__social')}
+  <div class="pc__stats">${profileStats(site)
+    .map(([v, l]) => `<div><b>${e(v)}</b><span>${e(l)}</span></div>`)
+    .join('')}</div>`,
+    { cls: 'profile-card', rows, label: '个人卡片', tag: 'section' },
   );
 }
 
@@ -532,209 +581,177 @@ export function shell(site: SiteData, route: Route, o: Partial<Page> & { title: 
   };
 }
 
-function heroTile(site: SiteData): string {
-  const s = site.settings;
-  const subs = (s.heroSubtitles.length ? s.heroSubtitles : [site.profile.tagline || s.siteDescription]).filter(Boolean);
-  return tile(
-    'twothird',
-    `<div class="hero__bg"${bgStyle(s.heroImage)}></div>
-  <usa-blobs class="hero__blobs" colors="var(--blob-1),var(--blob-2),var(--blob-3)" speed="0.7" blur="50" aria-hidden="true"></usa-blobs>
-  <div class="hero__fx js-hero-fx" aria-hidden="true"></div>
-  <div class="hero__info">
-    <p class="hero__hello">${icon('sparkles')}你好，欢迎来到</p>
-    <h1 class="hero__title"><usa-gradient-text colors="#ffffff,#cfe0ff,#ffd3e8,#ffffff" speed="0.5">${e(s.siteTitle)}</usa-gradient-text></h1>
-    <p class="hero__sub"><usa-typewriter words="${e(subs.join('|'))}" loop>${e(subs[0] ?? '')}</usa-typewriter></p>
-    <div class="hero__cta">
-      <usa-button deform="gooey" haptic><a class="btn btn--light" href="#content">${icon('book')}<span>开始阅读</span></a></usa-button>
-      <usa-button deform="wobble"><a class="btn btn--glass" href="${url('/about/')}">${icon('user')}<span>关于我</span></a></usa-button>
+// ---------------------------------------------------------------- 首页（双栏：内容 + 侧栏）
+/** 分类 / 标签的颜色（固定几种常用分类，其余按名字散列）。 */
+const TONES = ['blue', 'green', 'orange', 'purple', 'pink', 'teal'] as const;
+const TONE_OF: Record<string, (typeof TONES)[number]> = {
+  摄影: 'blue', 旅行: 'pink', 随笔: 'green', 生活: 'green', 前端: 'purple', 技术: 'purple', 动效: 'purple', 产品: 'orange', AI: 'orange', 器材: 'teal', 设计: 'green',
+};
+export function tone(name: string): (typeof TONES)[number] {
+  return TONE_OF[name] ?? TONES[hashHue(name) % TONES.length]!;
+}
+/** 彩色分类小标签。inLink=true 时输出 span（外层已经是链接）。 */
+export function catChip(name: string, cls = '', inLink = false): string {
+  const c = `cchip cchip--${tone(name)}${cls ? ` ${cls}` : ''}`;
+  return inLink ? `<span class="${c}">${e(name)}</span>` : `<a class="${c}" href="${categoryPath(name)}">${e(name)}</a>`;
+}
+/** 本地收藏（书签）按钮：只存在访客自己的浏览器里。 */
+export function bookmarkBtn(p: PostSummary): string {
+  return `<button class="bm js-bookmark" type="button" data-slug="${e(p.slug)}" aria-pressed="false" aria-label="收藏《${e(p.title)}》" title="收藏到本机">${icon('bookmark')}</button>`;
+}
+function metaBits(p: PostSummary): string {
+  const d = pubDate(p);
+  return `<time datetime="${e(d)}">${formatDate(d)}</time><span class="meta-read" title="预计阅读时长">${icon('clock')}${readingMinutes(p.wordCount || 0)} 分钟</span>`;
+}
+/** 区块标题：图标 + 标题 + 副标题 + 「查看更多」。 */
+export function secHead(ic: string, title: string, sub: string, moreHref?: string, id?: string): string {
+  return `<header class="sec-head"><h2 class="sec-head__title"${id ? ` id="${id}"` : ''}>${icon(ic, `sec-head__ic sec-head__ic--${ic}`)}<span>${title}</span></h2>${sub ? `<span class="sec-head__sub">${sub}</span>` : ''}${moreHref ? `<a class="more-pill" href="${moreHref}">查看更多${icon('arrowRight')}</a>` : ''}</header>`;
+}
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** 首图轮播：大图、分类、衬线大标题、摘要、阅读全文；圆点、计数、左右箭头、暂停。自动播放尊重「减少动态效果」。 */
+export function heroCarousel(posts: PostSummary[]): string {
+  if (!posts.length) return '';
+  const n = posts.length;
+  const slides = posts
+    .map(
+      (p, i) => `<article class="slide${i === 0 ? ' is-active' : ''}" id="slide-${i}" aria-roledescription="slide" aria-label="第 ${i + 1} / ${n} 张"${i ? ' aria-hidden="true" inert' : ''}>
+    ${img(p.coverUrl, p.title, 'slide__img', { sizes: '(max-width: 900px) 100vw, 860px', eager: i === 0 })}
+    <div class="slide__body">
+      ${p.category ? catChip(p.category, 'cchip--glass') : ''}
+      <h2 class="slide__title"><a href="${postPath(p.slug)}">${e(p.title)}</a></h2>
+      ${p.summary ? `<p class="slide__excerpt">${e(p.summary)}</p>` : ''}
+      <a class="btn btn--white slide__cta" href="${postPath(p.slug)}" tabindex="${i ? '-1' : '0'}">阅读全文${icon('arrowRight')}</a>
     </div>
+  </article>`,
+    )
+    .join('');
+  const dots = posts.map((p, i) => `<button class="carousel__dot js-car-dot" type="button" data-i="${i}" aria-label="第 ${i + 1} 张：${e(p.title)}"${i === 0 ? ' aria-current="true"' : ''}></button>`).join('');
+  return `<section class="carousel js-carousel" aria-roledescription="carousel" aria-label="头条文章" data-count="${n}">
+  <div class="carousel__track" aria-live="off">${slides}</div>
+  ${n > 1 ? `<div class="carousel__dots" role="group" aria-label="选择头条">${dots}</div>
+  <div class="carousel__ctrl">
+    <span class="carousel__count"><b class="js-car-i">01</b> / ${pad2(n)}</span>
+    <button class="carousel__btn js-car-pause" type="button" aria-label="暂停自动播放" aria-pressed="false">${icon('pause', 'only-play')}${icon('play', 'only-paused')}</button>
+    <button class="carousel__btn js-car-prev" type="button" aria-label="上一张">${icon('chevronLeft')}</button>
+    <button class="carousel__btn js-car-next" type="button" aria-label="下一张">${icon('chevronRight')}</button>
+  </div>` : ''}
+</section>`;
+}
+
+/** 精选文章卡片：封面 + 彩色分类 + 标题 + 摘要 + 日期 / 阅读时长 + 收藏。 */
+export function featureCard(p: PostSummary): string {
+  return `<article class="fcard reveal">
+  <a class="fcard__media" href="${postPath(p.slug)}" tabindex="-1" aria-hidden="true">${img(p.coverUrl, '', 'fcard__img', { sizes: '(max-width: 700px) 100vw, 300px' }) || `<span class="ph" style="--h:${hashHue(p.slug)}">${icon('file')}</span>`}</a>
+  ${p.category ? catChip(p.category, 'fcard__chip') : ''}
+  <h3 class="fcard__title"><a href="${postPath(p.slug)}">${e(p.title)}</a></h3>
+  ${p.summary ? `<p class="fcard__excerpt">${e(p.summary)}</p>` : ''}
+  <div class="fcard__meta">${metaBits(p)}${bookmarkBtn(p)}</div>
+</article>`;
+}
+
+/** 最新文章一行：缩略图 + 标题 + 摘要 + 彩色标签 + 日期 / 阅读时长 + 收藏。 */
+export function postRow(p: PostSummary): string {
+  const label = p.category ?? p.tags[0];
+  return `<article class="lrow post-card reveal">
+  <a class="lrow__thumb" href="${postPath(p.slug)}" tabindex="-1" aria-hidden="true">${img(p.coverUrl, '', 'lrow__img', { sizes: '180px' }) || `<span class="ph" style="--h:${hashHue(p.slug)}">${icon('file')}</span>`}</a>
+  <div class="lrow__body">
+    <h3 class="lrow__title">${p.pinned ? `<span class="pin-flag">${icon('pin')}置顶</span>` : ''}<a href="${postPath(p.slug)}">${e(p.title)}</a></h3>
+    ${p.summary ? `<p class="lrow__excerpt">${e(p.summary)}</p>` : ''}
+    <div class="lrow__meta">${label ? (p.category ? catChip(label) : `<a class="cchip cchip--${tone(label)}" href="${tagPath(label)}">${e(label)}</a>`) : ''}${metaBits(p)}</div>
   </div>
-  <a class="hero__down" href="#content" aria-label="向下滚动到文章">${icon('chevronDown')}</a>`,
-    { cls: 'hero', rows: 2, tag: 'section', attrs: 'id="hero"', label: '首页横幅' },
+  ${bookmarkBtn(p)}
+</article>`;
+}
+
+function featuredPanel(list: PostSummary[]): string {
+  if (!list.length) return '';
+  return `<section class="panel panel--featured" aria-labelledby="h-featured">${secHead('flame', '精选文章', '记录真实的生活，分享有温度的创作', url('/archives/'), 'h-featured')}
+  <div class="fgrid">${list.map(featureCard).join('')}</div></section>`;
+}
+
+function latestPanel(list: PostSummary[], page: number, pages: number, total: number): string {
+  return `<section class="panel panel--latest" aria-labelledby="h-latest">${secHead('clock', page > 1 ? `最新文章 · 第 ${page} 页` : '最新文章', page > 1 ? `全部 ${total} 篇` : '持续更新创作与思考', url('/archives/'), 'h-latest')}
+  <div class="llist">${list.length ? list.map(postRow).join('') : '<p class="empty">还没有文章。</p>'}</div>
+  ${pagination(page, pages)}</section>`;
+}
+
+/** 侧栏卡片外壳 */
+function sideCard(cls: string, body: string, label: string): string {
+  return `<section class="side-card ${cls} reveal" aria-label="${e(label)}">${body}</section>`;
+}
+
+/** 订阅：邮箱 → 「成为好朋友」（邮箱验证码）；也给出 RSS / JSON Feed。纯静态，没有假的后端。 */
+export function subscribeCard(): string {
+  return sideCard(
+    'sub-card',
+    `<div class="sub-card__head"><span class="sub-card__ic">${icon('send')}</span><div><h2>订阅我的更新</h2><p>每周分享摄影、创作与生活思考。</p></div></div>
+  <form class="sub-form js-sub-form" action="${url('/join/')}" method="get" novalidate>
+    <label class="sub-form__field">${icon('mail')}<span class="visually-hidden">邮箱地址</span><input type="email" name="email" placeholder="输入你的邮箱地址" autocomplete="email" maxlength="120" required></label>
+    <button class="btn btn--primary btn--block" type="submit">${icon('send')}<span>立即订阅</span></button>
+  </form>
+  <p class="sub-card__alt">邮箱订阅会带你去「成为好朋友」，用验证码确认邮箱；也可以用 <a href="${url('/rss.xml')}">RSS</a> 或 <a href="${url('/feed.json')}">JSON Feed</a> 订阅。</p>`,
+    '订阅我的更新',
   );
 }
 
-function statsTile(site: SiteData): string {
-  const words = site.posts.reduce((a, p) => a + (p.wordCount || 0), 0);
-  const last = site.posts.reduce((a, p) => (p.updatedAt > a ? p.updatedAt : a), '');
-  const since = site.posts.length ? pubDate(site.posts[site.posts.length - 1]!) : '';
-  return tile(
-    'third',
-    `${kicker('chart', '网站资讯')}
-  <usa-scroll-scene class="stats-scene" start="top 95%" end="top 45%" scrub="100" stagger="80">
-  <dl class="stats">
-    <div data-scrub="y: 18 -> 0"><dt>文章</dt><dd>${site.total}</dd></div>
-    <div data-scrub="y: 18 -> 0"><dt>总字数</dt><dd>${formatCount(words)}</dd></div>
-    <div data-scrub="y: 18 -> 0"><dt>已运行</dt><dd class="js-runtime-days" data-since="${e(since)}">${since ? `${Math.max(1, Math.floor((Date.now() - new Date(since).getTime()) / 864e5))} 天` : '—'}</dd></div>
-    <div data-scrub="y: 18 -> 0"><dt>最后更新</dt><dd>${formatDate(last).slice(5) || '—'}</dd></div>
-  </dl></usa-scroll-scene>`,
-    { cls: 'stats-tile' },
+/** 热门文章：没有阅读量统计，按站长的「精选」顺序、置顶、新旧排序。 */
+export function hotPosts(site: SiteData, n = 5): PostSummary[] {
+  const rank = new Map(site.settings.featuredSlugs.map((s, i) => [s, i]));
+  return [...site.posts]
+    .sort((a, b) => (rank.get(a.slug) ?? 99) - (rank.get(b.slug) ?? 99) || Number(b.pinned) - Number(a.pinned) || (pubDate(b) > pubDate(a) ? 1 : -1))
+    .slice(0, n);
+}
+function hotCard(site: SiteData): string {
+  const list = hotPosts(site);
+  if (!list.length) return '';
+  return sideCard(
+    'hot-card',
+    `${secHead('flame', '热门文章', '', url('/archives/'))}<ol class="hot">${list
+      .map(
+        (p, i) => `<li><a class="hot__item" href="${postPath(p.slug)}"><span class="hot__n hot__n--${i + 1}">${i + 1}</span><span class="hot__text"><b>${e(p.title)}</b>${p.summary ? `<span class="hot__sum">${e(p.summary)}</span>` : ''}<time datetime="${e(pubDate(p))}">${formatDate(pubDate(p))}</time></span>${img(p.coverUrl, '', 'hot__img', { sizes: '64px' })}</a></li>`,
+      )
+      .join('')}</ol>`,
+    '热门文章',
   );
 }
-
-function viewersTile(size: Size = 'quarter'): string {
-  return tile(
-    size,
-    `${kicker('eye', '谁在看网站')}<div class="viewers js-viewers"><div class="viewers__row"><usa-presence class="viewers__me js-viewer-me" name="你" status="online" title="你（匿名）"></usa-presence><usa-avatar-stack max="6" size="38" class="viewers__stack"></usa-avatar-stack></div><p class="viewers__text">正在统计在线访客…</p>
-<p class="viewers__hint">访客默认匿名。<a href="${url('/join/')}">成为好朋友</a>后可选择公开头像。</p></div>`,
-    { cls: 'viewers-tile' },
+function tagsCard(site: SiteData): string {
+  const tags = [...site.tags].sort((a, b) => b.count - a.count).slice(0, 10);
+  if (!tags.length) return '';
+  return sideCard(
+    'tags-card',
+    `${secHead('tag', '热门标签', '', url('/tags/'))}<div class="pills">${tags.map((t, i) => `<a class="pill${i === 0 ? ' pill--on' : ''}" href="${tagPath(t.tag)}">${e(t.tag)} <span>(${t.count})</span></a>`).join('')}</div>`,
+    '热门标签',
   );
 }
-
-/** 音乐瓷砖：播放 / 暂停（图标变形）+ 镜像频谱。真正的 <audio> 常驻页面，换页不中断。 */
-function musicTile(size: Size = 'half'): string {
-  return tile(
-    size,
-    `<div class="music__row">
-    <button class="music__disc js-play" type="button" aria-label="播放背景音乐"><span class="music__vinyl"></span><usa-icon-morph icons="play,pause" size="22" class="music__icon"></usa-icon-morph></button>
-    <div class="music__meta">${kicker('play', '正在播放')}<b>午后散步</b><small class="muted">原创合成旋律 · 本站自带</small></div>
-  </div>
-  <div class="music__viz js-viz" aria-hidden="true"><span class="music__idle">${Array.from({ length: 40 }, (_, i) => `<i style="--i:${i};--h:${Math.round(18 + 70 * Math.abs(Math.sin(i * 0.55) * Math.cos(i * 0.21)))}%"></i>`).join('')}</span></div>
-  <button class="btn btn--ghost btn--sm js-tab-audio" type="button" title="由你选择一个标签页并勾选「分享音频」">${icon('tv')}可视化标签页声音</button>`,
-    { cls: 'music', label: '音乐播放器' },
+/** 访客便签：首页侧栏展示最近几张，点进留言板可以贴新的。 */
+function notesCard(notes: StickyNote[]): string {
+  const list = notes.filter((n) => !n.hidden).slice(-4).reverse();
+  return sideCard(
+    'notes-card',
+    `${secHead('pin', '访客便签', '', url('/guestbook/#wall'))}${
+      list.length
+        ? `<ul class="notes-mini">${list.map((n, i) => `<li class="note note--${e(n.color)}" style="--r:${[-2, 1.5, -1, 2][i % 4]}deg"><p>${e(n.content)}</p><small>— ${e(n.name)}</small></li>`).join('')}</ul>`
+        : '<p class="empty">还没有便签，来贴第一张吧。</p>'
+    }<a class="btn btn--soft btn--block" href="${url('/guestbook/#wall')}">${icon('plus')}贴一张便签</a>`,
+    '访客便签',
   );
 }
-
-function galleryTile(albums: Album[]): string {
-  const photos = albums.flatMap((a) => a.photos.slice(0, 2).map((p) => ({ ...p, album: a }))).slice(0, 5);
-  if (!photos.length) return '';
-  return tile(
-    'twothird',
-    `<div class="gal-mosaic">${photos
-      .map((p, i) => `<a class="gal-mosaic__item gal-mosaic__item--${i}" href="${albumPath(p.album.slug)}" aria-label="${e(p.album.title)}：${e(p.caption)}">${img(p.url, p.caption, 'gal-mosaic__img', { sizes: i === 0 ? '(max-width: 768px) 100vw, 360px' : '200px' })}</a>`)
-      .join('')}</div>
-  <div class="gal-tile__cap">${kicker('image', '画廊')}<b>${albums.length} 个相册 · ${albums.reduce((n, a) => n + a.photos.length, 0)} 张照片</b>${more(url('/gallery/'), '去看看')}</div>`,
-    { cls: 'gal-tile', rows: 2, label: '画廊' },
-  );
+function announceCard(site: SiteData): string {
+  if (!site.settings.sections.announcement || !site.settings.announcement) return '';
+  return sideCard('announce-card widget--announce', `${secHead('megaphone', '公告', '')}<div class="prose prose--sm">${md(site.settings.announcement)}</div>`, '公告');
 }
 
-function notesTile(notes: StickyNote[]): string {
-  const list = notes.filter((n) => !n.hidden).slice(-5);
-  return tile(
-    'third',
-    `${kicker('pin', '便利贴墙')}<usa-sticky-wall label="访客便利贴" class="sticky-wall sticky-wall--mini">${list.map((n) => `<p data-color="${e(n.color)}" data-id="${n.id}">${e(n.content)}<small>— ${e(n.name)}</small></p>`).join('')}</usa-sticky-wall>${more(url('/guestbook/'), '贴一张')}`,
-    { cls: 'notes-tile', rows: 2 },
-  );
-}
-
-/** 节日瓷砖：只在节日期间出现（festivals 表里配置的日期范围）。 */
+/** 节日卡片：只在节日期间出现（festivals 表里配置的日期范围）。 */
 export function festivalTile(list: Festival[] | undefined, now = new Date()): string {
   const f = list?.length ? activeFestival(list, now) : null;
   if (!f) return '';
-  return tile(
-    'third',
-    `${kicker('sparkles', '今天是节日')}
+  return `<section class="side-card fest-tile fest-tile--on reveal" data-festival="${e(f.id)}" aria-label="${e(f.name)}">
+  ${secHead('sparkles', '今天是节日', '')}
   <usa-festival-banner theme="${e(f.theme)}" label="${e(f.name)}" class="festival festival--tile">${festivalText(f)}</usa-festival-banner>
   <div class="fest__row"><b class="fest__name">${e(f.name)}</b><span class="fest__days">快乐！</span></div>
-  <usa-click effect="confetti" class="fest__click"><button class="btn btn--sm" type="button">${icon('sparkles')}撒花庆祝</button></usa-click>`,
-    { cls: 'fest-tile fest-tile--on', attrs: `data-festival="${e(f.id)}"` },
-  );
-}
-
-function friendsTile(friends: Friend[], members: PublicMember[]): string {
-  if (!friends.length && !members.length) return '';
-  return tile(
-    'third',
-    `${kicker('link', '朋友们')}
-  <div class="friends-mini">${friends
-    .slice(0, 6)
-    .map((f) => {
-      const href = safeHref(f.url);
-      return `<a class="friends-mini__item" ${href ? `href="${e(href)}" target="_blank" rel="noopener noreferrer"` : ''} title="${e(f.name)}">${img(f.avatar, f.name, 'friends-mini__av') || `<span class="friends-mini__av friends-mini__av--txt" style="--h:${hashHue(f.name)}">${e(f.name.slice(0, 1))}</span>`}<span>${e(f.name)}</span></a>`;
-    })
-    .join('')}</div>
-  ${members.length ? `<div class="members-mini">${members.slice(0, 3).map((m) => `<span class="members-mini__m"><b>${e(m.name)}</b>${m.badges.slice(0, 1).map((b) => memberBadge(b.code, b.label, b.style)).join('')}</span>`).join('')}</div>` : ''}
-  ${more(url('/links/'), '全部友链')}`,
-    { cls: 'friends-tile' },
-  );
-}
-
-function joinTile(): string {
-  return tile(
-    'third',
-    `<usa-anim-icon name="heart" size="40" trigger="loop" class="join-tile__ic" label="好朋友"></usa-anim-icon>
-  <h2 class="tile__h">注册成为好朋友</h2><p class="muted">邮箱验证码注册，就能给我传文件、发语音，还可能领到刻着专属编号的徽章。</p>
-  <div class="join-tile__badges">${memberBadge('FRIEND-0001', '示例徽章', 'pearlescent')}${memberBadge('FRIEND-0002', '示例徽章', 'brushed-metal')}</div>
-  <usa-button deform="squash wobble" haptic><a class="btn" href="${url('/join/')}">${icon('heart')}<span>加入</span></a></usa-button>`,
-    { cls: 'join-tile' },
-  );
-}
-
-function mailboxTile(): string {
-  return tile(
-    'third',
-    `<usa-anim-icon name="bell" size="40" trigger="hover" class="join-tile__ic" label="信箱"></usa-anim-icon>
-  <h2 class="tile__h">信箱</h2><p class="muted">好朋友可以给我上传文件，或者按住麦克风说几句话。只有我能看到。</p>
-  <usa-button deform="gooey"><a class="btn btn--ghost" href="${url('/mailbox/')}">${icon('mail')}<span>去信箱</span></a></usa-button>`,
-    { cls: 'mail-tile' },
-  );
-}
-
-function tagsTile(site: SiteData): string {
-  return tile(
-    'third',
-    `${kicker('tag', '标签与分类')}${categoryList(site.categories.slice(0, 4))}${tagCloud(site.tags, 14)}${more(url('/tags/'), '全部标签')}`,
-    { cls: 'tags-tile', rows: 2 },
-  );
-}
-
-function announceTile(site: SiteData): string {
-  if (!site.settings.sections.announcement || !site.settings.announcement) return '';
-  return tile('third', `${kicker('megaphone', '公告')}<div class="prose prose--sm">${md(site.settings.announcement)}</div>`, { cls: 'announce-tile widget--announce' });
-}
-
-/** 显示设置瓷砖：深色、页面风格、动效强度、暂停动效、光标拖尾。 */
-export function settingsBody(): string {
-  return `<div class="set-row"><span>深色模式</span><usa-switch variant="daynight" class="js-dark-switch" label="深色模式"></usa-switch></div>
-  <div class="set-row set-row--cord"><span>或者拉一下灯绳</span><usa-pull-cord class="pull-cord--inline" label="拉灯绳切换深色模式"></usa-pull-cord></div>
-  <div class="set-row set-row--col"><span>页面风格</span><usa-theme-switcher themes="light,glass,neon" label="页面风格" class="js-surface"></usa-theme-switcher></div>
-  <div class="set-row set-row--col"><span>动效强度</span><usa-motion-switch class="js-motion-switch"></usa-motion-switch></div>
-  <div class="set-row"><usa-checkbox class="js-comet-switch" label="光标彗星拖尾">光标彗星拖尾</usa-checkbox></div>
-  <div class="set-row set-row--col"><span class="muted">觉得卡可以点这里暂停动效</span><usa-pause-all label="暂停全部动效" resume-label="恢复动效" class="js-pause-all"></usa-pause-all></div>`;
-}
-function settingsTile(): string {
-  return tile('third', `${kicker('settings', '显示设置')}${settingsBody()}`, { cls: 'settings-tile', rows: 2 });
-}
-
-/** 互动小样：每一种点击反馈 / 加载 / 结果 / 材质效果都能点一点。 */
-function labTile(): string {
-  const b = (deform: string, label: string, extra = '') => `<usa-button deform="${deform}"${extra}><button class="btn btn--sm btn--soft" type="button">${label}</button></usa-button>`;
-  const c = (effect: string, label: string) => `<usa-click effect="${effect}" class="lab__click"><button class="btn btn--sm btn--soft" type="button">${label}</button></usa-click>`;
-  return tile(
-    'full',
-    `<div class="lab__head">${kicker('sparkles', '互动小样')}<h2 class="tile__h">点一点、按一按 —— 这些动效都来自 Motionary</h2></div>
-  <div class="lab">
-    <div class="lab__cell"><h3>点击反馈</h3><div class="lab__row">${c('ripple', '涟漪')}${c('burst', '粒子迸发')}${c('confetti', '彩纸')}${c('squish', '按压回弹')}</div></div>
-    <div class="lab__cell"><h3>按钮形变</h3><div class="lab__row">${b('squash', '挤压拉伸')}${b('wobble', '弹性圆角')}${b('gooey', '液体融合')}${b('dent', '按压凹陷')}${b('squash', '震动反馈', ' haptic')}</div></div>
-    <div class="lab__cell"><h3>形状变形 · 提交</h3><div class="lab__row"><usa-icon-morph icons="menu,close" labels="打开,关闭" toggle size="26" class="lab__morph"></usa-icon-morph><usa-icon-morph icons="plus,minus" labels="展开,收起" toggle size="26" class="lab__morph"></usa-icon-morph>
-      <usa-button deform="squash" morph="submit" class="js-lab-submit"><button class="btn btn--sm" type="button">提交</button></usa-button></div></div>
-    <div class="lab__cell"><h3>喜欢 · 长按 · 双击</h3><div class="lab__row"><usa-like count="128" class="js-lab-like" label="喜欢"></usa-like><usa-hold duration="1000" class="lab__hold js-lab-hold" label="长按确认">长按确认</usa-hold>
-      <usa-double-tap class="lab__dbl" label="双击出现爱心"><span class="lab__dbl-pad">双击这里 ❤</span></usa-double-tap></div></div>
-    <div class="lab__cell"><h3>勾选 · 结果</h3><div class="lab__row"><usa-checkbox checked label="动画复选框">记住我</usa-checkbox><usa-check kind="success" size="34" label="成功" trigger="view"></usa-check><usa-check kind="error" size="34" label="失败"></usa-check><usa-check kind="warning" size="34" label="提醒"></usa-check></div></div>
-    <div class="lab__cell"><h3>加载</h3><div class="lab__row"><usa-spinner kind="fluent" size="30" label="Windows 进度环"></usa-spinner><usa-spinner kind="windows" size="30" label="Windows 点阵"></usa-spinner><usa-spinner kind="dots" size="30" label="加载中"></usa-spinner>
-      <button class="btn btn--sm btn--soft js-lab-bar" type="button">进度条</button><button class="btn btn--sm btn--soft js-lab-toast" type="button">通知</button></div>
-      <usa-skeleton loading avatar lines="2" class="lab__skel js-lab-skel"><p class="lab__skel-done">内容加载好了 ✓</p></usa-skeleton></div>
-    <div class="lab__cell"><h3>材质 · 手势</h3><div class="lab__row">${memberBadge('METAL-01', '拉丝金属', 'brushed-metal')}${memberBadge('PEARL-01', '珍珠母贝', 'pearlescent')}
-      <usa-gesture-fx gesture="long-press" effect="tada" class="lab__gesture"><button class="btn btn--sm btn--soft" type="button">长按我</button></usa-gesture-fx>
-      <usa-gesture-fx gesture="fling" effect="jelly" class="lab__gesture"><button class="btn btn--sm btn--soft" type="button">甩一下</button></usa-gesture-fx></div></div>
-  </div>`,
-    { cls: 'lab-tile', label: '互动小样' },
-  );
-}
-
-function latestTile(site: SiteData, skip: Set<string>): string {
-  const list = site.posts.filter((p) => !skip.has(p.slug)).slice(0, 4);
-  if (!list.length) return '';
-  return tile(
-    'third',
-    `${kicker('history', '最近更新')}<ul class="mini-list">${list
-      .map(
-        (p) => `<li><a href="${postPath(p.slug)}"><span class="mini-list__thumb">${img(p.coverUrl, '', 'mini-list__img', { sizes: '64px' }) || `<span class="mini-list__ph">${icon('file')}</span>`}</span>
-  <span><span class="mini-list__title">${e(p.title)}</span><time datetime="${e(pubDate(p))}">${formatDate(pubDate(p))}</time></span></a></li>`,
-      )
-      .join('')}</ul>${more(url('/archives/'))}`,
-    { cls: 'latest-tile', rows: 2 },
-  );
+  <usa-click effect="confetti" class="fest__click"><button class="btn btn--sm btn--soft" type="button">${icon('sparkles')}撒花庆祝</button></usa-click>
+</section>`;
 }
 
 export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
@@ -742,45 +759,29 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
   const pages = Math.max(1, Math.ceil(site.posts.length / per));
   const list = site.posts.slice((page - 1) * per, page * per);
   const s = site.settings;
-  const featured = page === 1 && s.sections.featured ? (s.featuredSlugs.map((slug) => site.posts.find((p) => p.slug === slug)).filter(Boolean) as PostSummary[]) : [];
-  const lead = page === 1 ? (featured[0] ?? list[0]) : undefined;
-  const second = page === 1 ? [...featured.slice(1), ...list].filter((p) => p.slug !== lead?.slug).slice(0, 2) : [];
-  const shown = new Set([lead?.slug, ...second.map((p) => p.slug)].filter(Boolean) as string[]);
-  const rest = list.filter((p) => !shown.has(p.slug));
-  if (page > 1) {
-    return shell(site, { name: 'home', page }, {
-      title: `第 ${page} 页`,
-      top: pageHead(`第 ${page} 页`, `全部 ${site.total} 篇文章`),
-      main: `${bento(list.map((p, i) => postCard(p, i, 'third')).join(''), 'bento--posts')}${pagination(page, pages)}`,
-      kind: 'page--home page--list',
-    });
-  }
-  const top = bento(`${s.sections.hero ? heroTile(site) : ''}${s.sections.about ? profileCard(site, 'third') : ''}${s.sections.hero || s.sections.about ? '' : ''}`, 'bento--top');
-  const tiles = [
-    lead ? postCard(lead, 0, 'half', true, undefined, featured.includes(lead)) : '',
-    ...second.map((p, i) => postCard(p, i + 1, 'quarter', false, 2, featured.includes(p))),
-    statsTile(site),
-    viewersTile('third'),
-    festivalTile(site.festivals) || announceTile(site),
-    galleryTile(x.gallery ?? []),
-    latestTile(site, shown),
-    musicTile('twothird'),
-    joinTile(),
-    notesTile(x.notes ?? []),
-    s.sections.tags || s.sections.categories ? tagsTile(site) : '',
-    settingsTile(),
-    friendsTile(x.friends ?? [], x.members ?? []),
-    mailboxTile(),
-    festivalTile(site.festivals) ? announceTile(site) : '',
-    labTile(),
-  ].join('');
-  const more2 = s.sections.postList && rest.length ? `<h2 class="section-h reveal">${icon('book')}更多文章</h2>${bento(rest.map((p, i) => postCard(p, i, rest.length % 3 === 0 ? 'third' : 'quarter')).join(''), 'bento--posts')}${pagination(page, pages)}` : pagination(page, pages);
+  const featured = s.sections.featured ? (s.featuredSlugs.map((slug) => site.posts.find((p) => p.slug === slug)).filter(Boolean) as PostSummary[]).slice(0, 3) : [];
+  const fset = new Set(featured.map((p) => p.slug));
+  const slides = [...site.posts.filter((p) => p.pinned), ...site.posts.filter((p) => !p.pinned)].filter((p) => p.coverUrl && !fset.has(p.slug)).slice(0, 5);
+  const side = page === 1
+    ? [
+        s.sections.about ? profileCard(site, 'full') : '',
+        subscribeCard(),
+        festivalTile(site.festivals),
+        s.sections.latest ? hotCard(site) : '',
+        s.sections.tags ? tagsCard(site) : '',
+        notesCard(x.notes ?? []),
+        announceCard(site),
+      ].join('')
+    : [subscribeCard(), s.sections.tags ? tagsCard(site) : ''].join('');
+  const mainCol = page === 1
+    ? `${s.sections.hero ? heroCarousel(slides) : ''}${featuredPanel(featured)}${s.sections.postList ? latestPanel(list, page, pages, site.total) : ''}${homeSections(site, x)}`
+    : latestPanel(list, page, pages, site.total);
   return shell(site, { name: 'home', page }, {
-    title: s.siteTitle,
+    title: page > 1 ? `第 ${page} 页` : s.siteTitle,
     description: s.siteDescription,
-    top,
-    main: `${bento(tiles, 'bento--home', 'id="content"')}${homeSections(site, x)}${more2}`,
-    kind: 'page--home',
+    top: '',
+    main: `<div class="home" id="content"><div class="home__main">${mainCol}</div><aside class="home__side" aria-label="侧栏">${side}</aside></div>`,
+    kind: page > 1 ? 'page--home page--list' : 'page--home',
   });
 }
 
@@ -1076,18 +1077,18 @@ export function guestbookPage(site: SiteData, entries: GuestbookEntry[] = [], no
   <textarea id="gb-content" name="content" rows="4" maxlength="1000" required placeholder="说点什么吧……（留言需要审核后显示）"></textarea>
   <div class="gb-form__foot"><span class="muted">请文明发言 · 不收集你的邮箱与 IP</span><usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn" type="submit">${icon('message')}发送</button></usa-button></div>
 </form>`;
-  const wall = `${kicker('pin', '便利贴墙')}<usa-sticky-wall label="访客便利贴" class="sticky-wall js-sticky-wall">${notes.filter((n) => !n.hidden).map((n) => `<p data-color="${e(n.color)}" data-id="${n.id}">${e(n.content)}<small>— ${e(n.name)}</small></p>`).join('')}</usa-sticky-wall>
+  const wall = `${secHead('pin', '便签墙', '贴一句话给路过的人看 · 被 3 位访客举报会自动隐藏')}<usa-sticky-wall label="访客便利贴" class="sticky-wall js-sticky-wall">${notes.filter((n) => !n.hidden).map((n) => `<p data-color="${e(n.color)}" data-id="${n.id}">${e(n.content)}<small>— ${e(n.name)}</small></p>`).join('')}</usa-sticky-wall>
 <form class="note-form js-note-form" autocomplete="off">
   <input name="name" maxlength="20" placeholder="昵称" required aria-label="昵称">
   <input name="content" maxlength="60" placeholder="写一句话贴在墙上（60 字以内）" required aria-label="便利贴内容">
-  <select name="color" aria-label="颜色"><option value="yellow">黄</option><option value="pink">粉</option><option value="blue">蓝</option><option value="green">绿</option></select>
-  <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn" type="submit">贴上去</button></usa-button>
+  <select name="color" aria-label="便签颜色"><option value="yellow">黄色便签</option><option value="pink">粉色便签</option><option value="blue">蓝色便签</option><option value="green">绿色便签</option></select>
+  <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn btn--primary" type="submit">${icon('pin')}贴上去</button></usa-button>
 </form>`;
   return shell(site, { name: 'guestbook' }, {
     title: '留言板',
     description: '给我留言',
-    top: pageHead('留言板', `${entries.length} 条留言 · ${notes.filter((n) => !n.hidden).length} 张便利贴`),
-    main: bento(`${tile('half', form, { cls: 'gb-tile' })}${tile('half', `${kicker('users', '大家说')}${list}`, { cls: 'comments-tile' })}${tile('full', wall, { cls: 'wall-tile' })}`),
+    top: pageHead('留言与便签', `${entries.length} 条留言 · ${notes.filter((n) => !n.hidden).length} 张便签`),
+    main: bento(`${tile('half', form, { cls: 'gb-tile' })}${tile('half', `${kicker('users', '大家说')}${list}`, { cls: 'comments-tile' })}${tile('full', wall, { cls: 'wall-tile', attrs: 'id="wall"' })}`),
   });
 }
 
@@ -1106,7 +1107,7 @@ export function aboutPage(site: SiteData, members: PublicMember[] = []): Page {
 ${bento(tile('full', `${kicker('message', '常见问题')}
 <usa-disclosure class="faq">
   <details><summary>这个博客用什么搭的？</summary><p>静态前端 + Cloudflare Worker（D1 存文章、R2 存图片），自带 MCP 端点，AI 助手可以直接帮我写草稿。动效全部来自我自己写的 Motionary。</p></details>
-  <details><summary>页面动效太多会卡吗？</summary><p>首页「显示设置」或底部 Dock 的设置里可以调动效强度、一键暂停全部动效；系统开启「减少动态效果」时会自动关闭位移动画。</p></details>
+  <details><summary>页面动效太多会卡吗？</summary><p>新版界面以静态为主：首页轮播可以随时暂停，系统开启「减少动态效果」时会自动停用轮播自动播放和位移动画。</p></details>
   <details><summary>你会收集我的数据吗？</summary><p>不会追踪你。详见 <a href="${url('/privacy/')}">隐私说明</a>。</p></details>
 </usa-disclosure>`))}`,
   });
@@ -1122,12 +1123,10 @@ export function privacyPage(site: SiteData): Page {
         'full',
         `<article class="prose">
 <h2 id="h-privacy-1">一句话版本</h2>
-<p>本站不使用第三方统计和广告追踪，不读取你电脑上的其他声音、文件或账号信息。</p>
+<p>本站不使用第三方统计和广告追踪，不读取你电脑上的声音、文件或账号信息。</p>
 <h2 id="h-privacy-2">「谁在看网站」</h2>
 <ul><li>默认只显示匿名头像（随机颜色 + 首字母），用一个随机会话 ID 计数，关闭页面后即失效；服务器不保存 IP。</li>
 <li>浏览器不会把你的 Google / Edge 头像告诉网站。只有你在「成为好朋友」页<strong>主动</strong>用 Google 登录并勾选「公开头像」后，其他访客才会看到你的名字和头像，随时可以撤销。我们只保存 Google 提供的名字和头像地址，不保存其他资料。</li></ul>
-<h2 id="h-privacy-3">音乐可视化</h2>
-<p>频谱和声音粒子默认只分析本站播放器自己的音乐。网页无法得知你电脑上其他程序的声音；如果你点「可视化标签页声音」，浏览器会弹出共享窗口，由你选择一个标签页并勾选「分享音频」，停止共享后立即结束。</p>
 <h2 id="h-privacy-4">留言、便利贴、上传与语音</h2>
 <ul><li>留言需要审核后显示；便利贴被 3 位访客举报后自动隐藏，等待站长复核。只保存你填写的昵称、内容和时间。</li>
 <li>「上传给我的文件」和「给我说话」只有登录的好朋友能用，有大小、类型和频率限制，只有站长能看到，审核后可删除。</li>
@@ -1135,9 +1134,9 @@ export function privacyPage(site: SiteData): Page {
 <li>限流和防重复举报用的是加盐哈希后的 IP，不保存原始 IP；在线状态记录 2 分钟后自动删除。</li>
 <li>Google 登录只在你点击后发生，授权页由 Google 显示并由你确认；本站只读取名字、头像和用于识别账号的邮箱。站长删除好朋友账号时，徽章、登录令牌和你上传的文件一并删除。</li></ul>
 <h2 id="h-privacy-5">本地存储</h2>
-<p>浏览器本地只保存：深色 / 浅色、页面风格、动效强度、点赞记录、好朋友登录状态。演示站的数据也只保存在你的浏览器里。</p>
+<p>浏览器本地只保存：深色 / 浅色、点赞与「收藏」书签、好朋友登录状态。演示站的数据也只保存在你的浏览器里。首页的「订阅」框不会把邮箱发给任何第三方：它只是把你带到「成为好朋友」页，由你自己决定是否用邮箱验证码注册。</p>
 <h2 id="h-privacy-6">图片致谢</h2>
-<p>示例照片来自 Wikimedia Commons（CC0 / 公有领域 / CC BY / CC BY-SA），作者和许可写在每张照片下方和仓库 README。</p>
+<p>示例照片大多来自 Wikimedia Commons（CC0 / 公有领域 / CC BY / CC BY-SA），作者和许可写在每张照片下方和仓库 README；少数标注为「AI 生成示例图」的图片（首页山景背景、部分封面）不是真实拍摄，只用来占位，站长会换成自己的照片。</p>
 </article>`,
         { cls: 'prose-tile' },
       ),
@@ -1149,16 +1148,16 @@ export function joinPage(site: SiteData): Page {
   return shell(site, { name: 'join' }, {
     title: '成为好朋友',
     description: '注册成为好朋友',
-    top: pageHead('成为好朋友', '注册后可以给我上传文件、发语音，还可能领到一枚刻有专属编号的徽章。'),
-    main: bento(`${tile('twothird', `<div class="join"><ol class="steps js-join-steps"><li class="is-active">填写资料</li><li>邮箱验证</li><li>完成</li></ol>
+    top: pageHead('好朋友登录', '用邮箱验证码注册 / 登录。登录后可以给我上传文件、发语音，还可能领到一枚刻着专属社交 ID 的徽章。'),
+    main: bento(`${tile('twothird', `<div class="join"><p class="join__hint js-join-hint" hidden>${icon('send')}<span>用邮箱订阅：验证邮箱、成为好朋友后，站长就能联系到你。也可以直接用 <a href="${url('/subscribe/')}">RSS</a> 订阅。</span></p><ol class="steps js-join-steps" aria-label="注册 / 登录步骤"><li class="is-active">填写资料</li><li>邮箱验证</li><li>完成</li></ol>
 <form class="join__form js-join-form" autocomplete="on" novalidate>
   <usa-field label="昵称" name="name" required maxlength="40"></usa-field>
   <usa-field label="邮箱" name="email" type="email" required maxlength="120" hint="只用来发送验证码，不会公开"></usa-field>
   <usa-field label="一句话介绍（可选）" name="bio" maxlength="120"></usa-field>
-  <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn btn--block" type="submit">发送验证码</button></usa-button>
+  <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn btn--primary btn--block" type="submit">${icon('mail')}发送验证码</button></usa-button>
 </form>
 <div class="join__otp js-join-otp" hidden><p>验证码已发送到 <b class="js-join-email"></b>，请输入 6 位数字<span class="js-demo-otp"></span>。</p><usa-otp length="6" label="邮箱验证码" class="js-otp"></usa-otp><p class="js-otp-msg muted" role="status"></p></div>
-<div class="join__done js-join-done" hidden><usa-check kind="success" size="64" label="注册成功"></usa-check><h3>欢迎你，<span class="js-join-name"></span>！</h3><p>现在可以去 <a href="${url('/mailbox/')}">信箱</a> 给我传文件或留语音了。</p></div>
+<div class="join__done js-join-done" hidden><usa-check kind="success" size="64" label="已登录"></usa-check><h3>欢迎你，<span class="js-join-name"></span>！</h3><p class="js-join-badges join__badges"></p><p>现在可以去 <a href="${url('/mailbox/')}">信箱</a> 给我传文件或留语音，或者去 <a href="${url('/guestbook/#wall')}">便签墙</a> 贴一张。</p><button class="btn btn--soft btn--sm js-logout" type="button">${icon('logout')}退出登录</button></div>
 <div class="join__google"><p class="muted">或者</p><button class="btn btn--ghost js-google" type="button">${icon('globe')}用 Google 登录（可选公开头像）</button><p class="muted small">只有你同意后才会读取 Google 名字和头像；演示站不会真的连接 Google。</p></div></div>`, { cls: 'join-main', rows: 2 })}
 ${tile('third', `${kicker('award', '专属徽章')}<p class="muted">站长会给好朋友发徽章，编号刻在徽章上：</p><div class="join-tile__badges">${memberBadge('FRIEND-0001', '珍珠母贝', 'pearlescent')}${memberBadge('FRIEND-0002', '拉丝金属', 'brushed-metal')}</div>`, { cls: 'badge-tile' })}
 ${tile('third', `${kicker('eye', '隐私')}<p class="muted">邮箱不会公开。访客默认匿名，头像只在你同意后显示。</p>${more(url('/privacy/'), '隐私说明')}`)}`),
@@ -1267,9 +1266,9 @@ export function pageRegion(p: Page): string {
 <main class="wrap page__main" id="main" tabindex="-1">${p.top}${p.main}${p.aside}</main></div>`;
 }
 
-/** 全站背景：固定的流体色块（颜色跟随深浅色 / 页面风格，见 styles.css 的 --blob-*）。 */
+/** 全站背景：淡蓝色天空 + 山雾（静态图，可在 public/img 里替换）。 */
 export function backdrop(): string {
-  return `<usa-blobs class="bg-blobs" colors="var(--blob-1),var(--blob-2),var(--blob-3),var(--blob-4),var(--blob-5)" speed="0.5" blur="80" aria-hidden="true"></usa-blobs>`;
+  return `<div class="sky" aria-hidden="true"></div>`;
 }
 
 /** 整个 #app 的内容（预渲染与浏览器首屏共用）。 */

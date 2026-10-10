@@ -160,6 +160,14 @@ describe('演示 mock API：后台写操作', () => {
     expect(p.status).toBe(200);
     expect(p.body).toMatchObject({ name: '新名字', avatarUrl: PNG, tagline: createSeed().profile.tagline });
     expect((await admin('PATCH', '/api/admin/profile', { links: [{ label: 'x', url: 'javascript:1' }] })).status).toBe(400);
+    // 新版个人卡片：身份一行、卡片数字、社交 ID
+    const q = await admin('PATCH', '/api/admin/profile', { role: '摄影 / 写作', stats: [{ label: '关注者', value: '1.2k' }], links: [{ label: '微信', url: '/about/', icon: 'wechat', handle: 'wx-demo' }] });
+    expect(q.status).toBe(200);
+    expect(q.body).toMatchObject({ role: '摄影 / 写作', stats: [{ label: '关注者', value: '1.2k' }], links: [{ label: '微信', url: '/about/', icon: 'wechat', handle: 'wx-demo' }] });
+    expect((await admin('PATCH', '/api/admin/profile', { stats: [{ label: '', value: '1' }] })).status).toBe(400);
+    expect((await admin('PATCH', '/api/admin/profile', { stats: [1, 2, 3, 4].map((n) => ({ label: `a${n}`, value: String(n) })) })).status).toBe(400);
+    expect((await admin('PATCH', '/api/admin/profile', { links: [{ label: 'x', url: '/a/', icon: 'nope' }] })).status).toBe(400);
+    expect((await admin('PATCH', '/api/admin/profile', { links: [{ label: 'x', url: '/a/', handle: 'x'.repeat(61) }] })).status).toBe(400);
 
     const s = await admin('PUT', '/api/admin/settings', { animation: 'high', sections: { tags: false }, postsPerPage: 3, siteTitle: '演示站' });
     expect(s.body).toMatchObject({ animation: 'high', postsPerPage: 3, siteTitle: '演示站', sections: { hero: true, tags: false } });

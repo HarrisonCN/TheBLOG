@@ -243,3 +243,12 @@
   .adm-tile { padding: 1.1rem; }
   .adm-cover { flex-wrap: wrap; }
 }
+
+/* ---------- 新版：明亮卡片风格的登录页 ---------- */
+.adm-login { overflow: hidden; padding-top: 0; border-radius: 20px; }
+.adm-login__cover { width: calc(100% + 4rem); height: 96px; margin: 0 -2rem 0; background: linear-gradient(180deg, transparent 30%, var(--tile)), url("/img/misty-peaks-800.webp") center 40% / cover no-repeat, #dfe9f7; }
+.adm-login .adm-brand__logo--lg { margin-top: -30px; border-radius: 50%; background: linear-gradient(135deg, #2f6bff, #7aa7ff); box-shadow: 0 0 0 4px var(--tile), 0 8px 20px -8px rgb(47 107 255 / 0.6); }
+.adm-login h1 { font-family: var(--serif); font-size: 1.6rem; }
+.adm-login__back { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.9rem; font-size: 0.85rem; color: var(--muted); }
+.adm-brand__logo { border-radius: 50%; background: linear-gradient(135deg, #2f6bff, #7aa7ff); box-shadow: 0 6px 14px -6px rgb(47 107 255 / 0.6); }
+.adm-top h1 { font-family: var(--serif); letter-spacing: 0; }

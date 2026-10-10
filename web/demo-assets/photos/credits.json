@@ -178,5 +178,25 @@
   "source": "https://commons.wikimedia.org/wiki/File:Iris_ensata_Thunb.jpg",
   "width": 3623,
   "height": 2466
+ },
+ "alpine-sunset": {
+  "title": "高山湖畔的日落（AI 生成示例图）",
+  "author": "AI 生成的示例图（非真实拍摄，可替换）",
+  "license": "示例素材",
+  "licenseUrl": "",
+  "source": "",
+  "width": 1408,
+  "height": 768,
+  "generated": true
+ },
+ "desk-setup": {
+  "title": "窗边的书桌（AI 生成示例图）",
+  "author": "AI 生成的示例图（非真实拍摄，可替换）",
+  "license": "示例素材",
+  "licenseUrl": "",
+  "source": "",
+  "width": 1408,
+  "height": 768,
+  "generated": true
  }
 }

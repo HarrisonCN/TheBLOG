@@ -42,7 +42,7 @@ export const postUpdateSchema = z.object({
 });
 export type PostUpdate = z.infer<typeof postUpdateSchema>;
 
-export const SOCIAL_ICONS = ['github', 'bilibili', 'weibo', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'] as const;
+export const SOCIAL_ICONS = ['github', 'bilibili', 'weibo', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link', 'wechat', 'xiaohongshu'] as const;
 const linkUrl = z.string().trim().max(2048).regex(LINK_URL, '链接必须是 http(s)、mailto 或站内路径');
 
 export const profileSchema = z.object({
@@ -53,9 +53,22 @@ export const profileSchema = z.object({
   location: z.string().trim().max(60),
   homeUrl: z.union([linkUrl, z.literal('')]).describe('侧栏「前往小窝」按钮的链接（例如 GitHub 主页）'),
   links: z
-    .array(z.object({ label: z.string().trim().min(1).max(40), url: linkUrl, icon: z.enum(SOCIAL_ICONS).optional().describe('社交图标') }))
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(40),
+        url: linkUrl,
+        icon: z.enum(SOCIAL_ICONS).optional().describe('社交图标'),
+        handle: z.string().trim().max(60).optional().describe('社交 ID（例如 @winston、微信号），个人卡片里可查看和复制'),
+      }),
+    )
     .max(10)
     .describe('社交链接'),
+  role: z.string().trim().max(80).optional().describe('身份一行，例如「摄影师 / 设计师 / 独立创作者」'),
+  stats: z
+    .array(z.object({ label: z.string().trim().min(1).max(12), value: z.string().trim().min(1).max(12) }))
+    .max(3)
+    .optional()
+    .describe('个人卡片数字（「文章」自动生成），例如 关注者 / 旅行的国家'),
 });
 export type Profile = z.infer<typeof profileSchema>;
 export const profilePatchSchema = profileSchema.partial();

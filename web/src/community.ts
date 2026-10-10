@@ -5,6 +5,7 @@
 import { api, API_BASE, ApiError, DEMO } from './api';
 import { defineUsed, loadFx } from './usa';
 import type { PublicMember, Viewer } from './demo/community-types';
+import { memberBadge } from './render';
 
 type Notify = (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => Promise<void> | void;
 interface Ctx {
@@ -206,11 +207,29 @@ function bindJoin(root: HTMLElement, ctx: Ctx): void {
     otpBox.hidden = true;
     done.hidden = false;
     root.querySelector('.js-join-name')!.textContent = m.name;
+    const badges = root.querySelector<HTMLElement>('.js-join-badges');
+    if (badges) {
+      badges.innerHTML = m.badges?.length
+        ? `你的社交 ID：${m.badges.map((b) => memberBadge(b.code, b.label, b.style)).join(' ')}`
+        : '站长给你颁发徽章后，你的专属社交 ID 会出现在这里。';
+      void defineUsed(badges);
+    }
     step(2);
+    document.dispatchEvent(new CustomEvent('blog:member'));
     void defineUsed(done).then(() => (done.querySelector('usa-check') as (HTMLElement & { play?: () => void }) | null)?.play?.());
   };
   const me = currentMember();
   if (me) showDone(me.member);
+  root.querySelector('.js-logout')?.addEventListener('click', () => {
+    localStorage.removeItem(MEMBER_KEY);
+    document.dispatchEvent(new CustomEvent('blog:member'));
+    form.hidden = false;
+    otpBox.hidden = true;
+    done.hidden = true;
+    step(0);
+    void ctx.notify('已退出登录', 'info');
+    void ctx.rerender?.();
+  });
   let email = '';
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();

@@ -73,6 +73,14 @@ const P: Record<string, string> = {
   fork: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 11.5V17"/>',
   lock: '<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
   zoom: '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5M11 8v6M8 11h6"/>',
+  bookmark: '<path d="M6.5 3.5h11a1 1 0 0 1 1 1V21L12 16.8 5.5 21V4.5a1 1 0 0 1 1-1z"/>',
+  send: '<path d="M21 3.5 10.5 14"/><path d="M21 3.5 14.5 21l-4-7-7-4z"/>',
+  flame: '<path d="M12 21.5c-4 0-7-2.8-7-6.6 0-3.4 2.4-5.4 3.6-8 .6 1.6 1.5 2.6 2.6 3C11 6.6 12.6 4 15 2.5c-.2 3 1.1 4.6 2.5 6.3 1.2 1.5 1.5 3 1.5 4.6 0 4.4-3 8.1-7 8.1z"/>',
+  verified: '<path d="m12 2.5 2.3 1.6 2.8-.1.9 2.7 2.3 1.6-.9 2.7.9 2.7-2.3 1.6-.9 2.7-2.8-.1L12 21.5l-2.3-1.6-2.8.1-.9-2.7-2.3-1.6.9-2.7-.9-2.7 2.3-1.6.9-2.7 2.8.1z"/><path d="m8.5 12 2.4 2.4 4.6-4.8"/>',
+  pause: '<path d="M8.5 5v14M15.5 5v14"/>',
+  wechat: '<path d="M9.5 4C5.4 4 2.5 6.6 2.5 9.8c0 1.8 1 3.4 2.5 4.5l-.6 2.2 2.6-1.3c.8.2 1.6.3 2.5.3"/><path d="M15 9.5c3.6 0 6.5 2.4 6.5 5.2 0 1.5-.8 2.9-2.1 3.8l.5 2-2.3-1.1c-.8.3-1.7.4-2.6.4-3.6 0-6.5-2.3-6.5-5.1s2.9-5.2 6.5-5.2z"/><circle cx="7" cy="8.5" r=".6"/><circle cx="12" cy="8.5" r=".6"/>',
+  weibo: '<path d="M10.5 9.5c4-1.8 7.2-.8 6.8 2 .5 0 3.2.9 2 3.6C17.8 18 13.8 20 9.5 20 5.6 20 2.5 18 2.5 15.2c0-2.4 3.7-5.2 8-5.7z"/><ellipse cx="9.8" cy="15.3" rx="3.3" ry="2.4"/><path d="M15.5 4.5a4.5 4.5 0 0 1 5 5.5M15.5 7.2a1.9 1.9 0 0 1 2.3 2.4"/>',
+  xiaohongshu: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M7.5 9v6M10 9v6M7.5 12H10M13 9h3.5v6H13zM13 12h3.5"/>',
 };
 
 export type IconName = keyof typeof P;
@@ -85,7 +93,9 @@ export function icon(name: string, cls = ''): string {
 export const SOCIAL_ICON: Record<string, string> = {
   github: 'github',
   bilibili: 'tv',
-  weibo: 'globe',
+  weibo: 'weibo',
+  wechat: 'wechat',
+  xiaohongshu: 'xiaohongshu',
   zhihu: 'book',
   instagram: 'camera',
   x: 'xLogo',
