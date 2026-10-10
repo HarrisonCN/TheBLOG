@@ -186,6 +186,11 @@ describe('分类、置顶、字数、搜索索引', () => {
     const p = (await (await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { homeUrl: 'https://github.com/x', links: [{ label: 'GitHub', url: 'https://github.com/x', icon: 'github' }] } })).json()) as any;
     expect(p).toMatchObject({ homeUrl: 'https://github.com/x', links: [{ icon: 'github' }] });
     expect((await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { links: [{ label: 'x', url: 'https://x', icon: 'myspace' }] } })).status).toBe(400);
+    // 个人卡片：身份一行、卡片数字、社交 ID（handle）
+    const q = (await (await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { role: '摄影 / 写作', stats: [{ label: '关注者', value: '1.2k' }], links: [{ label: '微信', url: '/about/', icon: 'wechat', handle: 'wx-demo' }] } })).json()) as any;
+    expect(q).toMatchObject({ role: '摄影 / 写作', stats: [{ label: '关注者', value: '1.2k' }], links: [{ label: '微信', url: '/about/', icon: 'wechat', handle: 'wx-demo' }] });
+    expect((await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { stats: [1, 2, 3, 4].map((n) => ({ label: `a${n}`, value: String(n) })) } })).status).toBe(400);
+    expect((await call(env, '/api/admin/profile', { method: 'PATCH', token: API_TOKEN, body: { links: [{ label: 'x', url: '/a/', handle: 'x'.repeat(61) }] } })).status).toBe(400);
   });
 });
 

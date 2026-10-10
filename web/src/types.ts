@@ -18,11 +18,18 @@ export interface PostSummary {
 export interface Post extends PostSummary {
   contentMd: string;
 }
-export type SocialIcon = 'github' | 'bilibili' | 'weibo' | 'zhihu' | 'instagram' | 'x' | 'youtube' | 'email' | 'rss' | 'link';
+export type SocialIcon = 'github' | 'bilibili' | 'weibo' | 'zhihu' | 'instagram' | 'x' | 'youtube' | 'email' | 'rss' | 'link' | 'wechat' | 'xiaohongshu';
 export interface SocialLink {
   label: string;
   url: string;
   icon?: SocialIcon;
+  /** 社交 ID（例如 @winston、微信号）：个人卡片里点图标可以查看和复制 */
+  handle?: string;
+}
+/** 个人卡片数字（「文章」由文章数自动生成，其余是站长自己填的展示数字） */
+export interface ProfileStat {
+  label: string;
+  value: string;
 }
 export interface Profile {
   name: string;
@@ -34,6 +41,10 @@ export interface Profile {
   /** 侧栏「前往小窝」按钮 */
   homeUrl: string;
   links: SocialLink[];
+  /** 身份一行，例如「摄影师 / 设计师 / 独立创作者」 */
+  role?: string;
+  /** 个人卡片数字（最多 3 个） */
+  stats?: ProfileStat[];
 }
 export type Animation = 'off' | 'low' | 'normal' | 'high';
 export interface Sections {

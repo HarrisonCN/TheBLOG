@@ -102,7 +102,7 @@ const byOrder = (a: PostSummary, b: PostSummary) => Number(b.pinned) - Number(a.
 /** 与 Worker 一致：去掉空白与常见 Markdown 符号后的字符数 */
 export const wordCount = (md: string) => md.replace(/[\s#*`]/g, '').length;
 const plain = (md: string) => md.replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_`~|\-]+/g, ' ').replace(/\s+/g, ' ').trim();
-const SOCIAL: SocialIcon[] = ['github', 'bilibili', 'weibo', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
+const SOCIAL: SocialIcon[] = ['github', 'bilibili', 'weibo', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link', 'wechat', 'xiaohongshu'];
 const publicMember = (m: Member): PublicMember => {
   const { email: _e, ...rest } = m;
   return rest;
@@ -461,7 +461,23 @@ export class DemoBackend {
           if (!label || label.length > 40) issues.push({ path: `links.${i}.label`, message: '名称长度 1–40' });
           else if (!LINK_URL.test(url) || url.length > 2048) issues.push({ path: `links.${i}.url`, message: '链接必须是 http(s)、mailto 或站内路径' });
           else if (r.icon !== undefined && !SOCIAL.includes(r.icon as SocialIcon)) issues.push({ path: `links.${i}.icon`, message: '无效的图标' });
-          else next.links.push({ label, url, ...(r.icon ? { icon: r.icon as SocialIcon } : {}) });
+          else if (r.handle !== undefined && (!isStr(r.handle) || r.handle.trim().length > 60)) issues.push({ path: `links.${i}.handle`, message: '社交 ID 最长 60 字' });
+          else next.links.push({ label, url, ...(r.icon ? { icon: r.icon as SocialIcon } : {}), ...(isStr(r.handle) && r.handle.trim() ? { handle: r.handle.trim() } : {}) });
+        });
+      }
+    }
+    const role = strField(o, 'role', issues, { max: 80 });
+    if (role !== undefined) next.role = role;
+    if (o.stats !== undefined) {
+      if (!Array.isArray(o.stats) || o.stats.length > 3) issues.push({ path: 'stats', message: '最多 3 个数字' });
+      else {
+        next.stats = [];
+        o.stats.forEach((x: unknown, i) => {
+          const r = (x ?? {}) as Record<string, unknown>;
+          const label = isStr(r.label) ? r.label.trim() : '';
+          const value = isStr(r.value) ? r.value.trim() : '';
+          if (!label || label.length > 12 || !value || value.length > 12) issues.push({ path: `stats.${i}`, message: '名称和数字都需要填写（各 12 字以内）' });
+          else next.stats!.push({ label, value });
         });
       }
     }

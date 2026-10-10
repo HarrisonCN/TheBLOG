@@ -11,10 +11,14 @@ import { icon } from './icons';
 import { defineUsed } from './usa';
 import { backdrop, festivalText, memberBadge } from './render';
 import { toggleTheme } from './theme';
-import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings } from './types';
+import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SocialIcon } from './types';
 import { normalizeSettings } from './types';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
 import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
+
+/** 博客首页（部署前缀） */
+const SITE_HOME = import.meta.env.BASE_URL || '/';
+const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
 type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | SectionKey;
@@ -85,7 +89,7 @@ function shell(content: string): string {
       .join('')}`,
   ).join('');
   return `${backdrop()}<div class="adm-layout">
-<aside class="adm-side" aria-label="后台导航"><div class="adm-brand"><span class="adm-brand__logo">${icon('sparkles')}</span><span>博客后台</span></div><nav class="adm-side__nav">${nav}</nav>
+<aside class="adm-side" aria-label="后台导航"><div class="adm-brand"><span class="adm-brand__logo">${icon('dashboard')}</span><span>博客后台</span></div><nav class="adm-side__nav">${nav}</nav>
 <div class="adm-side__foot"><a class="adm-nav" href="${e(import.meta.env.BASE_URL)}" target="_blank" rel="noopener">${icon('external')}<span>查看站点</span></a><button type="button" class="adm-nav" id="logout">${icon('logout')}<span>退出登录</span></button></div></aside>
 <main class="adm-main" id="main"><header class="adm-top"><h1>${e(view === 'editor' && editing ? '编辑文章' : TITLE[view])}</h1><div class="adm-top__act"><button type="button" class="btn btn--soft btn--sm" id="theme-toggle" aria-label="切换深浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button></div></header>
 <p class="adm-msg" role="status" aria-live="polite"></p>
@@ -104,13 +108,15 @@ function mount(content: string): void {
 // ============================================================ 登录
 function renderLogin(note = ''): void {
   root.innerHTML = `${backdrop()}<form class="tile adm-login" id="login-form">
-  <span class="adm-brand__logo adm-brand__logo--lg">${icon('sparkles')}</span>
+  <div class="adm-login__cover" aria-hidden="true"></div>
+  <span class="adm-brand__logo adm-brand__logo--lg">${icon('lock')}</span>
   <h1>博客后台</h1>
-  <p class="muted">请输入管理密码</p>
+  <p class="muted">请输入管理密码登录</p>
   <p class="demo-hint" hidden></p>
   <div class="field"><label for="pw">密码</label><input id="pw" name="password" type="password" autocomplete="current-password" required maxlength="256"></div>
-  <button class="btn btn--block" type="submit">登录</button>
+  <button class="btn btn--primary btn--block" type="submit">${icon('lock')}登录</button>
   <p class="adm-msg${note ? ' is-on' : ''}" role="status">${e(note)}</p>
+  <a class="adm-login__back" href="${e(SITE_HOME)}">${icon('arrowLeft')}返回博客首页</a>
 </form>`;
   void defineUsed(root);
   const form = root.querySelector<HTMLFormElement>('#login-form')!;
@@ -482,8 +488,11 @@ async function renderProfile(): Promise<void> {
     <div class="field"><label for="p-location">所在地</label><input id="p-location" name="location" maxlength="60" value="${e(p.location)}"></div>
   </div>
   <div class="field"><label for="p-tagline">一句话介绍</label><input id="p-tagline" name="tagline" maxlength="120" value="${e(p.tagline)}"></div>
+  <div class="field"><label for="p-role">身份一行（个人卡片名字下方）</label><input id="p-role" name="role" maxlength="80" placeholder="例如：摄影 / 产品体验 / 前端动效" value="${e(p.role ?? '')}"></div>
+  <div class="field"><label for="p-stats">卡片数字（每行：名称 | 数值，最多 2 行；「文章」自动统计。示例数字请改成真实的或删掉）</label><textarea id="p-stats" name="stats" class="adm-short" placeholder="关注者 | 1.2k">${e((p.stats ?? []).map((x) => `${x.label} | ${x.value}`).join('\n'))}</textarea></div>
   <div class="field"><label for="p-avatar">头像 URL</label><input id="p-avatar" name="avatarUrl" value="${e(p.avatarUrl)}"></div>
-  <div class="field"><label for="p-links">链接（每行：名称 | URL）</label><textarea id="p-links" name="links" class="adm-short">${e(p.links.map((l) => `${l.label} | ${l.url}`).join('\n'))}</textarea></div>
+  <div class="field"><label for="p-links">社交链接与社交 ID（每行：名称 | URL | 图标 | 社交 ID，后两项可省略）</label><textarea id="p-links" name="links" class="adm-short" placeholder="微信 | /about/ | wechat | your-wechat-id">${e(p.links.map((l) => [l.label, l.url, l.icon ?? '', l.handle ?? ''].join(' | ').replace(/( \| )+$/, '')).join('\n'))}</textarea>
+    <small class="muted">图标可选：${SOCIAL_KEYS.join(' / ')}。填了社交 ID 的图标，访客点开能看到并复制这个 ID。</small></div>
   <div class="field"><label for="p-bio">简介（Markdown）</label><textarea id="p-bio" name="bioMd" class="adm-md adm-md--sm">${e(p.bioMd)}</textarea></div>
   <button class="btn" type="submit">${icon('check')}保存资料</button>
 </form>`,
@@ -506,9 +515,20 @@ async function renderProfile(): Promise<void> {
       .split('\n')
       .map((l) => l.split('|').map((x) => x.trim()))
       .filter((x) => x.length >= 2 && x[0] && x[1])
-      .map(([label, url]) => ({ label: label!, url: url! }));
+      .map(([label, url, ic, handle]) => ({
+        label: label!,
+        url: url!,
+        ...(ic && (SOCIAL_KEYS as string[]).includes(ic) ? { icon: ic as SocialIcon } : {}),
+        ...(handle ? { handle } : {}),
+      }));
+    const stats = String(fd.get('stats') ?? '')
+      .split('\n')
+      .map((l) => l.split('|').map((x) => x.trim()))
+      .filter((x) => x.length >= 2 && x[0] && x[1])
+      .slice(0, 2)
+      .map(([label, value]) => ({ label: label!, value: value! }));
     try {
-      await put<Profile>('/api/admin/profile', { name: fd.get('name'), tagline: fd.get('tagline'), avatarUrl: fd.get('avatarUrl'), location: fd.get('location'), bioMd: fd.get('bioMd'), links }, 'PATCH');
+      await put<Profile>('/api/admin/profile', { name: fd.get('name'), tagline: fd.get('tagline'), avatarUrl: fd.get('avatarUrl'), location: fd.get('location'), bioMd: fd.get('bioMd'), links, role: fd.get('role'), stats }, 'PATCH');
       msg('资料已保存');
     } catch (err) {
       msg(errText(err), true);

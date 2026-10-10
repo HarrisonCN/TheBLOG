@@ -4,16 +4,17 @@ import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
 import { applyTheme, currentMode, setMode } from './theme';
-import { defineUsed, loadFeedback, loadFx, loadPage, loadSpring } from './usa';
+import { defineUsed, loadFeedback, loadFx, loadPage } from './usa';
 import { icon } from './icons';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
-  settingsBody, stripBase, url, postPath, type Extra, type Page, type Route,
+  stripBase, url, postPath, type Extra, type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
 import { initCommunity, bindCommunity } from './community';
 import { bindSections } from './sections-client';
+import { bindHomePage, installHomeClient, paintMember } from './home-client';
 
 setMarkdownRenderer(renderSafe);
 setBasePath(import.meta.env.BASE_URL);
@@ -158,11 +159,7 @@ function afterPaint(page: Page, full: boolean): void {
 
 function updateNavCurrent(route: Route): void {
   const idx = navIndex(route);
-  const morph = document.querySelector<HTMLElement & { setActive?: (i: number, user?: boolean) => void }>('#nav usa-nav-morph');
-  const menus = document.querySelectorAll<HTMLElement>('#nav .menu');
-  menus.forEach((m, i) => (i === idx ? m.setAttribute('aria-current', 'page') : m.removeAttribute('aria-current')));
-  if (idx >= 0) morph?.setActive?.(idx);
-  morph?.classList.toggle('nav-morph--none', idx < 0);
+  document.querySelectorAll<HTMLElement>('#nav .menu').forEach((m, i) => (i === idx ? m.setAttribute('aria-current', 'page') : m.removeAttribute('aria-current')));
 }
 
 async function pageFor(route: Route): Promise<Page> {
@@ -272,36 +269,16 @@ async function toggleDark(ev?: MouseEvent): Promise<void> {
   const { themeTransition } = await loadPage();
   await themeTransition(() => setMode(next), ev ? { x: ev.clientX, y: ev.clientY } : {}).catch(() => setMode(next));
   if (currentMode() !== next) setMode(next); // 兜底：过渡被跳过时也要切换
-  syncDarkControls();
-}
-function syncDarkControls(): void {
-  const dark = currentMode() === 'dark';
-  document.querySelectorAll<HTMLElement & { on?: boolean; checked?: boolean }>('usa-pull-cord, .js-dark-switch').forEach((el) => {
-    if (el.localName === 'usa-pull-cord') {
-      if (el.on !== dark) el.on = dark;
-    } else if (el.checked !== dark) el.checked = dark;
-  });
 }
 
-// ---------------------------------------------------------------- 导航栏：透明 → 实色，向下滚动时收起
-let lastY = 0;
+// ---------------------------------------------------------------- 导航栏：滚动后加阴影；回到顶部按钮
 function onScroll(): void {
   const y = window.scrollY;
-  const nav = document.getElementById('nav');
-  if (nav) {
-    nav.classList.toggle('nav--solid', y > 60);
-    nav.classList.toggle('nav--hidden', y > 320 && y > lastY && !document.body.classList.contains('drawer-open'));
-  }
-  lastY = y;
+  document.getElementById('nav')?.classList.toggle('nav--solid', y > 12);
   if (y > 60) document.documentElement.dataset.scrolled = '';
   else delete document.documentElement.dataset.scrolled;
-  const max = document.documentElement.scrollHeight - innerHeight;
-  const pct = max > 0 ? Math.min(100, Math.round((y / max) * 100)) : 0;
   const top = document.querySelector<HTMLElement>('.js-to-top');
-  if (top) {
-    top.dataset.pct = String(pct);
-    top.style.setProperty('--pct', String(pct));
-  }
+  if (top) top.hidden = y < 600;
 }
 addEventListener('scroll', onScroll, { passive: true });
 
@@ -406,7 +383,7 @@ function openContextMenu(ev: MouseEvent): void {
   if (sel) extraItems.push(['copy', 'copy', '复制选中文字'], ['search-sel', 'search', '站内搜索选中文字']);
   if (link) extraItems.push(['open-link', 'external', '新标签页打开链接'], ['copy-link', 'link', '复制链接地址']);
   if (img) extraItems.push(['open-img', 'image', '新标签页打开图片']);
-  extraItems.push(['random', 'shuffle', '随便看看'], ['search', 'search', '搜索'], ['dark', currentMode() === 'dark' ? 'sun' : 'moon', currentMode() === 'dark' ? '浅色模式' : '深色模式'], ['pause', 'clock', document.documentElement.dataset.paused ? '恢复动效' : '暂停全部动效']);
+  extraItems.push(['random', 'shuffle', '随便看看'], ['search', 'search', '搜索'], ['dark', currentMode() === 'dark' ? 'sun' : 'moon', currentMode() === 'dark' ? '浅色模式' : '深色模式']);
   menu.innerHTML = `<div class="ctx__row">${items.map(([k, ic, l]) => `<button type="button" data-k="${k}" title="${l}" aria-label="${l}">${icon(ic)}</button>`).join('')}</div>
 <div class="ctx__list">${extraItems.map(([k, ic, l]) => `<button type="button" data-k="${k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>
 <p class="ctx__tip">按住 Ctrl 再右键可打开浏览器菜单</p>`;
@@ -454,8 +431,6 @@ function openContextMenu(ev: MouseEvent): void {
         return openSearch();
       case 'dark':
         return void toggleDark();
-      case 'pause':
-        return void (document.querySelector('usa-pause-all') as (HTMLElement & { toggle?: () => void }) | null)?.toggle?.();
     }
   };
 }
@@ -473,7 +448,6 @@ window.addEventListener('contextmenu', (ev) => {
 }, true);
 document.addEventListener('pointerdown', (ev) => {
   if (!(ev.target as HTMLElement).closest('#ctxmenu')) closeContextMenu();
-  if (!(ev.target as HTMLElement).closest('.js-settings, #settings-panel')) document.getElementById('settings-panel')?.classList.remove('is-open');
 });
 addEventListener('scroll', closeContextMenu, { passive: true });
 document.addEventListener('keydown', (ev) => {
@@ -481,7 +455,6 @@ document.addEventListener('keydown', (ev) => {
     closeSearch();
     closeDrawer();
     closeContextMenu();
-    document.getElementById('settings-panel')?.classList.remove('is-open');
   }
   if ((ev.key === 'k' && (ev.ctrlKey || ev.metaKey)) || (ev.key === '/' && !(ev.target as HTMLElement).closest('input, textarea, [contenteditable]'))) {
     ev.preventDefault();
@@ -508,230 +481,29 @@ function mountChrome(refresh = false): void {
     document.getElementById('nav')?.insertAdjacentHTML('afterend', festivalBanner(fest));
     document.querySelector('.festival--top')?.addEventListener('usa:dismiss', () => sessionStorage.setItem(`festival-dismissed:${fest.id}`, '1'));
   }
-  if (chromeMounted && refresh) return void defineUsed(document.body).then(syncControls);
+  paintMember();
+  if (chromeMounted && refresh) return void defineUsed(document.body);
   chromeMounted = true;
   document.body.insertAdjacentHTML(
     'beforeend',
-    `<div class="dockbar" id="dockbar">
-  <div class="dock-panel" id="settings-panel" role="dialog" aria-label="显示设置"><h2>${icon('settings')}显示设置</h2>${settingsBody()}</div>
-  <usa-dock magnify="1.4" range="110" class="dock" label="快捷按钮">
-    <a class="dock__btn" href="${url('/')}" data-label="首页" aria-label="首页">${icon('home')}</a>
-    <button class="dock__btn js-search" type="button" data-label="搜索" aria-label="搜索">${icon('search')}</button>
-    ${TRACK ? `<button class="dock__btn js-play" type="button" data-label="音乐" aria-label="播放背景音乐"><usa-icon-morph icons="play,pause" size="20"></usa-icon-morph></button>` : ''}
-    <button class="dock__btn js-theme" type="button" data-label="深浅色" aria-label="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
-    <button class="dock__btn js-settings" type="button" data-label="设置" aria-label="显示设置" aria-controls="settings-panel">${icon('settings')}</button>
-    <button class="dock__btn js-to-top" type="button" data-label="回到顶部" aria-label="回到顶部"><svg class="dock__ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="16" pathLength="100"/></svg>${icon('arrowUp')}</button>
-  </usa-dock>
-</div>
-<usa-pull-cord class="pull-cord" label="拉一下切换深色模式"></usa-pull-cord>
-<usa-cursor mode="glow" size="220" class="cursor-glow"></usa-cursor>
+    `<button class="to-top js-to-top" type="button" aria-label="回到顶部" hidden>${icon('arrowUp')}</button>
 <div class="search" id="search" hidden role="dialog" aria-modal="true" aria-label="本地搜索">
   <div class="search__mask js-search-close"></div>
   <div class="search__panel">
-    <div class="search__head">${icon('search')}<input type="search" placeholder="搜索文章…" aria-label="搜索文章" autocomplete="off"><button class="icon-btn js-search-close" type="button" aria-label="关闭搜索">${icon('close')}</button></div>
+    <div class="search__head">${icon('search')}<input type="search" placeholder="搜索文章、主题或关键词…" aria-label="搜索文章" autocomplete="off"><button class="icon-btn js-search-close" type="button" aria-label="关闭搜索">${icon('close')}</button></div>
     <div class="search__results" id="search-results"></div>
   </div>
 </div>
 <div class="ctxmenu" id="ctxmenu" hidden role="menu"></div>
-${TRACK ? `<audio id="bgm" src="${TRACK}" preload="none" loop crossorigin="anonymous"></audio>` : ''}
 <usa-toaster label="通知" position="top-right"></usa-toaster>`,
   );
-  const dock = document.getElementById('dockbar')!;
-  dock.querySelector('.js-settings')!.addEventListener('click', () => document.getElementById('settings-panel')!.classList.toggle('is-open'));
-  dock.querySelector('.js-to-top')!.addEventListener('click', () => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
+  document.querySelector('.js-to-top')!.addEventListener('click', () => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
   document.querySelectorAll('.js-search-close').forEach((b) => b.addEventListener('click', closeSearch));
   const input = document.querySelector<HTMLInputElement>('#search input')!;
   input.addEventListener('input', () => runSearch(input.value));
   runSearch('');
-  // 拉绳 / 日夜开关 / 页面风格 / 拖尾 / 动效强度（首页设置瓷砖与 Dock 设置面板共用这些 class）
-  document.addEventListener('usa:change', (ev) => {
-    const el = ev.target as HTMLElement & { on?: boolean; checked?: boolean };
-    if (el.localName === 'usa-pull-cord' || el.classList.contains('js-dark-switch')) {
-      const want = el.localName === 'usa-pull-cord' ? !!el.on : !!el.checked;
-      if ((currentMode() === 'dark') !== want) void toggleDark();
-    } else if (el.classList.contains('js-surface')) {
-      const theme = (ev as CustomEvent<{ theme: string }>).detail?.theme ?? 'light';
-      localStorage.setItem('blog-surface', theme);
-      document.documentElement.dataset.usaSurface = theme;
-      syncControls();
-    } else if (el.classList.contains('js-comet-switch')) {
-      localStorage.setItem('blog-comet', el.checked ? '1' : '0');
-      void setComet(!!el.checked);
-      syncControls();
-    } else if (el.classList.contains('js-motion-switch')) {
-      document.documentElement.dataset.motionUser = String((ev as CustomEvent<{ level?: string }>).detail?.level ?? '');
-    }
-  });
-  document.addEventListener('usa:pause-all', (ev) => {
-    const paused = !!(ev as CustomEvent<{ paused: boolean }>).detail?.paused;
-    if (paused) document.documentElement.dataset.paused = '1';
-    else delete document.documentElement.dataset.paused;
-    if (paused) void setComet(false);
-    else if (cometWanted()) void setComet(true);
-  });
-  void defineUsed(document.body).then(syncControls);
-  if (cometWanted()) void setComet(true);
-  // 全局点击涟漪（按钮类元素）
-  document.addEventListener('pointerdown', (ev) => {
-    const b = (ev.target as HTMLElement).closest<HTMLElement>('.btn, .dock__btn, .nav__btn, .chip, .pager__num, .tag-pill');
-    if (!b || b.closest('usa-click') || effectiveLevel(site.settings.animation) === 'off' || document.documentElement.dataset.paused) return;
-    void loadFx().then((m) => m.playEffect(b, 'ripple', {}, ev).catch(() => undefined));
-  });
-  // 瓷砖按下：Motionary spring() 弹簧回弹
-  document.addEventListener('pointerup', (ev) => {
-    const t = (ev.target as HTMLElement).closest<HTMLElement>('.tile');
-    if (!t || t.closest('.lab-tile, .post') || effectiveLevel(site.settings.animation) === 'off' || document.documentElement.dataset.paused) return;
-    void loadSpring().then(({ spring }) => {
-      spring(t, [{ transform: 'scale(0.985)' }, { transform: 'scale(1)' }], 'wobbly');
-      t.dataset.sprung = '1';
-    });
-  });
-  mountPlayer();
-}
-
-/** 光标彗星拖尾：默认开启（只在精细指针、未减少动态效果时）；可在设置里关掉。 */
-const cometWanted = () => localStorage.getItem('blog-comet') !== '0';
-function syncControls(): void {
-  syncDarkControls();
-  document.querySelectorAll<HTMLElement & { checked?: boolean }>('.js-comet-switch').forEach((sw) => {
-    if (sw.checked !== cometWanted()) sw.checked = cometWanted();
-  });
-  const surface = localStorage.getItem('blog-surface');
-  if (surface) document.querySelectorAll<HTMLElement & { value?: string }>('.js-surface').forEach((ts) => ts.value !== surface && (ts.value = surface));
-}
-
-let cometOff: (() => void) | null = null;
-async function setComet(on: boolean): Promise<void> {
-  cometOff?.();
-  cometOff = null;
-  if (!on || prefersReducedMotion() || matchMedia('(pointer: coarse)').matches) return;
-  const { bindEffect } = await loadFx();
-  cometOff = bindEffect(document.body, 'comet-trail', { trigger: 'load', color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#49b1f5' });
-}
-
-// ---------------------------------------------------------------- 音乐播放器 + 镜像频谱 / 声音粒子
-const TRACK = DEMO ? url('/demo/track.m4a') : '';
-let playing = false;
-let tabStream: MediaStream | null = null;
-let vizOffs: (() => void)[] = [];
-async function bindViz(): Promise<void> {
-  vizOffs.splice(0).forEach((f) => f());
-  if (!playing && !tabStream) return;
-  const fx = await loadFx();
-  document.querySelectorAll<HTMLElement>('.js-viz').forEach((v) => vizOffs.push(fx.bindEffect(v, 'spectrum-mirror', { trigger: 'load' })));
-  document.querySelectorAll<HTMLElement>('.js-hero-fx').forEach((h) => vizOffs.push(fx.bindEffect(h, 'sound-particles', { trigger: 'load' })));
-}
-function paintPlayers(): void {
-  document.documentElement.toggleAttribute('data-playing', playing);
-  document.querySelectorAll<HTMLElement>('.js-play').forEach((b) => {
-    b.setAttribute('aria-label', playing ? '暂停背景音乐' : '播放背景音乐');
-    b.querySelector<HTMLElement & { show?: (i: number) => void }>('usa-icon-morph')?.show?.(playing ? 1 : 0);
-  });
-  document.querySelectorAll('.music').forEach((m) => m.classList.toggle('is-playing', playing || !!tabStream));
-}
-function mountPlayer(): void {
-  const audio = document.getElementById('bgm') as HTMLAudioElement | null;
-  if (!audio) {
-    document.querySelectorAll<HTMLElement>('.music').forEach((m) => (m.hidden = true));
-    return;
-  }
-  const startViz = async (source: HTMLAudioElement | MediaStream) => {
-    const fx = await loadFx();
-    try {
-      await fx.enableAudio(source as never);
-    } catch (e) {
-      console.warn('音频分析不可用', e);
-    }
-    await bindViz();
-  };
-  document.addEventListener('click', async (ev) => {
-    const t = ev.target as HTMLElement;
-    if (t.closest('.js-play')) {
-      if (audio.paused) {
-        try {
-          await audio.play();
-        } catch {
-          return void notify('浏览器阻止了播放，请再点一次', 'warning');
-        }
-        playing = true;
-        paintPlayers();
-        void startViz(audio);
-      } else {
-        audio.pause();
-        playing = false;
-        paintPlayers();
-        void bindViz();
-      }
-      return;
-    }
-    if (t.closest('.js-tab-audio')) {
-      if (tabStream) {
-        tabStream.getTracks().forEach((x) => x.stop());
-        tabStream = null;
-        paintPlayers();
-        return void bindViz();
-      }
-      if (!navigator.mediaDevices?.getDisplayMedia) return void notify('当前浏览器不支持共享标签页音频', 'warning');
-      try {
-        // 浏览器会弹出共享窗口，由访客自己选择标签页并勾选「分享音频」；网页无法静默读取其他声音
-        tabStream = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
-        if (!tabStream.getAudioTracks().length) {
-          tabStream.getTracks().forEach((x) => x.stop());
-          tabStream = null;
-          return void notify('没有拿到音频：共享时请勾选「分享标签页音频」', 'warning');
-        }
-        tabStream.getVideoTracks().forEach((x) => x.stop());
-        tabStream.getAudioTracks()[0]!.addEventListener('ended', () => {
-          tabStream = null;
-          paintPlayers();
-          void bindViz();
-        });
-        paintPlayers();
-        void startViz(tabStream);
-        notify('正在可视化你选择的标签页声音', 'success');
-      } catch {
-        /* 用户取消 */
-      }
-    }
-  });
-  // 换页后：重新挂到新页面的频谱 / 首图上
-  document.addEventListener('blog:page', () => {
-    paintPlayers();
-    void bindViz();
-  });
-}
-
-// ---------------------------------------------------------------- 首页「互动小样」瓷砖
-function bindLab(root: HTMLElement): void {
-  const lab = root.querySelector<HTMLElement>('.lab-tile');
-  if (!lab) return;
-  lab.querySelector('.js-lab-submit')?.addEventListener('usa:submit', (ev) => {
-    const done = (ev as CustomEvent<{ done: (ok?: boolean) => void }>).detail?.done;
-    setTimeout(() => {
-      done?.(true);
-      void notify('提交成功', 'success');
-      setTimeout(() => ((ev.target as HTMLElement & { state?: string }).state = 'idle'), 1400);
-    }, 1100);
-  });
-  lab.querySelector('.js-lab-hold')?.addEventListener('usa:confirm', (ev) => {
-    void notify('已确认 ✓（长按确认用于删除等危险操作）', 'success');
-    void loadFx().then((m) => m.playEffect(ev.target as HTMLElement, 'confetti').catch(() => undefined));
-  });
-  lab.querySelector('.js-lab-bar')?.addEventListener('click', async () => {
-    const { loadingBar } = await loadPage();
-    loadingBar.start();
-    setTimeout(() => loadingBar.done(), 1400);
-  });
-  lab.querySelector('.js-lab-toast')?.addEventListener('click', () => void notify('这是一条通知 👋', 'info'));
-  const skel = lab.querySelector<HTMLElement>('.js-lab-skel');
-  if (skel) {
-    const cycle = () => {
-      skel.setAttribute('loading', '');
-      setTimeout(() => skel.removeAttribute('loading'), 1800);
-    };
-    skel.addEventListener('click', cycle);
-    setTimeout(() => skel.removeAttribute('loading'), 2600);
-  }
+  void defineUsed(document.body);
+  installHomeClient({ notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
 }
 
 // ---------------------------------------------------------------- 画廊「随手翻」
@@ -796,7 +568,7 @@ function bindPage(page: Page): void {
   }
   bindDeck(root);
   bindCommunity(root, { notify, rerender: () => rerender() });
-  bindLab(root);
+  bindHomePage(root, { notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
   bindSections(root, { notify, searchIndex: () => api.searchIndex(), basePath: url('') });
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
