@@ -1,4 +1,5 @@
 import type { NoteStyle } from '../note-style';
+import type { BadgeDesign } from '../badge-design';
 /** 社区功能（好朋友、上传、语音、便利贴、节日、徽章）的数据类型：前端、演示 mock 与 Worker 保持一致。 */
 export type BadgeStyle = 'pearlescent' | 'brushed-metal';
 export interface Badge {
@@ -6,6 +7,8 @@ export interface Badge {
   code: string;
   label: string;
   style: BadgeStyle;
+  /** DIY 设计（白名单校验；旧数据没有 → 按 style 显示预设） */
+  design?: BadgeDesign;
   grantedAt: string;
 }
 export interface Member {

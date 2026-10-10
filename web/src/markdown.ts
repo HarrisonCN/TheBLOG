@@ -35,10 +35,82 @@ export function headingId(text: string): string {
   return n ? `${base}-${n}` : base;
 }
 
+// ---------------------------------------------------------------- 脚注 [^id] / [^id]: 文字
+const FN_ID = '[A-Za-z0-9_-]{1,30}';
+let fnKnown = new Set<string>();
+let fnOrder: string[] = [];
+let fnRefs = new Map<string, number>();
+let fnDefs = new Map<string, string>();
+const fnNum = (id: string) => fnOrder.indexOf(id) + 1;
+
+const footnotes = {
+  extensions: [
+    {
+      name: 'footnoteDef',
+      level: 'block' as const,
+      start(src: string) {
+        return /^\[\^/m.exec(src)?.index;
+      },
+      tokenizer(this: any, src: string) {
+        const m = new RegExp(`^\\[\\^(${FN_ID})\\]:[ \\t]+([^\\n]+(?:\\n(?: {2,}|\\t)[^\\n]+)*)(?:\\n+|$)`).exec(src);
+        if (!m) return undefined;
+        const text = m[2]!.replace(/\n\s+/g, ' ');
+        return { type: 'footnoteDef', raw: m[0], id: m[1], tokens: this.lexer.inlineTokens(text) };
+      },
+      renderer(this: any, t: any) {
+        if (!fnDefs.has(t.id)) fnDefs.set(t.id, this.parser.parseInline(t.tokens));
+        return '';
+      },
+    },
+    {
+      name: 'footnoteRef',
+      level: 'inline' as const,
+      start(src: string) {
+        const i = src.indexOf('[^');
+        return i < 0 ? undefined : i;
+      },
+      tokenizer(src: string) {
+        const m = new RegExp(`^\\[\\^(${FN_ID})\\]`).exec(src);
+        if (!m || !fnKnown.has(m[1]!)) return undefined;
+        return { type: 'footnoteRef', raw: m[0], id: m[1] };
+      },
+      renderer(t: any) {
+        if (!fnOrder.includes(t.id)) fnOrder.push(t.id);
+        const n = fnNum(t.id);
+        const k = (fnRefs.get(t.id) ?? 0) + 1;
+        fnRefs.set(t.id, k);
+        return `<sup class="fn-ref" id="fnref-${n}${k > 1 ? `-${k}` : ''}"><a href="#fn-${n}" data-fn="${n}" aria-label="脚注 ${n}">[${n}]</a></sup>`;
+      },
+    },
+  ],
+};
+
+function footnoteSection(): string {
+  const items = fnOrder.filter((id) => fnDefs.has(id));
+  if (!items.length) return '';
+  return `<section class="footnotes" aria-label="脚注"><h2 class="footnotes__title">脚注</h2><ol>${items
+    .map((id) => {
+      const n = fnNum(id);
+      return `<li id="fn-${n}"><p>${fnDefs.get(id)} <a href="#fnref-${n}" class="fn-back" aria-label="返回正文第 ${n} 处引用">↩</a></p></li>`;
+    })
+    .join('')}</ol></section>`;
+}
+
 const marked = new Marked({
   gfm: true,
   breaks: false,
   renderer: {
+    // 单独一行的图片 → <figure> + 图注（title 优先，其次 alt）
+    paragraph(this: any, token: Tokens.Paragraph) {
+      const only = token.tokens.filter((t) => !(t.type === 'text' && !t.raw.trim()));
+      if (only.length === 1 && only[0]!.type === 'image') {
+        const im = only[0] as Tokens.Image;
+        const cap = (im.title || im.text || '').trim();
+        const html = this.parser.parseInline(token.tokens);
+        if (html.startsWith('<img')) return `<figure class="figure">${html}${cap ? `<figcaption>${escapeHtml(cap)}</figcaption>` : ''}</figure>\n`;
+      }
+      return `<p>${this.parser.parseInline(token.tokens)}</p>\n`;
+    },
     heading(this: any, token: Tokens.Heading) {
       const text = this.parser.parseInline(token.tokens);
       return `<h${token.depth} id="${escapeHtml(headingId(token.text))}">${text}</h${token.depth}>\n`;
@@ -68,9 +140,17 @@ const marked = new Marked({
   },
 });
 
+marked.use(footnotes);
+
 export function renderMarkdown(md: string): string {
   headingIds = new Map();
-  return marked.parse(md ?? '', { async: false }) as string;
+  const src = md ?? '';
+  fnKnown = new Set([...src.matchAll(new RegExp(`^\\[\\^(${FN_ID})\\]:[ \\t]+\\S`, 'gm'))].map((m) => m[1]!));
+  fnOrder = [];
+  fnRefs = new Map();
+  fnDefs = new Map();
+  const html = marked.parse(src, { async: false }) as string;
+  return html + footnoteSection();
 }
 
 /** 纯文本摘录（用于 meta description 等）。 */

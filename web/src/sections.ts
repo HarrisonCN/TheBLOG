@@ -35,6 +35,18 @@ export interface Work {
   creditUrl: string;
   width: number;
   height: number;
+  /** 照片地图：on = 这张作品公开（粗化后的）坐标；默认 off */
+  geo?: 'off' | 'on';
+  /** 十进制度数字符串，保存时粗化到 0.1°（约 11 km）；空 = 没有坐标 */
+  lat?: string;
+  lng?: string;
+}
+
+/** 坐标粗化：四舍五入到 0.1°，与 Worker 的 workSchema 一致。非法 → ''。 */
+export function coarseCoord(v: unknown, max: number): string {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+  if (!s || !/^-?\d{1,3}(\.\d+)?$/.test(s) || Math.abs(Number(s)) > max) return '';
+  return String(Math.round(Number(s) * 10) / 10);
 }
 
 export type GearCategory = '相机' | '镜头' | '手机' | '配件' | '电脑与外设' | '软件';
@@ -188,6 +200,9 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       { key: 'tags', label: '标签（逗号分隔）', t: 'list', max: 8, each: 20, wide: true },
       { key: 'credit', label: '署名（他人照片才填）', t: 'str', max: 200, wide: true },
       { key: 'creditUrl', label: '署名链接', t: 'url', wide: true },
+      { key: 'geo', label: '照片地图', t: 'enum', options: ['off', 'on'], labels: { off: '不公开位置', on: '公开（粗化到约 11 km）' } },
+      { key: 'lat', label: '纬度（可选）', t: 'str', max: 16, placeholder: '25.3' },
+      { key: 'lng', label: '经度（可选）', t: 'str', max: 16, placeholder: '110.3' },
     ],
   },
   gear: {
@@ -322,6 +337,14 @@ export function validateSection<K extends SectionKey>(key: K, input: unknown): {
       }
     }
     if (key === 'works' && out.id && !ID.test(String(out.id))) bad('id', 'id 只能包含小写字母、数字和连字符');
+    if (key === 'works') {
+      for (const [k, max] of [['lat', 90], ['lng', 180]] as const) {
+        const raw = String(out[k] ?? '');
+        const c = coarseCoord(raw, max);
+        if (raw && !c) bad(k, `坐标需要是 -${max}~${max} 的十进制度数`);
+        out[k] = c;
+      }
+    }
     if (key === 'repos' && (!GH_NAME.test(String(out.owner)) || !GH_NAME.test(String(out.repo)))) bad('repo', 'owner / repo 只能包含字母、数字、._-');
     return out;
   });

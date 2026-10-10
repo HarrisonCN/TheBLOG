@@ -77,6 +77,10 @@ scripts/e2e.mjs         端到端测试
 - **分享海报**：文章页「分享」打开分享面板：复制链接、系统分享（Web Share API，支持时连海报一起分享）、下载分享海报（封面 + 标题 + 摘要 + 指向本文的二维码，在浏览器里用 canvas 生成，二维码用 [uqr](https://github.com/unjs/uqr)）。
 - **离线（PWA）**：`manifest.webmanifest` + service worker（范围只限站点前缀，GitHub Pages 演示版是 `/TheBLOG/`；不缓存 `/admin`、`/api`、`/mcp`）。页面网络优先、带哈希的资源缓存优先、图片和字体后台更新；看过的页面离线也能打开，没缓存的显示离线页，顶部提示「离线中」。在浏览器里执行 `localStorage.setItem('blog-no-sw','1')` 可关闭注册。
 - **SEO**：每页 canonical、Open Graph、Twitter 卡片；文章页加 `article:*` 与 JSON-LD（BlogPosting）；构建时生成 `sitemap.xml` 与 `robots.txt`（需要 `BLOG_SITE_URL`，演示版自动使用 GitHub Pages 地址）。
+- **文章评论**：文章末尾两级评论（回复会挂到顶层评论下并标注「回复 某某」）；访客评论默认待审核，好朋友（已登录会员）评论直接公开；只存加盐 IP 哈希用于限流。接口 `GET/POST /api/posts/:slug/comments`，后台「评论」审核队列（`GET /api/admin/comments?status=`、`POST /api/admin/comments/:id`、`DELETE /api/admin/comments/:id`）。D1 迁移 `0008_comments.sql`（同时给 `posts` 加 `series` 列）。
+- **阅读体验**：文章图片 lightbox（缩放、方向键 / 滑动切换）、脚注 `[^id]` 悬停 / 点击预览、相关文章、系列连载导航（同一 `series` 的文章按发布时间排序）、阅读设置（字号 / 行距 / 宽度 / 字体，存在本机 `blog-reading-prefs`）、朗读（浏览器支持 speechSynthesis 时才显示，优先中文声音，逐段高亮）、归档页月历（点击跳到当月）。
+- **照片地图与每日一图**：`/map/` 把作品集里主动开启定位（坐标粗化到 0.1°）的照片画在内置点阵世界地图上，不加载第三方地图瓦片；首页「每日一图」按北京时间每天轮换。
+- **好朋友徽章 DIY**：10 个预设 + 自由组合（形状、材质、填充 / 渐变、`#rrggbb` 颜色、描边、图标、文字、特效、尺寸），实时预览并显示文字对比度（低于 AA 4.5:1 会自动调整）；会员可用 `PUT /api/members/me/badges/:code` 保存自己的设计，站长可在后台或 MCP `grant_badge`（可选 `design`）设置。设计以白名单校验的 JSON 保存（D1 迁移 `0009_badge_design.sql`，旧徽章为 NULL = 按原 style 显示）。减少动态效果时徽章动画、地图脉冲、lightbox 与设置过渡全部关闭。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API

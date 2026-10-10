@@ -3,6 +3,7 @@ import './sections.css';
 import './features.css';
 import './fixes.css';
 import './motion-ui.css';
+import './l12.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -23,6 +24,9 @@ import { initCommunity, bindCommunity } from './community';
 import { bindSections } from './sections-client';
 import { bindHomePage, installHomeClient, paintBookmarks, paintMember } from './home-client';
 import { createPalette, paletteHtml, shortcutLabel } from './palette';
+import { bindComments } from './comments-client';
+import { bindFootnotes, bindLightbox, bindPhotoMap } from './post-media';
+import { applyReadingSettings, bindReadingSettings, bindSpeech, loadReadingSettings, stopSpeech } from './reading-tools';
 import { bindReactions, installPostDelegation, enhanceCode, enhanceHeadings, paintContinue, trackReading } from './post-client';
 
 setMarkdownRenderer(renderSafe);
@@ -219,6 +223,7 @@ async function pageListInPlace(route: Route, token: number, u: URL, pop: boolean
  * 首页翻页走 pageListInPlace（ring，只换列表）。前进 / 后退同样有转场。
  */
 async function go(href: string, opts: { pop?: boolean } = {}): Promise<void> {
+  stopSpeech();
   const token = ++navToken;
   const searchWasOpen = palette.isOpen(); // 导航途中才打开的面板不要被关掉
   const u = new URL(href, location.href);
@@ -657,6 +662,13 @@ function bindPage(page: Page): void {
   bindCommunity(root, { notify, rerender: () => rerender() });
   bindHomePage(root, { notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
   bindSections(root, { notify, searchIndex: () => api.searchIndex(), basePath: url('') });
+  // 评论、图片 lightbox、脚注预览、阅读设置、朗读、照片地图
+  bindComments(root, (m, t) => void notify(m, t));
+  bindLightbox(root);
+  bindFootnotes(root);
+  bindReadingSettings(root);
+  bindSpeech(root);
+  bindPhotoMap(root);
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
 
@@ -667,6 +679,7 @@ async function boot(): Promise<void> {
     mountDemoBanner({ adminHref: url('/admin/') });
   }
   applyTheme(site.settings);
+  applyReadingSettings(loadReadingSettings());
   installIconMotion();
   const surface = localStorage.getItem('blog-surface');
   if (surface) document.documentElement.dataset.usaSurface = surface;

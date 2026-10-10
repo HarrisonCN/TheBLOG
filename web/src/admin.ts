@@ -5,6 +5,7 @@
 import './styles.css';
 import './admin.css';
 import './motion-ui.css';
+import './l12.css';
 import { request, ApiError, API_BASE, DEMO } from './api';
 import { escapeHtml as e } from './markdown';
 import { renderSafe } from './sanitize';
@@ -13,6 +14,8 @@ import { defineUsed } from './usa';
 import { resultIconHtml } from './result-icon';
 import { installIconMotion } from './icon-motion';
 import { backdrop, festivalText, memberBadge } from './render';
+import { badgeBuilderHtml, bindBadgeBuilder } from './badge-view';
+import { renderCommentHtml, type CommentStatus, type PostComment } from './comment-core';
 import { toggleTheme } from './theme';
 import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SocialIcon } from './types';
 import { normalizeSettings } from './types';
@@ -24,7 +27,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -36,7 +39,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
-  { group: '社区', items: [['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
+  { group: '社区', items: [['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -167,6 +170,7 @@ async function go(next?: View): Promise<void> {
       case 'notes': return await renderNotes();
       case 'festivals': return await renderFestivals();
       case 'members': return await renderMembers();
+      case 'comments': return await renderComments();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }
@@ -292,6 +296,7 @@ async function renderEditor(): Promise<void> {
     <div class="field"><label for="f-slug">slug（留空自动生成）</label><input id="f-slug" name="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p?.slug ?? '')}"></div>
     <div class="field"><label for="f-cat">分类</label><input id="f-cat" name="category" maxlength="30" list="cat-list" value="${e(p?.category ?? '')}"><datalist id="cat-list">${categories.map((c) => `<option value="${e(c.category)}">`).join('')}</datalist></div>
   </div>
+  <div class="field"><label for="f-series">系列连载（可选，同名文章按发布时间组成系列）</label><input id="f-series" name="series" maxlength="40" value="${e(p?.series ?? '')}"></div>
   <div class="field"><label for="f-summary">摘要</label><input id="f-summary" name="summary" maxlength="500" value="${e(p?.summary ?? '')}"></div>
   <div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" name="tags" value="${e((p?.tags ?? []).join(', '))}"></div>
   <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label></div></div>
@@ -361,6 +366,7 @@ async function renderEditor(): Promise<void> {
       tags: String(fd.get('tags') ?? '').split(/[,，]/).map((t) => t.trim()).filter(Boolean),
       coverUrl: String(fd.get('coverUrl') ?? '').trim(),
       category: String(fd.get('category') ?? '').trim(),
+      series: String(fd.get('series') ?? '').trim(),
       pinned: fd.get('pinned') === 'on',
     };
     if (slug) body.slug = slug;
@@ -703,6 +709,26 @@ async function renderGuestbook(): Promise<void> {
   );
 }
 
+let cmStatus: CommentStatus | 'all' = 'pending';
+async function renderComments(): Promise<void> {
+  const { comments, counts } = await optional(adminFetch<{ comments: PostComment[]; counts: Record<CommentStatus, number> }>(`/api/admin/comments?status=${cmStatus}`), { comments: [], counts: { pending: 0, approved: 0, hidden: 0 } });
+  const seg = (v: string, l: string) => `<button type="button" class="adm-seg__b${cmStatus === v ? ' is-on' : ''}" data-cm="${v}" aria-pressed="${cmStatus === v}">${l}</button>`;
+  const label: Record<CommentStatus, string> = { pending: '待审核', approved: '已通过', hidden: '已隐藏' };
+  mount(
+    tile(
+      'full',
+      `${head('message', '评论审核', `<div class="adm-seg" role="group" aria-label="按状态筛选">${seg('pending', `待审核 ${counts.pending}`)}${seg('approved', `已通过 ${counts.approved}`)}${seg('hidden', `已隐藏 ${counts.hidden}`)}${seg('all', '全部')}</div>`)}
+<p class="muted small">访客评论默认进入待审核；好朋友（已登录会员）的评论直接公开。删除顶层评论会连同它的回复一起删除。</p>
+<div class="adm-gb adm-comments">${comments
+        .map(
+          (c) => `<article class="adm-gb__item adm-cm" data-id="${c.id}"><header><b>${e(c.name)}</b>${c.member ? '<span class="chip chip--pub">好朋友</span>' : ''}<span class="chip chip--${c.status}">${label[c.status]}</span><a class="muted small" href="${e(SITE_HOME)}posts/${e(c.slug)}/#comments" target="_blank" rel="noopener">${e(c.slug)}</a>${c.parentId ? `<span class="muted small">回复 #${c.parentId}${c.replyTo ? ` @${e(c.replyTo)}` : ''}</span>` : ''}<span class="muted small">${e(fmtDate(c.createdAt))}</span></header><div class="adm-cm__text">${renderCommentHtml(c.content)}</div>
+<div class="adm-row">${c.status !== 'approved' ? `<button class="btn btn--sm" type="button" data-mod="comments" data-id="${c.id}" data-action="approve">${icon('check')}通过</button>` : ''}${c.status !== 'hidden' ? `<button class="btn btn--soft btn--sm" type="button" data-mod="comments" data-id="${c.id}" data-action="hide">隐藏</button>` : ''}<button class="adm-icon-btn adm-icon-btn--danger" type="button" data-mod="comments" data-id="${c.id}" data-action="delete" aria-label="删除评论 #${c.id}">${icon('trash')}</button></div></article>`,
+        )
+        .join('') || '<p class="empty">这里没有评论</p>'}</div>`,
+    ),
+  );
+}
+
 async function renderNotes(): Promise<void> {
   const { notes } = await optional(adminFetch<{ notes: StickyNote[] }>('/api/admin/notes'), { notes: [] });
   const sorted = notes.slice().sort((a, b) => Number(b.hidden) - Number(a.hidden) || b.reports - a.reports || b.id - a.id);
@@ -729,17 +755,26 @@ async function renderMembers(): Promise<void> {
   mount(
     tile(
       'full',
-      `${head('users', `好朋友（${members.length}）`)}<p class="muted small">徽章编号全站唯一，每人最多 5 枚；珍珠母贝适合「第一位」这类纪念，拉丝金属适合日常编号。</p>
+      `${head('users', `好朋友（${members.length}）`)}<p class="muted small">徽章编号全站唯一，每人最多 5 枚。颁发后可以展开「设计样式」自由搭配（形状、底色、边框、图标、文字、特效）；好朋友也能在自己的页面改自己徽章的样式。</p>
 <div class="adm-members">${members
         .map(
           (m) => `<article class="adm-member"><header>${m.avatarUrl ? `<img class="adm-av" src="${e(m.avatarUrl)}" alt="">` : `<span class="adm-av adm-av--txt">${e(m.name.slice(0, 1))}</span>`}<div><b>${e(m.name)}</b><br><span class="muted small">${e(m.email)} · ${m.provider === 'google' ? 'Google' : '邮箱'} · ${e(fmtDate(m.joinedAt).slice(0, 10))}</span></div>
 <button class="adm-icon-btn adm-icon-btn--danger" type="button" data-act="member-del" data-id="${m.id}" data-name="${e(m.name)}" aria-label="删除 ${e(m.name)}">${icon('trash')}</button></header>
 ${m.bio ? `<p class="small">${e(m.bio)}</p>` : ''}
-<div class="adm-badges">${m.badges.map((b) => `<span class="adm-badge">${memberBadge(b.code, b.label, b.style)}<span class="small">${e(b.label)}</span><button type="button" class="adm-x" data-act="badge-revoke" data-id="${m.id}" data-code="${e(b.code)}" aria-label="收回 ${e(b.code)}">${icon('close')}</button></span>`).join('') || '<span class="muted small">还没有徽章</span>'}</div>
-<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="材质"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
+<div class="adm-badges">${m.badges.map((b) => `<span class="adm-badge">${memberBadge(b.code, b.label, b.style, b.design ?? null)}<span class="small">${e(b.label)}</span><button type="button" class="adm-x" data-act="badge-revoke" data-id="${m.id}" data-code="${e(b.code)}" aria-label="收回 ${e(b.code)}">${icon('close')}</button></span>`).join('') || '<span class="muted small">还没有徽章</span>'}</div>
+${m.badges.map((b) => `<details class="bd-edit adm-bd-edit" data-member="${m.id}"><summary>${icon('edit')}<span>设计 ${e(b.code)} 的样式</span></summary>${badgeBuilderHtml({ code: b.code, label: b.label, design: b.design ?? null, style: b.style, who: 'admin' })}</details>`).join('')}
+<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="起始样式"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
         )
         .join('') || '<p class="empty">还没有好朋友。访客在「成为好朋友」页验证邮箱后会出现在这里。</p>'}</div>`,
     ),
+  );
+  root.querySelectorAll<HTMLFormElement>('.adm-bd-edit form.js-bdb').forEach((f) =>
+    bindBadgeBuilder(f, async (design) => {
+      const mid = f.closest<HTMLElement>('.adm-bd-edit')!.dataset.member;
+      await put(`/api/admin/members/${mid}/badges/${encodeURIComponent(f.dataset.code!)}`, { design }, 'PUT');
+      await renderMembers();
+      msg('徽章样式已保存');
+    }),
   );
   root.querySelectorAll<HTMLFormElement>('.adm-grant').forEach((f) =>
     f.addEventListener('submit', async (ev) => {
@@ -802,6 +837,11 @@ root.addEventListener('click', async (ev) => {
   if (t.closest('#theme-toggle')) {
     toggleTheme();
     return;
+  }
+  const cmSeg = t.closest<HTMLElement>('[data-cm]');
+  if (cmSeg) {
+    cmStatus = cmSeg.dataset.cm as CommentStatus | 'all';
+    return void renderComments();
   }
   const seg = t.closest<HTMLElement>('[data-gb]');
   if (seg) {
