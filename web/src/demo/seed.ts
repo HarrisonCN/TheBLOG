@@ -35,6 +35,10 @@ export interface DemoDb {
   timeline: SectionMap['timeline'];
   changelog: SectionMap['changelog'];
   repos: SectionMap['repos'];
+  /** 文章表情回应计数（slug → 表情 → 次数）；旧的本地数据没有这个字段 */
+  reactions?: Record<string, Record<string, number>>;
+  /** 演示站只有「本机」一个访客：记录本机点过的 slug|emoji */
+  reactionVotes?: string[];
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

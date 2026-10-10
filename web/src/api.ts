@@ -59,6 +59,9 @@ export const api = {
   categories: () => request<{ categories: CategoryCount[] }>('/api/categories'),
   searchIndex: () => request<{ posts: SearchDoc[] }>('/api/search-index'),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
+  reactions: (slug: string) => request<{ counts: Record<string, number> }>(`/api/posts/${encodeURIComponent(slug)}/reactions`),
+  react: (slug: string, emoji: string, on: boolean) =>
+    request<{ counts: Record<string, number>; mine: boolean }>(`/api/posts/${encodeURIComponent(slug)}/reactions`, { method: 'POST', headers: JSON_H, body: JSON.stringify({ emoji, on }) }),
   guestbook: () => request<{ entries: GuestbookEntry[] }>('/api/guestbook'),
   postGuestbook: (body: { name: string; content: string; website?: string }) =>
     request<GuestbookEntry>('/api/guestbook', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),

@@ -1,5 +1,7 @@
 import './styles.css';
 import './sections.css';
+import './features.css';
+import './fixes.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -8,13 +10,15 @@ import { defineUsed, loadFeedback, loadFx, loadPage } from './usa';
 import { icon } from './icons';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
-  stripBase, url, postPath, type Extra, type Page, type Route,
+  stripBase, url, postPath, tagPath, categoryPath, NAV, type Extra, type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
 import { initCommunity, bindCommunity } from './community';
 import { bindSections } from './sections-client';
 import { bindHomePage, installHomeClient, paintMember } from './home-client';
+import { createPalette, paletteHtml, shortcutLabel } from './palette';
+import { bindReactions, installPostDelegation, enhanceCode, enhanceHeadings, paintContinue, trackReading } from './post-client';
 
 setMarkdownRenderer(renderSafe);
 setBasePath(import.meta.env.BASE_URL);
@@ -150,6 +154,7 @@ function afterPaint(page: Page, full: boolean): void {
   setMeta(page);
   document.documentElement.dataset.page = page.route.name;
   updateNavCurrent(page.route);
+  document.querySelectorAll('.nav__kbd').forEach((k) => (k.textContent = shortcutLabel()));
   const rt = document.getElementById('rt') ?? app;
   void defineUsed(full ? app : rt);
   applyMotion(rt, site.settings.animation);
@@ -170,6 +175,7 @@ async function pageFor(route: Route): Promise<Page> {
 /** 站内导航：Motionary pageTransition（View Transitions / WAAPI 回退）包住内容替换。 */
 async function go(href: string, opts: { pop?: boolean } = {}): Promise<void> {
   const token = ++navToken;
+  const searchWasOpen = palette.isOpen(); // 导航途中才打开的面板不要被关掉
   const u = new URL(href, location.href);
   if (!opts.pop) history.pushState(null, '', u.pathname + u.search + u.hash);
   const route = parseRoute(u.pathname);
@@ -188,7 +194,7 @@ async function go(href: string, opts: { pop?: boolean } = {}): Promise<void> {
   bar?.done();
   if (token !== navToken) return;
   closeDrawer();
-  closeSearch();
+  if (searchWasOpen) closeSearch();
   closeContextMenu();
   const swap = () => {
     swapRegion(page);
@@ -225,12 +231,7 @@ document.addEventListener('click', (ev) => {
     void navigator.clipboard?.writeText(location.href).then(() => notify('链接已复制', 'success'));
     return;
   }
-  if (t.closest('.js-share')) {
-    const data = { title: document.title, url: location.href };
-    if (navigator.share) void navigator.share(data).catch(() => undefined);
-    else void navigator.clipboard?.writeText(location.href).then(() => notify('链接已复制，快去分享吧', 'success'));
-    return;
-  }
+  if (t.closest('.js-share')) return void openShare();
   const a = t.closest('a');
   if (!a || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
   if (a.target === '_blank' || a.hasAttribute('download')) return;
@@ -301,69 +302,78 @@ function closeDrawer(): void {
   setTimeout(() => (d.hidden = true), 280);
 }
 
-// ---------------------------------------------------------------- 本地搜索
-let searchDocs: SearchDoc[] | null = null;
-function openSearch(): void {
-  const m = document.getElementById('search');
-  if (!m) return;
-  m.hidden = false;
-  requestAnimationFrame(() => m.classList.add('is-open'));
-  const input = m.querySelector<HTMLInputElement>('input')!;
-  input.focus();
-  if (!searchDocs) {
-    void api
-      .searchIndex()
-      .then((r) => (searchDocs = r.posts))
-      .catch(() => (searchDocs = site.posts.map((p) => ({ slug: p.slug, title: p.title, summary: p.summary, tags: p.tags, category: p.category, text: p.summary }))))
-      .then(() => runSearch(input.value));
-  }
-}
-function closeSearch(): void {
-  const m = document.getElementById('search');
-  if (!m || m.hidden) return;
-  m.classList.remove('is-open');
-  setTimeout(() => (m.hidden = true), 200);
-}
+// ---------------------------------------------------------------- ⌘K 命令面板
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
-function hl(text: string, q: string): string {
-  if (!q) return esc(text);
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
-  if (i < 0) return esc(text);
-  return `${esc(text.slice(0, i))}<mark>${esc(text.slice(i, i + q.length))}</mark>${esc(text.slice(i + q.length))}`;
+let indexPromise: Promise<SearchDoc[]> | null = null;
+const palette = createPalette({
+  site: () => site,
+  searchIndex: () =>
+    (indexPromise ??= api
+      .searchIndex()
+      .then((r) => r.posts)
+      .catch(() => {
+        indexPromise = null;
+        throw new Error('index');
+      })),
+  go: (h) => void go(h),
+  url,
+  postPath,
+  tagPath,
+  categoryPath,
+  nav: NAV,
+  isPost: () => current?.route.name === 'post',
+  run: (a) => runAction(a),
+});
+function openSearch(prefill = ''): void {
+  palette.open(prefill);
 }
-function runSearch(raw: string): void {
-  const out = document.getElementById('search-results');
-  if (!out) return;
-  const q = raw.trim();
-  if (!q) {
-    out.innerHTML = '<p class="search__hint">输入关键词，搜索标题、正文、标签和分类。</p>';
-    return;
+function closeSearch(): void {
+  palette.close(false);
+}
+/** 分享面板（海报 + 二维码 + 系统分享）。不在文章页时分享当前页面。 */
+async function openShare(): Promise<void> {
+  const r = current?.route;
+  const post = r?.name === 'post' ? postCache.get(r.slug) : undefined;
+  const abs = new URL(location.pathname, location.href).href;
+  const info = {
+    title: post?.title ?? document.title,
+    url: abs,
+    summary: post?.summary || document.querySelector('meta[name="description"]')?.getAttribute('content') || site.settings.siteDescription,
+    cover: post?.coverUrl ? new URL(post.coverUrl, location.href).href : null,
+    site: site.settings.siteTitle,
+    author: site.profile.name,
+    date: (post?.publishedAt ?? post?.createdAt ?? new Date().toISOString()).slice(0, 10),
+    category: post?.category ?? null,
+  };
+  try {
+    const { openShareDialog } = await import('./share');
+    await openShareDialog(info, (m, t) => void notify(m, t));
+  } catch {
+    if (navigator.share) void navigator.share({ title: info.title, url: info.url }).catch(() => undefined);
+    else void navigator.clipboard?.writeText(info.url).then(() => notify('链接已复制，快去分享吧', 'success'));
   }
-  if (!searchDocs) {
-    out.innerHTML = '<p class="search__hint"><usa-spinner kind="dots" size="28" label="加载索引"></usa-spinner></p>';
-    void defineUsed(out);
-    return;
+}
+
+function runAction(a: string): void {
+  switch (a) {
+    case 'theme':
+      return void toggleDark();
+    case 'copy-link':
+      return void navigator.clipboard?.writeText(location.href).then(() => notify('链接已复制', 'success'));
+    case 'random': {
+      const p = site.posts[Math.floor(Math.random() * site.posts.length)];
+      if (p) void go(postPath(p.slug));
+      return;
+    }
+    case 'top':
+      return scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    case 'rss':
+      return void (location.href = url('/rss.xml'));
+    case 'share':
+      return void openShare();
   }
-  const ql = q.toLowerCase();
-  const hits = searchDocs
-    .map((d) => {
-      const inTitle = d.title.toLowerCase().includes(ql);
-      const inMeta = d.tags.some((t) => t.toLowerCase().includes(ql)) || (d.category ?? '').toLowerCase().includes(ql);
-      const pos = d.text.toLowerCase().indexOf(ql);
-      const score = (inTitle ? 10 : 0) + (inMeta ? 4 : 0) + (pos >= 0 ? 1 : 0);
-      const snip = pos >= 0 ? d.text.slice(Math.max(0, pos - 30), pos + 70) : d.summary;
-      return { d, score, snip };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12);
-  out.innerHTML = hits.length
-    ? `<p class="search__count">找到 ${hits.length} 篇文章</p><ul class="search__list">${hits
-        .map((h) => `<li><a href="${postPath(h.d.slug)}"><b>${hl(h.d.title, q)}</b><span>${hl(h.snip, q)}</span></a></li>`)
-        .join('')}</ul>`
-    : `<p class="search__hint">没有找到与「${esc(q)}」相关的文章。</p>`;
 }
 
 // ---------------------------------------------------------------- 右键菜单
@@ -407,15 +417,8 @@ function openContextMenu(ev: MouseEvent): void {
         return scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
       case 'copy':
         return void navigator.clipboard?.writeText(sel).then(() => notify('已复制', 'success'));
-      case 'search-sel': {
-        openSearch();
-        const input = document.querySelector<HTMLInputElement>('#search input');
-        if (input) {
-          input.value = sel.slice(0, 40);
-          runSearch(input.value);
-        }
-        return;
-      }
+      case 'search-sel':
+        return openSearch(sel.slice(0, 40));
       case 'open-link':
         return void open(link!.href, '_blank', 'noopener');
       case 'copy-link':
@@ -456,16 +459,23 @@ document.addEventListener('keydown', (ev) => {
     closeDrawer();
     closeContextMenu();
   }
-  if ((ev.key === 'k' && (ev.ctrlKey || ev.metaKey)) || (ev.key === '/' && !(ev.target as HTMLElement).closest('input, textarea, [contenteditable]'))) {
+  if ((ev.key.toLowerCase() === 'k' && (ev.ctrlKey || ev.metaKey) && !ev.altKey) || (ev.key === '/' && !(ev.target as HTMLElement).closest('input, textarea, select, [contenteditable]'))) {
     ev.preventDefault();
-    openSearch();
+    if (palette.isOpen() && ev.key !== '/') closeSearch();
+    else openSearch();
   }
 });
 
 // ---------------------------------------------------------------- 通知（usa-toaster）
+// 同一条消息 1.5 秒内只弹一次；最多同时显示 2 条（<usa-toaster max="2">），出错的多停留一会儿
+const lastToast = { msg: '', at: 0 };
 export async function notify(msg: string, type: 'success' | 'error' | 'info' | 'warning' = 'info'): Promise<void> {
+  const now = Date.now();
+  if (msg === lastToast.msg && now - lastToast.at < 1500) return;
+  lastToast.msg = msg;
+  lastToast.at = now;
   const { toast } = await loadFeedback();
-  toast(msg, { type } as never);
+  toast(msg, { type, duration: type === 'error' || type === 'warning' ? 5000 : 2800 } as never);
 }
 
 // ---------------------------------------------------------------- 持久的界面部件
@@ -487,21 +497,12 @@ function mountChrome(refresh = false): void {
   document.body.insertAdjacentHTML(
     'beforeend',
     `<button class="to-top js-to-top" type="button" aria-label="回到顶部" hidden>${icon('arrowUp')}</button>
-<div class="search" id="search" hidden role="dialog" aria-modal="true" aria-label="本地搜索">
-  <div class="search__mask js-search-close"></div>
-  <div class="search__panel">
-    <div class="search__head">${icon('search')}<input type="search" placeholder="搜索文章、主题或关键词…" aria-label="搜索文章" autocomplete="off"><button class="icon-btn js-search-close" type="button" aria-label="关闭搜索">${icon('close')}</button></div>
-    <div class="search__results" id="search-results"></div>
-  </div>
-</div>
+${paletteHtml()}
 <div class="ctxmenu" id="ctxmenu" hidden role="menu"></div>
-<usa-toaster label="通知" position="top-right"></usa-toaster>`,
+<usa-toaster label="通知" position="bottom-right" max="2"></usa-toaster>`,
   );
   document.querySelector('.js-to-top')!.addEventListener('click', () => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
-  document.querySelectorAll('.js-search-close').forEach((b) => b.addEventListener('click', closeSearch));
-  const input = document.querySelector<HTMLInputElement>('#search input')!;
-  input.addEventListener('input', () => runSearch(input.value));
-  runSearch('');
+  palette.mount();
   void defineUsed(document.body);
   installHomeClient({ notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
 }
@@ -516,12 +517,25 @@ function bindDeck(root: HTMLElement): void {
   deck.addEventListener('usa:swipe', (ev) => {
     const d = (ev as CustomEvent<{ card: HTMLElement; dir: string }>).detail;
     if (d?.dir === 'right') {
-      liked.unshift(d.card.querySelector('h4')?.textContent ?? '照片');
+      liked.unshift(d.card.querySelector('h3, h4')?.textContent ?? '照片');
       paint();
     }
   });
   deck.addEventListener('usa:empty', () => void notify('看完啦，撤销可以再翻一次', 'info'));
   root.querySelector('.js-deck-undo')?.addEventListener('click', () => deck.undo?.());
+}
+
+/** Motionary 的 <usa-native-preview> 渲染的 tablist 里按钮缺少 role="tab"（axe: aria-required-children）：补上。 */
+function patchTablists(root: ParentNode): void {
+  const fix = () =>
+    root.querySelectorAll<HTMLElement>('[role="tablist"]').forEach((tl) => {
+      tl.querySelectorAll<HTMLElement>(':scope > button:not([role])').forEach((b) => {
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', String(b.getAttribute('aria-pressed') === 'true' || b.classList.contains('is-active') || b.hasAttribute('data-active')));
+      });
+    });
+  if (!root.querySelector('usa-native-preview')) return;
+  void customElements.whenDefined('usa-native-preview').then(() => requestAnimationFrame(fix));
 }
 
 // ---------------------------------------------------------------- 页面级交互
@@ -567,6 +581,16 @@ function bindPage(page: Page): void {
     });
   }
   bindDeck(root);
+  // 代码复制、标题锚点、表情回应、阅读记录 / 继续阅读
+  const pctx = { notify: (m: string, t?: 'success' | 'error' | 'info' | 'warning') => void notify(m, t), postPath, reducedMotion: prefersReducedMotion };
+  installPostDelegation(pctx);
+  enhanceCode(root, pctx);
+  enhanceHeadings(root, pctx);
+  bindReactions(root, pctx);
+  paintContinue(root, pctx);
+  const rp = page.route.name === 'post' ? postCache.get(page.route.slug) : undefined;
+  trackReading(root, rp ? { slug: rp.slug, title: rp.title, cover: rp.coverUrl } : null, pctx);
+  patchTablists(root);
   bindCommunity(root, { notify, rerender: () => rerender() });
   bindHomePage(root, { notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
   bindSections(root, { notify, searchIndex: () => api.searchIndex(), basePath: url('') });
@@ -623,4 +647,22 @@ function splash(): void {
   sp?.addEventListener('usa:done', () => setTimeout(() => sp.remove(), 50));
 }
 
+// ---------------------------------------------------------------- PWA：离线缓存（service worker 只在构建产物里注册，范围 = 部署前缀）
+function registerSw(): void {
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator) || localStorage.getItem('blog-no-sw') === '1') return;
+  const scope = url('/');
+  addEventListener('load', () => void navigator.serviceWorker.register(url('/sw.js'), { scope }).catch(() => undefined), { once: true });
+}
+function offlineBadge(): void {
+  const paint = () => {
+    document.querySelector('.offline-badge')?.remove();
+    if (!navigator.onLine) document.body.insertAdjacentHTML('beforeend', '<div class="offline-badge" role="status">离线中 · 正在显示缓存的内容</div>');
+  };
+  addEventListener('online', paint);
+  addEventListener('offline', paint);
+  if (!navigator.onLine) paint();
+}
+
 void boot();
+registerSw();
+offlineBadge();

@@ -180,6 +180,22 @@ interface RepoStat {
   stars: number;
   forks: number;
 }
+export const GH_FAIL_BACKOFF = 10 * 60 * 1000;
+export function ghRecentlyFailed(key: string, now = Date.now()): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(key) || 0);
+    return at > 0 && now - at < GH_FAIL_BACKOFF;
+  } catch {
+    return false;
+  }
+}
+function ghMarkFailed(key: string): void {
+  try {
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+}
 const ownerReqs = new Map<string, Promise<Map<string, RepoStat> | null>>();
 function ownerStats(owner: string): Promise<Map<string, RepoStat> | null> {
   let p = ownerReqs.get(owner);
@@ -192,11 +208,17 @@ function ownerStats(owner: string): Promise<Map<string, RepoStat> | null> {
     } catch {
       /* ignore */
     }
+    // 上次失败（限额 / 网络被拦）后 10 分钟内不再请求：每换一页都重试只会在控制台刷一串失败的请求
+    const failKey = `blog-gh-fail:${owner.toLowerCase()}`;
+    if (ghRecentlyFailed(failKey)) return null;
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 6000);
     try {
       const r = await fetch(`https://api.github.com/users/${encodeURIComponent(owner)}/repos?per_page=100&type=owner`, { signal: ctl.signal, headers: { accept: 'application/vnd.github+json' } });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        ghMarkFailed(failKey);
+        return null;
+      }
       const list = (await r.json()) as { name?: string; stargazers_count?: number; forks_count?: number }[];
       if (!Array.isArray(list)) return null;
       const m = new Map<string, RepoStat>(list.filter((x) => typeof x.name === 'string').map((x) => [x.name!.toLowerCase(), { stars: x.stargazers_count ?? 0, forks: x.forks_count ?? 0 }]));
@@ -207,6 +229,7 @@ function ownerStats(owner: string): Promise<Map<string, RepoStat> | null> {
       }
       return m;
     } catch {
+      ghMarkFailed(failKey);
       return null;
     } finally {
       clearTimeout(t);

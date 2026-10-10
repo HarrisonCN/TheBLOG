@@ -12,6 +12,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } fr
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
+import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -55,13 +56,70 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 // JSON 放在 <script type="application/json"> 中：转义 < 防止 </script> 截断
 const jsonForHtml = (o) => JSON.stringify(o).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
+// 站点的绝对地址（canonical / Open Graph / sitemap / RSS 需要）：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL
+const SITE_URL = (DEMO ? (process.env.BLOG_SITE_URL ?? `https://harrisoncn.github.io${BASE}`) : (process.env.BLOG_SITE_URL ?? '')).replace(/\/?$/, '/');
+const HAS_SITE_URL = SITE_URL !== '/';
+/** 站内路径（已带部署前缀）→ 绝对地址 */
+function absUrl(path) {
+  if (!HAS_SITE_URL || !path) return '';
+  if (/^https?:\/\//.test(path)) return path;
+  const origin = new URL(SITE_URL).origin;
+  return origin + (path.startsWith('/') ? path : `/${path}`);
+}
+
+/** 每页的 SEO 头：canonical、Open Graph、Twitter 卡片；文章页加 article:* 与 JSON-LD（BlogPosting）。 */
+function headMeta(p, data) {
+  const s = data.settings;
+  const post = p.route.name === 'post' ? data.extra?.post : null;
+  const urlPath = R.url(R.routePath(p.route));
+  const canonical = absUrl(urlPath);
+  const image = absUrl(post?.coverUrl || s.heroImage || '');
+  const tags = [
+    canonical && `<link rel="canonical" href="${esc(canonical)}" />`,
+    `<meta property="og:site_name" content="${esc(s.siteTitle)}" />`,
+    `<meta property="og:type" content="${post ? 'article' : 'website'}" />`,
+    `<meta property="og:title" content="${esc(post ? post.title : p.title)}" />`,
+    `<meta property="og:description" content="${esc(p.description)}" />`,
+    canonical && `<meta property="og:url" content="${esc(canonical)}" />`,
+    image && `<meta property="og:image" content="${esc(image)}" />`,
+    `<meta property="og:locale" content="zh_CN" />`,
+    `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}" />`,
+    `<meta name="twitter:title" content="${esc(post ? post.title : p.title)}" />`,
+    `<meta name="twitter:description" content="${esc(p.description)}" />`,
+    image && `<meta name="twitter:image" content="${esc(image)}" />`,
+  ];
+  if (post) {
+    const pub = post.publishedAt ?? post.createdAt;
+    tags.push(`<meta property="article:published_time" content="${esc(pub)}" />`, `<meta property="article:modified_time" content="${esc(post.updatedAt ?? pub)}" />`);
+    if (post.category) tags.push(`<meta property="article:section" content="${esc(post.category)}" />`);
+    for (const t of post.tags ?? []) tags.push(`<meta property="article:tag" content="${esc(t)}" />`);
+    const ld = {
+      '@context': 'https://schema.org',
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: p.description,
+      datePublished: pub,
+      dateModified: post.updatedAt ?? pub,
+      author: { '@type': 'Person', name: data.profile?.name ?? s.siteTitle },
+      ...(image ? { image } : {}),
+      ...(canonical ? { mainEntityOfPage: canonical, url: canonical } : {}),
+      keywords: (post.tags ?? []).join(', '),
+      inLanguage: 'zh-CN',
+    };
+    tags.push(`<script type="application/ld+json">${jsonForHtml(ld)}</script>`);
+  }
+  tags.push(`<link rel="manifest" href="${BASE}manifest.webmanifest" />`, `<meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />`, `<meta name="theme-color" content="#0b111c" media="(prefers-color-scheme: dark)" />`, `<link rel="apple-touch-icon" href="${BASE}icons/icon-192.png" />`);
+  if (HAS_SITE_URL) tags.push(`<link rel="alternate" type="application/rss+xml" title="${esc(s.siteTitle)}" href="${BASE}rss.xml" />`);
+  return tags.filter(Boolean).join('\n    ');
+}
+
 function page(p, data) {
   const s = data.settings;
   const html = template
     .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(p.title)}</title>`)
     .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${esc(p.description)}" />`)
     .replace('data-site-theme="system"', `data-site-theme="${esc(s.theme)}"`)
-    .replace('<!--blog:head-->', `<meta property="og:title" content="${esc(p.title)}" />\n    <meta property="og:description" content="${esc(p.description)}" />`)
+    .replace('<!--blog:head-->', headMeta(p, data))
     .replace('<!--blog:app-->', R.appHtml(data, p))
     // 演示版的数据以访客浏览器为准，不嵌入快照
     .replace('<!--blog:data-->', DEMO ? '' : `<script type="application/json" id="blog-data">${jsonForHtml(data)}</script>`);
@@ -76,6 +134,7 @@ function write(rel, html) {
 
 let ok = false;
 let count = 0;
+const sitemap = [];
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 if (API || DEMO) {
@@ -100,13 +159,14 @@ if (API || DEMO) {
       const rel = decodeURIComponent(R.routePath(route)).replace(/^\/|\/$/g, '');
       write(rel, page(p, { ...site, extra: ex }));
       count++;
+      if (route.name !== 'notfound') sitemap.push({ loc: R.url(R.routePath(route)), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
     };
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(site.posts.length / per));
     for (let n = 1; n <= pages; n++) emit({ name: 'home', page: n });
     for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES]) emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
-    const siteUrl = DEMO ? (process.env.BLOG_SITE_URL ?? `https://harrisoncn.github.io${BASE}`) : process.env.BLOG_SITE_URL;
+    const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
       const feed = { title: settings.siteTitle, description: settings.siteDescription, siteUrl, posts: list.posts };
       writeFileSync(join(dist, 'rss.xml'), R.rssXml(feed));
@@ -130,6 +190,48 @@ if (API || DEMO) {
 if (!ok) {
   // 空壳：保持模板，浏览器端显示加载骨架并调用 API
   writeFileSync(join(dist, 'index.html'), shell);
+}
+
+// ---- PWA：manifest、离线页、service worker（范围 = 部署前缀） ----
+{
+  const s = ok ? (await get('/api/settings').catch(() => null)) : null;
+  const title = s?.siteTitle ?? 'Winston Blog';
+  const manifest = {
+    name: title,
+    short_name: title.length > 12 ? title.slice(0, 12) : title,
+    description: s?.siteDescription ?? '',
+    lang: 'zh-CN',
+    start_url: BASE,
+    scope: BASE,
+    display: 'standalone',
+    background_color: '#eef3fa',
+    theme_color: '#2563eb',
+    icons: [
+      { src: `${BASE}icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
+      { src: `${BASE}icons/icon-512.png`, sizes: '512x512', type: 'image/png' },
+      { src: `${BASE}icons/icon-512-maskable.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  };
+  writeFileSync(join(dist, 'manifest.webmanifest'), JSON.stringify(manifest, null, 2));
+  writeFileSync(
+    join(dist, 'offline.html'),
+    `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>离线中 · ${esc(title)}</title><link rel="icon" href="${BASE}favicon.svg" type="image/svg+xml"><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.7 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#eef3fa;color:#1e293b}main{max-width:26rem;margin:1rem;padding:2rem 1.6rem;border-radius:20px;background:#fff;box-shadow:0 8px 26px -14px rgb(20 40 90 / .25);text-align:center}h1{margin:.4rem 0;font-size:1.5rem}p{color:#5d6879}a{display:inline-block;margin-top:.6rem;padding:.55rem 1.1rem;border-radius:12px;background:#2563eb;color:#fff;text-decoration:none}@media (prefers-color-scheme:dark){body{background:#0b111c;color:#e2e8f0}main{background:#131b2a}p{color:#9aa6ba}a{background:#6b97ff;color:#0b111c}}</style></head><body><main><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.6a10 10 0 0 1 14 0M8.5 16.4a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/><circle cx="12" cy="20" r="1"/></svg><h1>现在没有网络</h1><p>这一页还没有缓存在本机。之前看过的页面离线也能打开；联网后再试一次吧。</p><a href="${BASE}">回到首页</a></main></body></html>`,
+  );
+  const version = createHash('sha256').update(readFileSync(join(dist, 'index.html'))).update(String(count)).digest('hex').slice(0, 12);
+  writeFileSync(join(dist, 'sw.js'), readFileSync(join(here, 'sw-template.js'), 'utf8').replaceAll('__VERSION__', version).replaceAll('__BASE__', BASE));
+}
+// ---- sitemap.xml + robots.txt（需要站点绝对地址） ----
+if (ok && HAS_SITE_URL) {
+  const seen = new Set();
+  const urls = sitemap.filter((u) => !seen.has(u.loc) && seen.add(u.loc));
+  const xmlEsc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  writeFileSync(
+    join(dist, 'sitemap.xml'),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+      .map((u) => `  <url><loc>${xmlEsc(absUrl(encodeURI(decodeURI(u.loc))))}</loc>${u.lastmod ? `<lastmod>${xmlEsc(String(u.lastmod).slice(0, 10))}</lastmod>` : ''}<priority>${u.prio}</priority></url>`)
+      .join('\n')}\n</urlset>\n`,
+  );
+  writeFileSync(join(dist, 'robots.txt'), `User-agent: *\nAllow: ${BASE}\nDisallow: ${BASE}admin/\nSitemap: ${absUrl(`${BASE}sitemap.xml`)}\n`);
 }
 
 if (DEMO) {
@@ -159,6 +261,8 @@ writeFileSync(
   X-Frame-Options: DENY
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+/sw.js
+  Cache-Control: no-cache
 /admin*
   Cache-Control: no-store
   X-Robots-Tag: noindex, nofollow

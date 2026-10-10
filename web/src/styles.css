@@ -649,7 +649,7 @@ a.album:hover { color: #fff; }
 .swipe-tile p { margin: 0 0 0.8rem; font-size: 0.85rem; }
 .swipe { display: block; min-height: 210px; max-width: 320px; margin: 0 auto; }
 .swipe-card { padding: 1.2rem; border-radius: 20px; background: var(--tile-strong); box-shadow: var(--shadow); min-height: 170px; border: 1px solid var(--tile-border); }
-.swipe-card h4 { margin: 0 0 0.4rem; font-size: 1.1rem; color: var(--heading); }
+.swipe-card h4, .swipe-card__t { margin: 0 0 0.4rem; font-size: 1.1rem; color: var(--heading); }
 .swipe-card small { color: var(--accent); }
 .friend { display: flex; gap: 0.9rem; align-items: center; }
 .friend__avatar { flex: none; width: 54px; height: 54px; border-radius: 18px; object-fit: cover; transition: transform 0.6s var(--ease), border-radius 0.4s; }

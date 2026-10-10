@@ -1,0 +1,125 @@
+/* =====================================================================
+ * 审计修复（axe-core / 版式 / 字体）。放在最后加载，只做覆盖。
+ * ===================================================================== */
+
+/* ---- 字体：所有字体栈末尾补彩色 emoji 字体，访客 / 便签里的 emoji 不再显示成方块 ---- */
+:root {
+  --emoji: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Twemoji Mozilla", "Android Emoji", "EmojiOne Color";
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif, var(--emoji);
+  --serif: "Blog Serif", "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", Georgia, "Times New Roman", serif, var(--emoji);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace, var(--emoji);
+}
+body, input, textarea, select, button { font-family: var(--font); }
+usa-sticky-wall, .sticky-wall, .note, usa-toaster .usa-toast { font-family: var(--font); }
+
+/* ---- 对比度（WCAG AA 4.5:1）：浅色模式的次要文字、彩色标签、行内代码 ---- */
+:root:not([data-theme="dark"]) {
+  --muted: #5d6879;
+  --t-blue: #1d4fd0;
+  --t-green: #0b7a52;
+  --t-orange: #b9470f;
+  --t-purple: #6236d8;
+  --t-pink: #c42a56;
+  --t-teal: #0a6f7b;
+}
+:root:not([data-theme="dark"]) .prose code { color: #b8245f; }
+:root:not([data-theme="dark"]) .chip--doing, :root:not([data-theme="dark"]) .chip--active, :root:not([data-theme="dark"]) .chip--feature { color: #12703a; }
+:root:not([data-theme="dark"]) .chip--want, :root:not([data-theme="dark"]) .chip--wip, :root:not([data-theme="dark"]) .chip--weekly { color: #8f4d00; }
+:root:not([data-theme="dark"]) .chip--fix, :root:not([data-theme="dark"]) .chip--private { color: #b0213f; }
+:root:not([data-theme="dark"]) .chip--done, :root:not([data-theme="dark"]) .chip--improve { color: #1d4fd0; }
+:root:not([data-theme="dark"]) .tl-k--study { --tlc: #1f5fd6; }
+:root:not([data-theme="dark"]) .tl-k--work { --tlc: #6b3fd4; }
+:root:not([data-theme="dark"]) .tl-k--project { --tlc: #0a7a55; }
+:root:not([data-theme="dark"]) .tl-k--life { --tlc: #b8246a; }
+:root:not([data-theme="dark"]) .tl-k--award { --tlc: #8f5200; }
+:root[data-theme="dark"] .chip--doing, :root[data-theme="dark"] .chip--active, :root[data-theme="dark"] .chip--feature { color: #5fd38c; }
+:root[data-theme="dark"] .chip--want, :root[data-theme="dark"] .chip--wip, :root[data-theme="dark"] .chip--weekly { color: #f3b44c; }
+:root[data-theme="dark"] .chip--fix, :root[data-theme="dark"] .chip--private { color: #ff8da3; }
+:root[data-theme="dark"] .tl-k--study { --tlc: #8ab4ff; }
+:root[data-theme="dark"] .tl-k--work { --tlc: #b9a2ff; }
+:root[data-theme="dark"] .tl-k--project { --tlc: #5fd3a8; }
+/* 便签上的署名 */
+.note small, usa-sticky-wall small, .sticky-wall small { color: rgb(40 36 20 / 0.82); }
+/* 深色模式：实心强调色上的文字用深色（白字在 #6b97ff 上只有 2.8:1） */
+:root[data-theme="dark"] .pill--on, :root[data-theme="dark"] .chip--accent, :root[data-theme="dark"] .pager__num[aria-current="page"], :root[data-theme="dark"] .steps li.is-active { color: #0b111c; }
+/* 深色模式：Motionary 输入框的浮动标签 */
+:root[data-theme="dark"] usa-field label, :root[data-theme="dark"] .usa-field-label { color: var(--muted) !important; }
+/* 热力图里没有数据的日期数字 */
+.heat [data-date] { color: var(--muted); }
+
+/* ---- 正文链接要能和普通文字区分（不只靠颜色） ---- */
+.prose a:not(.chip):not(.btn):not(.heading-anchor), .muted a, .small a, .now-list a, .about a:not(.btn):not(.chip) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.prose a:hover { text-decoration-color: currentColor; }
+
+/* ---- 长链接 / 行内代码在窄屏换行，不撑出横向滚动 ---- */
+.copyright a, .js-abs-link { overflow-wrap: anywhere; word-break: break-all; }
+.prose :not(pre) > code { overflow-wrap: anywhere; white-space: normal; }
+.tile code:not(pre code) { overflow-wrap: anywhere; }
+
+/* ---- 可滚动区域可用键盘聚焦（tabindex 由脚本加），焦点要看得见 ---- */
+.heat__scroll:focus-visible, .prose pre:focus-visible, .code-wrap pre:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- 首页的 h1（视觉隐藏，读屏和搜索引擎可见） ---- */
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---- 通知：最多两条、放在右下角（不挡导航），手机上贴底居中、在「回到顶部」按钮上方 ---- */
+usa-toaster { z-index: 150; top: auto !important; bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
+usa-toaster .usa-toast { background: var(--tile-strong); color: var(--heading); border-color: var(--hairline); }
+@media (max-width: 700px) {
+  usa-toaster { left: 12px !important; right: 12px !important; width: auto !important; translate: none !important; bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+
+/* ---- 节日横幅：与内容栏对齐、和下面的轮播留出间距、蝙蝠在文字后面 ---- */
+.festival--top { margin: 10px auto 14px; }
+.festival--top .fest-msg { position: relative; z-index: 2; }
+.festival--top .fest-msg span { text-shadow: 0 1px 6px rgb(0 0 0 / 0.45); }
+usa-festival-banner .usa-fb-bat { z-index: 1; }
+@media (max-width: 700px) {
+  .festival--top { width: calc(100% - 28px); margin: 8px auto 12px; }
+}
+
+/* ---- 文章页：桌面端目录侧栏回到右侧（.tile--full 的 grid-column: 1/-1 把正文撑满两列，目录被挤到正文下面） ---- */
+@media (min-width: 1101px) {
+  .post-layout > .post { grid-column: 1; grid-row: 1; }
+  .post-layout > .post-side { grid-column: 2; grid-row: 1; }
+  .post-side .toc { max-height: calc(100vh - var(--nav-h) - 220px); }
+}
+
+/* ---- 审计第二轮（audit-after）：剩余对比度 / 行内链接 ---- */
+/* 实心强调色上的小字：不用半透明 */
+.pill--on span { color: inherit; opacity: 0.92; }
+:root:not([data-theme="dark"]) .pill--on span { opacity: 1; }
+:root[data-theme="dark"] .pin-flag { color: #0b111c; }
+/* 便签署名、归档标记、代码复制按钮：去掉降低对比度的 opacity */
+.note small, usa-sticky-wall small, .sticky-wall small, .usa-sticky small { opacity: 1 !important; color: rgb(40 36 20 / 0.85) !important; }
+.chip--archived { opacity: 1; color: var(--muted); }
+.code-copy { opacity: 1; color: var(--muted); }
+@media (hover: hover) { .code-wrap:not(:hover):not(:focus-within) .code-copy:not(.is-done) { opacity: 1; } }
+.code-copy > span { color: inherit; }
+/* 时间线图例 */
+:root:not([data-theme="dark"]) .tl-k--project { --tlc: #086b4a; }
+:root[data-theme="dark"] .tl-k--life { --tlc: #f58ac0; }
+:root[data-theme="dark"] .tl-k--award { --tlc: #f6c35c; }
+/* 归档日历：本月以外的日期 */
+.usa-dp-day[data-out] { opacity: 0.62 !important; }
+/* 深色模式：收藏页原生预览的标签按钮底色是白的 */
+:root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="false"]:not(.usa-np-replay) { color: #2b3443 !important; }
+:root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="true"] { color: #f1f5f9 !important; }
+:root[data-theme="dark"] usa-native-preview .usa-np-replay { color: #fff !important; }
+/* 表单提示文字 */
+:root[data-theme="dark"] .usa-fld-msg { color: var(--muted) !important; }
+:root:not([data-theme="dark"]) .usa-fld-msg { color: #5d6879 !important; }
+/* 继续阅读列表的标题 */
+:root:not([data-theme="dark"]) .usa-cn-title { color: var(--accent-strong); }
+/* 版权块、此刻页等正文里的链接也加下划线 */
+.copyright a, .now-intro a, .tile p > a:not(.btn):not(.chip):not([class*="__"]) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+}

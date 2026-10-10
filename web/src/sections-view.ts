@@ -51,7 +51,7 @@ export function heatmap(site: SiteData, changelog: ChangelogEntry[] = [], weeks 
     return m !== prev ? `${Number(m)}月` : '';
   });
   return `<div class="heat" style="--weeks:${cols.length}">
-  <div class="heat__scroll"><div class="heat__months" aria-hidden="true">${months.map((m) => `<span>${m}</span>`).join('')}</div>
+  <div class="heat__scroll" tabindex="0" role="region" aria-label="最近一年的写作热力图（可横向滚动）"><div class="heat__months" aria-hidden="true">${months.map((m) => `<span>${m}</span>`).join('')}</div>
   <div class="heat__grid" role="img" aria-label="近 ${weeks} 周有 ${h.activeDays} 天在写作或更新站点">${cols
     .map((col) => `<div class="heat__col">${col.map((c) => `<i class="l${c.level}" title="${c.date}${c.score ? ` · ${c.score} 分` : ''}"></i>`).join('')}</div>`)
     .join('')}</div></div>

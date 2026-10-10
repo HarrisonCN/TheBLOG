@@ -5,6 +5,7 @@
  */
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { isReaction, REACTION_SET } from '../reactions-core';
 import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 
@@ -207,6 +208,8 @@ export class DemoBackend {
       if (path === '/api/search-index') return ok({ posts: this.searchIndex() });
       const mc = /^\/api\/content\/([a-z]+)$/.exec(path);
       if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] });
+      const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
+      if (mr) return ok(this.reactions(decodeURIComponent(mr[1]!)));
       if (path === '/api/guestbook') return ok({ entries: this.db().guestbook.filter((g) => g.status === 'approved').sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) });
       if (path === '/api/festivals') return ok({ festivals: this.db().festivals });
       if (path === '/api/projects') return ok({ items: this.db().projects });
@@ -223,6 +226,8 @@ export class DemoBackend {
     if (m === 'POST') {
       if (path === '/api/guestbook') return ok(this.createGuestbook(body), 201);
       if (path === '/api/notes') return ok(this.createNote(body), 201);
+      const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
+      if (mr) return ok(this.react(decodeURIComponent(mr[1]!), body));
       const rn = /^\/api\/notes\/(\d+)\/report$/.exec(path);
       if (rn) return ok(this.reportNote(Number(rn[1])));
       if (path === '/api/presence') return ok(this.presence(body));
@@ -319,6 +324,48 @@ export class DemoBackend {
       .filter((p) => (category ? p.category === category : true))
       .sort(byOrder);
     return { posts: all.slice(offset, offset + limit).map(summary), total: all.length };
+  }
+
+  // ---- 文章表情回应（与 Worker 相同的形状；演示站的「访客」只有本机） ----
+  private reactionCounts(db: DemoDb, slug: string): Record<string, number> {
+    db.reactions ??= {};
+    if (!db.reactions[slug]) {
+      // 示例数据：按 slug 生成稳定的初始计数，让演示站看起来有人互动过
+      let h = 7;
+      for (const ch of slug) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      const seeded: Record<string, number> = {};
+      REACTION_SET.forEach((e, i) => {
+        const n = (h >> (i * 3)) % 9;
+        if (n > 2) seeded[e] = n - 2;
+      });
+      db.reactions[slug] = seeded;
+    }
+    return db.reactions[slug]!;
+  }
+  private reactions(slug: string): { counts: Record<string, number> } {
+    this.find(slug, false); // 404 / 草稿
+    const db = this.db();
+    return { counts: { ...this.reactionCounts(db, slug) } };
+  }
+  private react(slug: string, body: unknown): { counts: Record<string, number>; mine: boolean } {
+    this.find(slug, false);
+    const { emoji, on = true } = (body ?? {}) as { emoji?: unknown; on?: unknown };
+    if (!isReaction(emoji) || typeof on !== 'boolean') throw new MockError(400, 'validation_error', '参数校验失败');
+    const db = this.db();
+    const counts = this.reactionCounts(db, slug);
+    db.reactionVotes ??= [];
+    const key = `${slug}|${emoji}`;
+    const had = db.reactionVotes.includes(key);
+    if (on && !had) {
+      db.reactionVotes.push(key);
+      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    } else if (!on && had) {
+      db.reactionVotes = db.reactionVotes.filter((k) => k !== key);
+      counts[emoji] = Math.max(0, (counts[emoji] ?? 0) - 1);
+      if (!counts[emoji]) delete counts[emoji];
+    }
+    this.save(db);
+    return { counts: { ...counts }, mine: on };
   }
 
   private find(slug: string, admin: boolean): Post {

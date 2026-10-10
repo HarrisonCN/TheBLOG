@@ -10,6 +10,7 @@ import { escapeHtml as e, plainText, renderMarkdown, safeHref } from './markdown
 import { festivalIcon, icon, SOCIAL_ICON, stripEmoji } from './icons';
 import type { Album, CategoryCount, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SiteData, TagCount } from './types';
 import { activeFestival, type Festival, type Project, type PublicMember, type StickyNote } from './demo/community-types';
+import { REACTIONS } from './reactions-core';
 import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
 export { rssXml, jsonFeed } from './sections';
 import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
@@ -677,6 +678,18 @@ function latestPanel(list: PostSummary[], page: number, pages: number, total: nu
 }
 
 /** 侧栏卡片外壳 */
+/** 表情回应条：计数由浏览器端拉取；旧 Worker 没有接口时整条隐藏。 */
+export function reactionsBar(slug: string): string {
+  return `<div class="reactions js-reactions" data-slug="${e(slug)}" role="group" aria-label="表情回应"><span class="reactions__label">${icon('sparkles')}留下你的回应</span><div class="reactions__list">${REACTIONS.map(
+    (r) => `<button class="react" type="button" data-emoji="${r.emoji}" aria-pressed="false" aria-label="${r.label}" title="${r.label}"><span class="react__e" aria-hidden="true">${r.emoji}</span><span class="react__n" aria-hidden="true"></span></button>`,
+  ).join('')}</div></div>`;
+}
+
+/** 继续阅读：内容来自访客本机的阅读记录（localStorage），没有记录时不显示。 */
+export function continueCard(): string {
+  return `<section class="side-card continue-card js-continue" hidden aria-labelledby="continue-h">${secHead('history', '继续阅读', '', undefined, 'continue-h')}<ul class="continue-list"></ul><button class="link-btn js-continue-clear" type="button">清除阅读记录</button></section>`;
+}
+
 function sideCard(cls: string, body: string, label: string): string {
   return `<section class="side-card ${cls} reveal" aria-label="${e(label)}">${body}</section>`;
 }
@@ -765,6 +778,7 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
   const side = page === 1
     ? [
         s.sections.about ? profileCard(site, 'full') : '',
+        continueCard(),
         subscribeCard(),
         festivalTile(site.festivals),
         s.sections.latest ? hotCard(site) : '',
@@ -780,7 +794,7 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
     title: page > 1 ? `第 ${page} 页` : s.siteTitle,
     description: s.siteDescription,
     top: '',
-    main: `<div class="home" id="content"><div class="home__main">${mainCol}</div><aside class="home__side" aria-label="侧栏">${side}</aside></div>`,
+    main: `<h1 class="visually-hidden">${e(s.siteTitle)}${page > 1 ? ` · 第 ${page} 页` : ''}</h1><div class="home" id="content"><div class="home__main">${mainCol}</div><aside class="home__side" aria-label="侧栏">${side}</aside></div>`,
     kind: page > 1 ? 'page--home page--list' : 'page--home',
   });
 }
@@ -847,6 +861,7 @@ export function postPage(site: SiteData, post: Post): Page {
     <div class="prose" id="post-body">${html}</div>
   </usa-double-tap>
   <div class="post__like"><usa-like class="js-like" data-slug="${e(post.slug)}" label="喜欢这篇文章"></usa-like><span class="post__like-hint">喜欢就点个赞，或在正文上双击 ❤</span></div>
+  ${reactionsBar(post.slug)}
   <div class="copyright">
     <p><b>文章作者：</b><a href="${url('/about/')}">${e(site.profile.name)}</a></p>
     <p><b>文章链接：</b><a class="js-abs-link" href="${link}">${link}</a> <button class="copy-btn js-copy-link" type="button" aria-label="复制文章链接">${icon('copy')}</button></p>
@@ -977,7 +992,7 @@ function galleryDeck(albums: Album[]): string {
   if (!photos.length) return '';
   return `<h2 class="section-h reveal">${icon('shuffle')}随手翻翻</h2>${bento(
     `${tile('half', `${kicker('shuffle', '照片卡片')}<p class="muted">拖动卡片：向右「喜欢」，向左「跳过」；键盘用 ← / →。</p><usa-swipe-deck threshold="110" label="照片卡片" class="swipe swipe--photo js-photo-deck">${photos
-      .map((p) => `<article class="swipe-card swipe-card--photo">${img(p.url, p.caption, 'swipe-card__img', { sizes: '(max-width: 768px) 90vw, 420px' })}<h4>${e(p.caption || p.album.title)}</h4><small>${e(p.album.title)}</small></article>`)
+      .map((p) => `<article class="swipe-card swipe-card--photo">${img(p.url, p.caption, 'swipe-card__img', { sizes: '(max-width: 768px) 90vw, 420px' })}<h3 class="swipe-card__t">${e(p.caption || p.album.title)}</h3><small>${e(p.album.title)}</small></article>`)
       .join('')}</usa-swipe-deck>`, { cls: 'swipe-tile', rows: 2 })}
 ${tile('half', `${kicker('heart', '你喜欢的照片')}<ul class="liked-list js-liked-photos"><li class="muted">右滑的照片会出现在这里。</li></ul><usa-button deform="squash" class="js-deck-undo"><button class="btn btn--ghost btn--sm" type="button">${icon('history')}撤销上一张</button></usa-button>`, { cls: 'liked-tile', rows: 2 })}`,
     'bento--deck',
@@ -1016,7 +1031,7 @@ export function favoritesPage(site: SiteData, favs: Favorite[], projects: Projec
 </usa-spatial-card>`, { cls: 'spatial-tile', rows: 2 })}
 ${tile('half', `${kicker('shuffle', '随手翻翻收藏')}<p class="muted">向右滑「想看」，向左滑「跳过」</p><usa-swipe-deck threshold="110" label="收藏卡片" class="swipe">${favs
         .slice(0, 6)
-        .map((f) => `<article class="swipe-card"><h4>${e(f.title)}</h4><p>${e(f.description)}</p><small>${e(f.group)}</small></article>`)
+        .map((f) => `<article class="swipe-card"><h3 class="swipe-card__t">${e(f.title)}</h3><p>${e(f.description)}</p><small>${e(f.group)}</small></article>`)
         .join('')}</usa-swipe-deck>`, { cls: 'swipe-tile', rows: 2 })}`
     : '';
   return shell(site, { name: 'favorites' }, {
