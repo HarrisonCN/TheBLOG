@@ -2,21 +2,26 @@ import './styles.css';
 import './sections.css';
 import './features.css';
 import './fixes.css';
+import './motion-ui.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
 import { applyTheme, currentMode, setMode } from './theme';
 import { defineUsed, loadFeedback, loadFx, loadPage } from './usa';
 import { icon } from './icons';
+import { installIconMotion } from './icon-motion';
+import { rememberOrigin, veilNavigate } from './route-veil';
+import { pageInPlace } from './list-pager';
+import { upgradeToastIcon } from './result-icon';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
-  stripBase, url, postPath, tagPath, categoryPath, NAV, type Extra, type Page, type Route,
+  stripBase, url, postPath, tagPath, categoryPath, latestParts, NAV, type Extra, type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
 import { initCommunity, bindCommunity } from './community';
 import { bindSections } from './sections-client';
-import { bindHomePage, installHomeClient, paintMember } from './home-client';
+import { bindHomePage, installHomeClient, paintBookmarks, paintMember } from './home-client';
 import { createPalette, paletteHtml, shortcutLabel } from './palette';
 import { bindReactions, installPostDelegation, enhanceCode, enhanceHeadings, paintContinue, trackReading } from './post-client';
 
@@ -172,43 +177,76 @@ async function pageFor(route: Route): Promise<Page> {
   return renderRoute(route, site, x);
 }
 
-/** 站内导航：Motionary pageTransition（View Transitions / WAAPI 回退）包住内容替换。 */
+/** 新界面的标题（h1）拿到焦点：键盘 / 读屏用户导航后从新内容开始。没有 h1 时退回 <main>。 */
+function focusHeading(): void {
+  const h = document.querySelector<HTMLElement>('#rt h1') ?? document.getElementById('main');
+  if (!h) return;
+  if (!h.hasAttribute('tabindex')) h.tabIndex = -1;
+  h.focus({ preventScroll: true });
+}
+
+/** 首页「最新文章」翻页：只在这一栏里转 ring，主体不动。返回 true 表示已经在原地处理。 */
+async function pageListInPlace(route: Route, token: number, u: URL, pop: boolean): Promise<boolean> {
+  if (route.name !== 'home' || current?.route.name !== 'home' || route.page === current.route.page) return false;
+  const section = document.querySelector<HTMLElement>('#rt .js-paged');
+  if (!section || !latestParts(site, route.page)) return false;
+  if (!pop) history.pushState(null, '', u.pathname + u.search + u.hash);
+  closeDrawer();
+  closeContextMenu();
+  if (palette.isOpen()) closeSearch();
+  const reduced = prefersReducedMotion() || effectiveLevel(site.settings.animation) === 'off';
+  void defineUsed(section);
+  const parts = await pageInPlace({
+    section,
+    reduced,
+    navOffset: document.getElementById('nav')?.getBoundingClientRect().bottom ?? 64,
+    parts: async () => latestParts(site, route.page),
+    alive: () => token === navToken,
+    after: (sec) => {
+      void defineUsed(sec);
+      paintBookmarks(sec);
+    },
+  });
+  if (parts && token === navToken && current) {
+    current = { ...current, route, title: parts.docTitle };
+    document.title = parts.docTitle;
+  }
+  return true;
+}
+
+/**
+ * 站内导航：白色遮罩从点击处 / 卡片放大到全屏 → bars 加载 → 遮罩下替换界面 → 遮罩缩起（route-veil.ts）。
+ * 首页翻页走 pageListInPlace（ring，只换列表）。前进 / 后退同样有转场。
+ */
 async function go(href: string, opts: { pop?: boolean } = {}): Promise<void> {
   const token = ++navToken;
   const searchWasOpen = palette.isOpen(); // 导航途中才打开的面板不要被关掉
   const u = new URL(href, location.href);
-  if (!opts.pop) history.pushState(null, '', u.pathname + u.search + u.hash);
   const route = parseRoute(u.pathname);
-  const slow = setTimeout(() => {
-    if (token === navToken) swapRegion({ ...(current as Page), main: loadingMain() });
-  }, 250);
-  let page: Page;
-  const bar = effectiveLevel(site.settings.animation) === 'off' ? null : (await loadPage().catch(() => null))?.loadingBar ?? null;
-  bar?.start();
-  try {
-    page = await pageFor(route);
-  } catch (e) {
-    page = { ...renderRoute({ name: 'notfound' }, site), main: errorMain((e as Error).message), title: `加载失败 · ${site.settings.siteTitle}` };
-  }
-  clearTimeout(slow);
-  bar?.done();
-  if (token !== navToken) return;
+  if (await pageListInPlace(route, token, u, !!opts.pop)) return;
+  if (!opts.pop) history.pushState(null, '', u.pathname + u.search + u.hash);
   closeDrawer();
-  if (searchWasOpen) closeSearch();
   closeContextMenu();
-  const swap = () => {
-    swapRegion(page);
-    if (!opts.pop) {
-      if (u.hash) document.getElementById(decodeURIComponent(u.hash.slice(1)))?.scrollIntoView();
-      else window.scrollTo(0, 0);
-    }
-  };
-  if (effectiveLevel(site.settings.animation) === 'off' || prefersReducedMotion()) swap();
-  else {
-    const { pageTransition } = await loadPage();
-    await pageTransition(swap, { effect: 'fade', duration: 380 }).catch(swap);
-  }
-  if (!opts.pop) document.getElementById('main')?.focus({ preventScroll: true });
+  const reduced = prefersReducedMotion() || effectiveLevel(site.settings.animation) === 'off';
+  let swapped = false;
+  await veilNavigate<Page>({
+    reduced,
+    timeoutMs: 8000,
+    load: () => pageFor(route),
+    onError: (e) => ({ ...renderRoute({ name: 'notfound' }, site), route, main: errorMain((e as Error).message), title: `加载失败 · ${site.settings.siteTitle}` }),
+    alive: () => token === navToken,
+    swap: (page) => {
+      if (searchWasOpen) closeSearch();
+      swapRegion(page);
+      swapped = true;
+      if (!opts.pop) {
+        if (u.hash) document.getElementById(decodeURIComponent(u.hash.slice(1)))?.scrollIntoView();
+        else window.scrollTo(0, 0);
+      }
+    },
+    settle: () => defineUsed(document.getElementById('rt') ?? app),
+  });
+  if (swapped && token === navToken) focusHeading();
 }
 
 async function rerender(): Promise<void> {
@@ -225,7 +263,7 @@ document.addEventListener('click', (ev) => {
   if (t.closest('.js-theme')) return void toggleDark(ev);
   if (t.closest('.js-search')) return void openSearch();
   if (t.closest('.js-drawer')) return void openDrawer();
-  if (t.closest('.js-drawer-close')) return void closeDrawer();
+  if (t.closest('.js-drawer-close')) return void closeDrawer(true);
   if (t.closest('.retry')) return void boot();
   if (t.closest('.js-copy-link')) {
     void navigator.clipboard?.writeText(location.href).then(() => notify('链接已复制', 'success'));
@@ -246,8 +284,14 @@ document.addEventListener('click', (ev) => {
     return;
   }
   ev.preventDefault();
+  rememberOrigin(ev, a);
   void go(u.pathname + u.search + u.hash);
 });
+// 转场遮罩的起点：捕获阶段记录（<usa-route-transition> 会先于文档级监听拦下站内链接再发 usa:navigate）
+document.addEventListener('click', (ev) => {
+  const a = (ev.target as HTMLElement).closest?.('a');
+  if (a && ev.button === 0) rememberOrigin(ev, a);
+}, true);
 window.addEventListener('popstate', () => void go(location.pathname + location.search, { pop: true }));
 // <usa-route-transition> 自己也会拦截站内链接：交给上面的路由（它基于浏览器内的数据渲染，演示站新建的文章也能打开）
 document.addEventListener('usa:navigate', (ev) => {
@@ -284,22 +328,40 @@ function onScroll(): void {
 addEventListener('scroll', onScroll, { passive: true });
 
 // ---------------------------------------------------------------- 抽屉菜单
+type Morph = HTMLElement & { show?: (i: number | string) => void };
+/** 菜单按钮里的 Motionary <usa-icon-morph>（menu ↔ close），以及按钮的 aria-expanded / aria-label。 */
+function syncMenuButtons(open: boolean): void {
+  document.querySelectorAll<HTMLButtonElement>('.js-drawer').forEach((b) => {
+    b.setAttribute('aria-expanded', String(open));
+    b.setAttribute('aria-label', open ? '关闭菜单' : '打开菜单');
+  });
+  document.querySelectorAll<Morph>('.js-menu-morph').forEach((m) => {
+    const apply = () => m.show?.(open ? 'close' : 'menu');
+    if (customElements.get('usa-icon-morph')) apply();
+    else void customElements.whenDefined('usa-icon-morph').then(apply);
+  });
+}
 function openDrawer(): void {
   const d = document.getElementById('drawer');
   if (!d) return;
+  if (!d.hidden && d.classList.contains('is-open')) return closeDrawer();
   d.hidden = false;
+  void defineUsed(d);
   requestAnimationFrame(() => d.classList.add('is-open'));
   document.body.classList.add('drawer-open');
-  document.querySelector('.js-drawer')?.setAttribute('aria-expanded', 'true');
-  d.querySelector<HTMLElement>('a, summary')?.focus();
+  syncMenuButtons(true);
+  d.querySelector<HTMLElement>('.drawer__close, a, summary')?.focus();
 }
-function closeDrawer(): void {
+function closeDrawer(returnFocus = false): void {
   const d = document.getElementById('drawer');
   if (!d || d.hidden) return;
   d.classList.remove('is-open');
   document.body.classList.remove('drawer-open');
-  document.querySelector('.js-drawer')?.setAttribute('aria-expanded', 'false');
-  setTimeout(() => (d.hidden = true), 280);
+  syncMenuButtons(false);
+  if (returnFocus) document.querySelector<HTMLElement>('.nav .js-drawer')?.focus({ preventScroll: true });
+  setTimeout(() => {
+    if (!d.classList.contains('is-open')) d.hidden = true;
+  }, 280);
 }
 
 // ---------------------------------------------------------------- ⌘K 命令面板
@@ -456,7 +518,7 @@ addEventListener('scroll', closeContextMenu, { passive: true });
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') {
     closeSearch();
-    closeDrawer();
+    closeDrawer(true);
     closeContextMenu();
   }
   if ((ev.key.toLowerCase() === 'k' && (ev.ctrlKey || ev.metaKey) && !ev.altKey) || (ev.key === '/' && !(ev.target as HTMLElement).closest('input, textarea, select, [contenteditable]'))) {
@@ -475,7 +537,8 @@ export async function notify(msg: string, type: 'success' | 'error' | 'info' | '
   lastToast.msg = msg;
   lastToast.at = now;
   const { toast } = await loadFeedback();
-  toast(msg, { type, duration: type === 'error' || type === 'warning' ? 5000 : 2800 } as never);
+  const h = toast(msg, { type, duration: type === 'error' || type === 'warning' ? 5000 : 2800 } as never);
+  upgradeToastIcon(h?.element ?? null, type);
 }
 
 // ---------------------------------------------------------------- 持久的界面部件
@@ -604,6 +667,7 @@ async function boot(): Promise<void> {
     mountDemoBanner({ adminHref: url('/admin/') });
   }
   applyTheme(site.settings);
+  installIconMotion();
   const surface = localStorage.getItem('blog-surface');
   if (surface) document.documentElement.dataset.usaSurface = surface;
   splash();

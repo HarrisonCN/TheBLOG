@@ -6,6 +6,7 @@
  * - 表情回应：乐观更新，失败回滚；接口不存在（旧 Worker）时隐藏。
  */
 import { api, ApiError } from './api';
+import { flashResult } from './result-icon';
 import { icon } from './icons';
 import { applyLocal, mineKey, readMine, toggleMine } from './reactions-core';
 import { clearHistory, continueList, loadHistory, progressOf, resumeFor, saveHistory, upsert } from './reading';
@@ -75,6 +76,7 @@ export function installPostDelegation(ctx: PostCtx): void {
       const code = pre?.querySelector('code')?.textContent ?? pre?.textContent ?? '';
       void copyText(code)
         .then(() => {
+          flashResult(btn, 'success', 1600);
           btn.classList.add('is-done');
           btn.querySelector('span')!.textContent = '已复制';
           btn.setAttribute('aria-label', '已复制');
@@ -84,7 +86,10 @@ export function installPostDelegation(ctx: PostCtx): void {
             btn.setAttribute('aria-label', '复制代码');
           }, 1600);
         })
-        .catch(() => ctx.notify('复制失败，请手动选择代码', 'error'));
+        .catch(() => {
+          flashResult(btn, 'error', 1600);
+          ctx.notify('复制失败，请手动选择代码', 'error');
+        });
       return;
     }
     const a = t.closest<HTMLAnchorElement>('.heading-anchor');

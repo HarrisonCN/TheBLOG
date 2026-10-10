@@ -85,9 +85,20 @@ const P: Record<string, string> = {
 
 export type IconName = keyof typeof P;
 
+/**
+ * 描边图标会动（见 icon-motion.ts）：每条描边带 pathLength="1"，出现时 CSS 描入，悬停 / 聚焦时播放一小段动作。
+ * 统一 stroke-width 1.8 + currentColor，深色模式自动跟随文字颜色。无 JS / 减少动态效果时就是静态图标。
+ */
+const DRAWABLE = /<(path|circle|rect|ellipse|line|polyline|polygon)\b/g;
+const BODY: Record<string, string> = {};
+function drawable(name: string): string {
+  const key = P[name] ? name : 'link';
+  return (BODY[key] ??= P[key]!.replace(DRAWABLE, '<$1 pathLength="1"'));
+}
+
 export function icon(name: string, cls = ''): string {
-  const body = P[name] ?? P.link!;
-  return `<svg class="icon${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+  const key = P[name] ? name : 'link';
+  return `<svg class="icon si${cls ? ` ${cls}` : ''}" data-i="${key}" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${drawable(key)}</svg>`;
 }
 
 export const SOCIAL_ICON: Record<string, string> = {

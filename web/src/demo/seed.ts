@@ -599,8 +599,8 @@ ${credit('baltic-view')}`,
     ],
     notes: [
       { id: 1, name: '小林', content: '今天也要好好拍照 📷', color: 'yellow', reports: 0, hidden: false, createdAt: day('2026-10-03T10:00:00Z') },
-      { id: 2, name: 'Momo', content: '周末去看海！', color: 'pink', reports: 0, hidden: false, createdAt: day('2026-10-04T10:00:00Z') },
-      { id: 3, name: '阿树', content: '黑白那篇太喜欢了', color: 'blue', reports: 0, hidden: false, createdAt: day('2026-10-06T10:00:00Z') },
+      { id: 2, name: 'Momo', content: '周末去看海！', color: 'pink', style: { color: '#1d4ed8', font: 'hand', size: 'l', weight: 'bold', italic: false, effect: 'wobble' }, reports: 0, hidden: false, createdAt: day('2026-10-04T10:00:00Z') },
+      { id: 3, name: '阿树', content: '黑白那篇太喜欢了', color: 'blue', style: { color: '#6d28d9', font: 'kai', size: 'l', weight: 'normal', italic: false, effect: 'gradient' }, reports: 0, hidden: false, createdAt: day('2026-10-06T10:00:00Z') },
       { id: 4, name: '访客', content: '留下一个脚印 👣', color: 'green', reports: 0, hidden: false, createdAt: day('2026-10-07T10:00:00Z') },
     ],
     members: [

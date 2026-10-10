@@ -6,6 +6,8 @@ import { api, API_BASE, ApiError, DEMO } from './api';
 import { defineUsed, loadFx } from './usa';
 import type { PublicMember, Viewer } from './demo/community-types';
 import { memberBadge } from './render';
+import { DEFAULT_NOTE_STYLE, guardInk, isDefaultStyle, NOTE_PAPERS, validateNoteStyle, type NotePaper, type NoteStyle } from './note-style';
+import { noteTextHtml } from './note-style-view';
 
 type Notify = (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => Promise<void> | void;
 interface Ctx {
@@ -153,7 +155,7 @@ function bindGuestbook(root: HTMLElement, ctx: Ctx): void {
     try {
       await withButton(form, () => api.postGuestbook({ name, content, website: website || undefined }));
       form.querySelector('textarea')!.value = '';
-      void ctx.notify('留言已提交，审核通过后会显示 ✨', 'success');
+      void ctx.notify('留言已提交，审核通过后会显示', 'success');
       void celebrate(form.querySelector<HTMLElement>('.js-submit-btn') ?? form);
     } catch (e) {
       void ctx.notify(errMsg(e), 'error');
@@ -164,14 +166,61 @@ function bindGuestbook(root: HTMLElement, ctx: Ctx): void {
 function bindNotes(root: HTMLElement, ctx: Ctx): void {
   const form = root.querySelector<HTMLFormElement>('.js-note-form');
   if (!form) return;
+  const preview = form.querySelector<HTMLElement>('.js-note-preview');
+  const pText = form.querySelector<HTMLElement>('.js-note-preview-text');
+  const pName = form.querySelector<HTMLElement>('.js-note-preview-name');
+  const hint = form.querySelector<HTMLElement>('.js-ink-hint');
+  const read = (): { paper: NotePaper; style: NoteStyle; adjusted: boolean } => {
+    const fd = new FormData(form);
+    const paper = (NOTE_PAPERS as readonly string[]).includes(String(fd.get('color'))) ? (String(fd.get('color')) as NotePaper) : 'yellow';
+    const ink = String(fd.get('ink') ?? DEFAULT_NOTE_STYLE.color);
+    const raw = ink === 'custom' ? String(fd.get('customColor') ?? DEFAULT_NOTE_STYLE.color) : ink;
+    const color = guardInk(raw, paper);
+    const draft = {
+      color,
+      font: String(fd.get('font') ?? DEFAULT_NOTE_STYLE.font),
+      size: String(fd.get('size') ?? DEFAULT_NOTE_STYLE.size),
+      weight: fd.get('bold') ? 'bold' : 'normal',
+      italic: !!fd.get('italic'),
+      effect: String(fd.get('effect') ?? 'none'),
+    };
+    const v = validateNoteStyle(draft, paper);
+    return { paper, style: v.ok ? v.style : { ...DEFAULT_NOTE_STYLE }, adjusted: color !== raw.toLowerCase() };
+  };
+  const paint = () => {
+    const { paper, style, adjusted } = read();
+    const fd = new FormData(form);
+    if (preview) preview.dataset.paper = paper;
+    if (pText) pText.innerHTML = noteTextHtml(String(fd.get('content') ?? '').trim() || '写一句话贴在墙上', style, paper);
+    if (pName) pName.textContent = String(fd.get('name') ?? '').trim() || '你的昵称';
+    if (hint) hint.textContent = adjusted ? `这个颜色在便签上太浅，已自动加深为 ${style.color}，保证文字清晰可读。` : '';
+    const custom = form.querySelector<HTMLInputElement>('input[name="customColor"]');
+    if (custom) custom.closest('.inks')?.classList.toggle('is-custom', String(fd.get('ink')) === 'custom');
+  };
+  form.addEventListener('input', paint);
+  form.addEventListener('change', paint);
+  form.querySelector('input[name="customColor"]')?.addEventListener('input', () => {
+    const r = form.querySelector<HTMLInputElement>('input[name="ink"][value="custom"]');
+    if (r) r.checked = true;
+    paint();
+  });
+  form.querySelector('.js-diy-reset')?.addEventListener('click', () => {
+    form.querySelectorAll<HTMLInputElement>('.js-note-diy input').forEach((i) => {
+      if (i.type === 'radio') i.checked = i.defaultChecked;
+      if (i.type === 'checkbox') i.checked = false;
+    });
+    paint();
+  });
+  paint();
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(form);
-    const body = { name: String(fd.get('name') ?? '').trim(), content: String(fd.get('content') ?? '').trim(), color: String(fd.get('color') ?? 'yellow') };
+    const { paper, style } = read();
+    const body = { name: String(fd.get('name') ?? '').trim(), content: String(fd.get('content') ?? '').trim(), color: paper, ...(isDefaultStyle(style) ? {} : { style }) };
     if (!body.name || !body.content) return void (bail(form), ctx.notify('请填写昵称和内容', 'warning'));
     try {
       await withButton(form, () => api.postNote(body));
-      void ctx.notify('已贴到墙上 📌', 'success');
+      void ctx.notify('已贴到墙上', 'success');
       setTimeout(() => void ctx.rerender?.(), 700);
     } catch (e) {
       void ctx.notify(errMsg(e), 'error');
@@ -310,7 +359,7 @@ function bindMailbox(root: HTMLElement, ctx: Ctx): void {
       clearInterval(t);
       row.value = 100;
       row.status = 'done';
-      void ctx.notify('已上传，站长审核后会看到 📦', 'success');
+      void ctx.notify('已上传，站长审核后会看到', 'success');
     } catch (e) {
       clearInterval(t);
       row.setAttribute('message', errMsg(e));
@@ -384,7 +433,7 @@ function bindVoice(root: HTMLElement, ctx: Ctx, me: ReturnType<typeof currentMem
     if (!blob || !me) return;
     try {
       await api.voice(me.token, blob, Date.now() - started);
-      void ctx.notify('语音已发送，谢谢你 🎙️', 'success');
+      void ctx.notify('语音已发送，谢谢你', 'success');
       send.hidden = true;
       status.textContent = '已发送。';
     } catch (e) {

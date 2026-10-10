@@ -7,6 +7,7 @@
  * - 顶栏的好朋友登录状态
  */
 import { currentMember } from './community';
+import { flashResult } from './result-icon';
 import { icon } from './icons';
 
 const USER_ICON = icon('user');
@@ -122,7 +123,7 @@ export function bookmarks(): string[] {
     return [];
   }
 }
-function paintBookmarks(root: ParentNode): void {
+export function paintBookmarks(root: ParentNode): void {
   const set = new Set(bookmarks());
   root.querySelectorAll<HTMLElement>('.js-bookmark').forEach((b) => b.setAttribute('aria-pressed', String(set.has(b.dataset.slug ?? ''))));
 }
@@ -143,9 +144,9 @@ function openSocPop(a: HTMLAnchorElement, ctx: Ctx): void {
   const { handle = '', label = '' } = a.dataset;
   const ic = a.querySelector('svg')?.outerHTML ?? '';
   const ext = a.target === '_blank';
-  pop.innerHTML = `<div class="soc-pop__head">${ic}<b>${esc(label)}</b><button type="button" class="soc-pop__x js-soc-close" aria-label="关闭">×</button></div>
+  pop.innerHTML = `<div class="soc-pop__head">${ic}<b>${esc(label)}</b><button type="button" class="soc-pop__x js-soc-close" aria-label="关闭">${icon('close')}</button></div>
 <p class="soc-pop__k">社交 ID</p><p class="soc-pop__id">${esc(handle)}</p>
-<div class="soc-pop__act"><button type="button" class="btn btn--sm btn--primary js-soc-copy">复制 ID</button><a class="btn btn--sm btn--soft" href="${esc(a.href)}"${ext ? ' target="_blank" rel="noopener noreferrer"' : ''}>${a.href.startsWith('mailto:') ? '写邮件' : '打开主页'}</a></div>`;
+<div class="soc-pop__act"><button type="button" class="btn btn--sm btn--primary js-soc-copy">${icon('copy')}复制 ID</button><a class="btn btn--sm btn--soft" href="${esc(a.href)}"${ext ? ' target="_blank" rel="noopener noreferrer"' : ''}>${a.href.startsWith('mailto:') ? '写邮件' : '打开主页'}</a></div>`;
   pop.hidden = false;
   a.setAttribute('aria-expanded', 'true');
   const r = a.getBoundingClientRect();
@@ -154,10 +155,11 @@ function openSocPop(a: HTMLAnchorElement, ctx: Ctx): void {
   const below = r.bottom + 10 + pop.offsetHeight < innerHeight;
   pop.style.left = `${left + scrollX}px`;
   pop.style.top = `${(below ? r.bottom + 10 : r.top - pop.offsetHeight - 10) + scrollY}px`;
-  pop.querySelector<HTMLButtonElement>('.js-soc-copy')!.onclick = () => {
+  pop.querySelector<HTMLButtonElement>('.js-soc-copy')!.onclick = (ev) => {
+    const btn = ev.currentTarget as HTMLElement;
     void navigator.clipboard?.writeText(handle).then(
-      () => ctx.notify(`已复制 ${label} ID：${handle}`, 'success'),
-      () => ctx.notify('复制失败，请手动选择', 'warning'),
+      () => (flashResult(btn, 'success'), ctx.notify(`已复制 ${label} ID：${handle}`, 'success')),
+      () => (flashResult(btn, 'error'), ctx.notify('复制失败，请手动选择', 'warning')),
     );
   };
   pop.querySelector<HTMLButtonElement>('.js-soc-close')!.onclick = () => {
@@ -205,6 +207,7 @@ export function installHomeClient(ctx: Ctx): void {
         /* 存储满了 */
       }
       paintBookmarks(document);
+      if (on) flashResult(bm, 'success', 1200);
       void ctx.notify(on ? '已收藏到本机（只保存在这个浏览器里）' : '已取消收藏', on ? 'success' : 'info');
       return;
     }
