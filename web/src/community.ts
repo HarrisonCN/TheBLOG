@@ -8,6 +8,8 @@ import type { PublicMember, Viewer } from './demo/community-types';
 import { memberBadge } from './render';
 import { DEFAULT_NOTE_STYLE, guardInk, isDefaultStyle, NOTE_PAPERS, validateNoteStyle, type NotePaper, type NoteStyle } from './note-style';
 import { noteTextHtml } from './note-style-view';
+import { badgeBuilderHtml, bindBadgeBuilder } from './badge-view';
+import { escapeHtml } from './markdown';
 
 type Notify = (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => Promise<void> | void;
 interface Ctx {
@@ -243,6 +245,30 @@ async function adoptGoogleToken(ctx: Ctx): Promise<PublicMember | null> {
   }
 }
 
+/** 好朋友自己的徽章 DIY：每枚徽章一个可折叠的搭配面板（只改样式，编号 / 名称由站长决定）。 */
+function paintMyBadgeDesigners(root: HTMLElement, m: PublicMember, ctx: Ctx, refresh: (m: PublicMember) => void): void {
+  const box = root.querySelector<HTMLElement>('.js-join-designs');
+  if (!box) return;
+  if (!m.badges?.length) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `<h3 class="join__designs-h">自定义你的徽章</h3>${m.badges
+    .map((b) => `<details class="bd-edit"><summary>${memberBadge(b.code, b.label, b.style, b.design ?? null)}<span>设计「${escapeHtml(b.label)}」的样式</span></summary>${badgeBuilderHtml({ code: b.code, label: b.label, design: b.design ?? null, style: b.style, who: 'member' })}</details>`)
+    .join('')}`;
+  box.querySelectorAll<HTMLFormElement>('form.js-bdb').forEach((f) =>
+    bindBadgeBuilder(f, async (design) => {
+      const cur = currentMember();
+      if (!cur) throw new Error('登录已过期，请重新验证邮箱');
+      const r = await api.setMyBadge(cur.token, f.dataset.code!, design);
+      localStorage.setItem(MEMBER_KEY, JSON.stringify({ token: cur.token, member: r.member }));
+      void ctx.notify('徽章样式已保存', 'success');
+      refresh(r.member);
+      root.querySelector<HTMLElement>('.bd-edit summary')?.focus();
+    }),
+  );
+}
+
 function bindJoin(root: HTMLElement, ctx: Ctx): void {
   const form = root.querySelector<HTMLFormElement>('.js-join-form');
   if (!form) return;
@@ -259,10 +285,11 @@ function bindJoin(root: HTMLElement, ctx: Ctx): void {
     const badges = root.querySelector<HTMLElement>('.js-join-badges');
     if (badges) {
       badges.innerHTML = m.badges?.length
-        ? `你的社交 ID：${m.badges.map((b) => memberBadge(b.code, b.label, b.style)).join(' ')}`
+        ? `你的社交 ID：${m.badges.map((b) => memberBadge(b.code, b.label, b.style, b.design)).join(' ')}`
         : '站长给你颁发徽章后，你的专属社交 ID 会出现在这里。';
       void defineUsed(badges);
     }
+    paintMyBadgeDesigners(root, m, ctx, showDone);
     step(2);
     document.dispatchEvent(new CustomEvent('blog:member'));
     void defineUsed(done).then(() => (done.querySelector('usa-check') as (HTMLElement & { play?: () => void }) | null)?.play?.());

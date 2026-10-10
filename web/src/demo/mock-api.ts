@@ -3,11 +3,14 @@
  * 与 Worker 的 REST 接口保持相同的路径、状态码和返回结构，数据存在 localStorage，
  * 每位访客的改动只留在自己的浏览器里。没有服务器、没有真实账号、没有密钥。
  */
+import { stripMetadata } from '../exif';
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
 import { isReaction, REACTION_SET } from '../reactions-core';
 import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
 import { isDefaultStyle, validateNoteStyle } from '../note-style';
+import { legacyDesign, normalizeBadgeDesign, validateBadgeDesign } from '../badge-design';
+import { isCommentAction, resolveParent, validateComment, type CommentStatus, type PostComment } from '../comment-core';
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 
 export interface KV {
@@ -35,6 +38,21 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATA_IMG = /^data:image\/(png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i;
 const SAFE_URL = /^(https?:\/\/[^\s<>"']+|\/[^\s<>"']*)$/i;
 const LINK_URL = /^(https?:\/\/[^\s<>"']+|mailto:[^\s<>"']+|\/[^\s<>"']*)$/i;
+/** 与 Worker storeImage 一致：存图前再无损去一次 EXIF / GPS（JPEG / PNG / WebP）。 */
+function stripDataUrl(dataUrl: string, type: string): string {
+  try {
+    const bin = atob(dataUrl.slice(dataUrl.indexOf(',') + 1));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const r = stripMetadata(bytes);
+    if (!r.changed) return dataUrl;
+    let out = '';
+    for (let i = 0; i < r.bytes.length; i += 0x8000) out += String.fromCharCode(...r.bytes.subarray(i, i + 0x8000));
+    return `data:${type};base64,${btoa(out)}`;
+  } catch {
+    return dataUrl;
+  }
+}
+
 export const MAX_IMAGE_BYTES = 1_500_000;
 
 /** 内存版 KV（Node 测试、或浏览器禁用 localStorage 时的兜底）。 */
@@ -211,12 +229,14 @@ export class DemoBackend {
       if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] });
       const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
       if (mr) return ok(this.reactions(decodeURIComponent(mr[1]!)));
+      const mcm = /^\/api\/posts\/([a-z0-9-]{1,80})\/comments$/.exec(path);
+      if (mcm) return ok(this.listComments(mcm[1]!));
       if (path === '/api/guestbook') return ok({ entries: this.db().guestbook.filter((g) => g.status === 'approved').sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) });
       if (path === '/api/festivals') return ok({ festivals: this.db().festivals });
       if (path === '/api/projects') return ok({ items: this.db().projects });
-      if (path === '/api/members') return ok({ members: this.db().members.map(publicMember) });
+      if (path === '/api/members') return ok({ members: this.db().members.map((x) => publicMember(this.withDesigns(x))) });
       if (path === '/api/notes') return ok({ notes: this.db().notes.filter((n) => !n.hidden) });
-      if (path === '/api/members/me') return ok({ member: publicMember(this.memberFrom(headers)) });
+      if (path === '/api/members/me') return ok({ member: publicMember(this.withDesigns(this.memberFrom(headers))) });
       if (path === '/api/profile') return ok(this.db().profile);
       if (path === '/api/settings') return ok(this.db().settings);
       if (path === '/api/auth/session') {
@@ -229,6 +249,8 @@ export class DemoBackend {
       if (path === '/api/notes') return ok(this.createNote(body), 201);
       const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
       if (mr) return ok(this.react(decodeURIComponent(mr[1]!), body));
+      const mcm = /^\/api\/posts\/([a-z0-9-]{1,80})\/comments$/.exec(path);
+      if (mcm) return ok(this.createComment(mcm[1]!, body, headers), 201);
       const rn = /^\/api\/notes\/(\d+)\/report$/.exec(path);
       if (rn) return ok(this.reportNote(Number(rn[1])));
       if (path === '/api/presence') return ok(this.presence(body));
@@ -236,6 +258,11 @@ export class DemoBackend {
       if (path === '/api/members/verify') return ok(this.verify(body));
       if (path === '/api/members/uploads') return ok(this.upload(headers, body), 201);
       if (path === '/api/members/voice') return ok(this.voiceMsg(headers, body), 201);
+    }
+    const mb = /^\/api\/members\/me\/badges\/([A-Za-z0-9-]{1,24})$/.exec(path);
+    if (mb && (m === 'PUT' || m === 'PATCH')) {
+      const me = this.memberFrom(headers);
+      return ok({ member: publicMember(this.setBadgeDesign(me.id, mb[1]!, body)) });
     }
     if (path === '/api/auth/login' && m === 'POST') {
       const pw = (body as { password?: unknown } | null)?.password;
@@ -299,11 +326,16 @@ export class DemoBackend {
         if (m === 'GET') return ok({ items: this.db().projects });
         if (m === 'PUT') return ok({ items: this.setProjects((body as { items?: unknown } | null)?.items) });
       }
-      if (sub === '/members' && m === 'GET') return ok({ members: this.db().members });
+      if (sub === '/members' && m === 'GET') return ok({ members: this.db().members.map((x) => this.withDesigns(x)) });
       mt = /^\/members\/(\d+)\/badges$/.exec(sub);
       if (mt && m === 'POST') return ok(this.grantBadge(Number(mt[1]), body));
       mt = /^\/members\/(\d+)\/badges\/([A-Za-z0-9-]+)$/.exec(sub);
       if (mt && m === 'DELETE') return ok(this.revokeBadge(Number(mt[1]), mt[2]!));
+      if (mt && (m === 'PUT' || m === 'PATCH')) return ok(this.setBadgeDesign(Number(mt[1]), mt[2]!, body));
+      if (sub === '/comments' && m === 'GET') return ok(this.adminComments(q.get('status')));
+      mt = /^\/comments\/(\d+)$/.exec(sub);
+      if (mt && m === 'POST') return ok(this.moderateComment(Number(mt[1]), (body as { action?: unknown } | null)?.action));
+      if (mt && m === 'DELETE') return ok(this.moderateComment(Number(mt[1]), 'delete'));
       mt = /^\/members\/(\d+)$/.exec(sub);
       if (mt && m === 'DELETE') return ok(this.removeMember(Number(mt[1])));
       if (sub === '/inbox' && m === 'GET') return ok({ files: this.db().files, voice: this.db().voice });
@@ -391,6 +423,7 @@ export class DemoBackend {
     const tags = tagsField(o, issues);
     const coverUrl = imageUrlField(o, 'coverUrl', issues);
     const category = strField(o, 'category', issues, { max: 30 });
+    const series = strField(o, 'series', issues, { max: 40 });
     let pinned: boolean | undefined;
     if (o.pinned !== undefined) {
       if (typeof o.pinned === 'boolean') pinned = o.pinned;
@@ -402,7 +435,7 @@ export class DemoBackend {
       else issues.push({ path: 'status', message: '只能是 draft 或 published' });
     }
     check(issues);
-    return { title, slug, summary: sum, contentMd, tags, coverUrl, category, pinned, status };
+    return { title, slug, summary: sum, contentMd, tags, coverUrl, category, series, pinned, status };
   }
 
   private create(input: unknown): Post {
@@ -424,6 +457,7 @@ export class DemoBackend {
       tags: f.tags ?? [],
       coverUrl: f.coverUrl || null,
       category: f.category || null,
+      series: f.series || null,
       pinned: f.pinned ?? false,
       wordCount: wordCount(f.contentMd ?? ''),
       status,
@@ -451,6 +485,7 @@ export class DemoBackend {
       tags: f.tags ?? cur.tags,
       coverUrl: f.coverUrl === undefined ? cur.coverUrl : f.coverUrl || null,
       category: f.category === undefined ? cur.category : f.category || null,
+      series: f.series === undefined ? cur.series ?? null : f.series || null,
       pinned: f.pinned ?? cur.pinned,
       wordCount: wordCount(f.contentMd ?? cur.contentMd),
       updatedAt: this.now().toISOString(),
@@ -594,7 +629,8 @@ export class DemoBackend {
     const contentType = /^data:([^;]+);/.exec(o.dataUrl)![1]!;
     const alt = (isStr(o.alt) ? o.alt : '').replace(/[[\]\n\r]/g, '').slice(0, 100);
     const key = `demo/${this.now().getTime().toString(36)}`;
-    return { key, url: o.dataUrl, contentType, size, markdown: `![${alt}](${o.dataUrl})` };
+    const url = stripDataUrl(o.dataUrl, contentType);
+    return { key, url, contentType, size, markdown: `![${alt}](${url})` };
   }
 
   // ---------------------------------------------------------------- 内容 / 搜索
@@ -776,7 +812,7 @@ export class DemoBackend {
     const sessions = this.sessions();
     sessions[token] = m.id;
     this.storage.setItem(MEMBER_SESSIONS_KEY, JSON.stringify(sessions));
-    return { member: publicMember(m), token };
+    return { member: publicMember(this.withDesigns(m)), token };
   }
 
   private sessions(): Record<string, number> {
@@ -897,15 +933,103 @@ export class DemoBackend {
     if (code && !/^[A-Za-z0-9-]+$/.test(code)) issues.push({ path: 'code', message: '编号只能包含字母、数字和连字符' });
     const label = strField(o, 'label', issues, { max: 30 }) ?? '';
     const style: Badge['style'] = o.style === 'pearlescent' ? 'pearlescent' : 'brushed-metal';
+    const extra = Object.keys(o).filter((k) => !['code', 'label', 'style', 'design'].includes(k));
+    if (extra.length) issues.push({ path: extra[0]!, message: '不支持的字段' });
+    let design = legacyDesign(style);
+    if (o.design !== undefined && o.design !== null) {
+      const d = validateBadgeDesign(o.design);
+      if (!d.ok) issues.push({ path: 'design', message: d.error });
+      else design = d.design;
+    }
     check(issues);
     const db = structuredClone(this.db());
     const m = db.members.find((x) => x.id === memberId);
     if (!m) throw new MockError(404, 'not_found', '好朋友不存在');
     if (db.members.some((x) => x.badges.some((b) => b.code.toUpperCase() === code!.toUpperCase()))) throw new MockError(409, 'badge_conflict', `编号「${code}」已被使用`);
     if (m.badges.length >= 5) throw new MockError(400, 'too_many', '每人最多 5 枚徽章');
-    m.badges.push({ code: code!.toUpperCase(), label: label || '好朋友', style, grantedAt: this.now().toISOString() });
+    m.badges.push({ code: code!.toUpperCase(), label: label || '好朋友', style, design, grantedAt: this.now().toISOString() });
     this.save(db);
     return m;
+  }
+
+  /** 改徽章设计：站长改任何人的；好朋友只能改自己的（编号 / 名称不变）。与 Worker setBadgeDesign 相同的校验。 */
+  private setBadgeDesign(memberId: number, code: string, input: unknown): Member {
+    const o = (input && typeof input === 'object' && !Array.isArray(input) ? input : {}) as Record<string, unknown>;
+    const extra = Object.keys(o).filter((k) => k !== 'design');
+    if (extra.length) throw new MockError(400, 'validation_error', '参数校验失败', [{ path: extra[0]!, message: '只能修改 design' }]);
+    const d = validateBadgeDesign(o.design);
+    if (!d.ok) throw new MockError(400, 'validation_error', '参数校验失败', [{ path: 'design', message: d.error }]);
+    const db = structuredClone(this.db());
+    const m = db.members.find((x) => x.id === memberId);
+    const b = m?.badges.find((x) => x.code === code.toUpperCase());
+    if (!m || !b) throw new MockError(404, 'not_found', '徽章不存在');
+    b.design = d.design;
+    this.save(db);
+    return this.withDesigns(m);
+  }
+
+  /** 读取时再校验一遍设计（与 Worker 读库时一样）：坏数据退回旧材质对应的预设。 */
+  private withDesigns(m: Member): Member {
+    return { ...m, badges: m.badges.map((b) => ({ ...b, design: normalizeBadgeDesign(b.design, legacyDesign(b.style)) })) };
+  }
+
+  // ---------------------------------------------------------------- 文章评论（与 Worker comments.ts 相同的规则）
+  private commentHits: number[] = [];
+  private listComments(slug: string): { comments: PostComment[]; total: number } {
+    const comments = (this.db().comments ?? []).filter((c) => c.slug === slug && c.status === 'approved').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+    return { comments, total: comments.length };
+  }
+
+  private createComment(slug: string, input: unknown, headers: Record<string, string>): { comment: PostComment | null; status: CommentStatus } {
+    const v = validateComment(input);
+    if (!v.ok) throw new MockError(400, 'validation_error', '参数校验失败', [{ path: v.path, message: v.error }]);
+    const now = this.now().getTime();
+    this.commentHits = this.commentHits.filter((t) => now - t < 600_000);
+    if (this.commentHits.length >= 5) throw new MockError(429, 'rate_limited', '评论太频繁啦，10 分钟后再来');
+    this.commentHits.push(now);
+    if (v.spam) return { comment: null, status: 'pending' };
+    const db = structuredClone(this.db());
+    if (!db.posts.some((p) => p.slug === slug && p.status === 'published')) throw new MockError(404, 'not_found', '文章不存在');
+    db.comments ??= [];
+    let parentId: number | null = null;
+    let replyTo = '';
+    if (v.value.parentId !== null) {
+      const target = db.comments.find((c) => c.id === v.value.parentId && c.slug === slug && c.status === 'approved');
+      if (!target) throw new MockError(404, 'not_found', '要回复的评论不存在');
+      ({ parentId, replyTo } = resolveParent(target));
+    }
+    let member: Member | null = null;
+    try {
+      member = headers.authorization ? this.memberFrom(headers) : null;
+    } catch {
+      member = null;
+    }
+    // 演示站：访客评论进入审核队列；好朋友直接公开。站长可以在后台「评论审核」里处理。
+    const status: CommentStatus = member ? 'approved' : 'pending';
+    const c: PostComment = { id: Math.max(0, ...db.comments.map((x) => x.id)) + 1, slug, parentId, replyTo, name: member ? member.name : v.value.name, content: v.value.content, member: !!member, status, createdAt: this.now().toISOString() };
+    db.comments.push(c);
+    this.save(db);
+    return { comment: c, status };
+  }
+
+  private adminComments(status: string | null): { comments: PostComment[]; counts: Record<CommentStatus, number> } {
+    const all = (this.db().comments ?? []).slice().sort((a, b) => b.id - a.id);
+    const counts = { pending: 0, approved: 0, hidden: 0 } as Record<CommentStatus, number>;
+    for (const c of all) counts[c.status]++;
+    const st = status === 'pending' || status === 'approved' || status === 'hidden' ? status : null;
+    return { comments: st ? all.filter((c) => c.status === st) : all, counts };
+  }
+
+  private moderateComment(id: number, action: unknown): { id: number; action: string } {
+    if (!isCommentAction(action)) throw new MockError(400, 'validation_error', 'action 只能是 approve / hide / delete');
+    const db = structuredClone(this.db());
+    db.comments ??= [];
+    const c = db.comments.find((x) => x.id === id);
+    if (!c) throw new MockError(404, 'not_found', '评论不存在');
+    if (action === 'delete') db.comments = db.comments.filter((x) => x.id !== id && x.parentId !== id);
+    else c.status = action === 'approve' ? 'approved' : 'hidden';
+    this.save(db);
+    return { id, action };
   }
 
   private revokeBadge(memberId: number, code: string): Member {

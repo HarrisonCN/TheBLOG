@@ -17,10 +17,10 @@ export const COMMUNITY_TOOLS: ToolDef[] = [
   {
     name: 'grant_badge',
     title: '颁发徽章',
-    description: '给好朋友颁发一枚徽章。编号全站唯一（自动转大写），每人最多 5 枚。style：pearlescent 珍珠 / brushed-metal 拉丝金属。',
+    description: '给好朋友颁发一枚徽章。编号全站唯一（自动转大写），每人最多 5 枚。style：pearlescent 珍珠 / brushed-metal 拉丝金属；design 可选：DIY 设计对象（texture/shape/fill/color/gradient/border/icon/label/effect/size，白名单校验）。',
     input: c.badgeGrantSchema.extend({ memberId }),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
-    run: (env, a) => c.grantBadge(env, a.memberId, a),
+    run: (env, { memberId: id, ...rest }) => c.grantBadge(env, id, rest),
   },
   {
     name: 'revoke_badge',

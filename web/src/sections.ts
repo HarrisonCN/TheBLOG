@@ -35,6 +35,18 @@ export interface Work {
   creditUrl: string;
   width: number;
   height: number;
+  /** 照片地图：on = 这张作品公开（粗化后的）坐标；默认 off */
+  geo?: 'off' | 'on';
+  /** 十进制度数字符串，保存时粗化到 0.1°（约 11 km）；空 = 没有坐标 */
+  lat?: string;
+  lng?: string;
+}
+
+/** 坐标粗化：四舍五入到 0.1°，与 Worker 的 workSchema 一致。非法 → ''。 */
+export function coarseCoord(v: unknown, max: number): string {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : '';
+  if (!s || !/^-?\d{1,3}(\.\d+)?$/.test(s) || Math.abs(Number(s)) > max) return '';
+  return String(Math.round(Number(s) * 10) / 10);
 }
 
 export type GearCategory = '相机' | '镜头' | '手机' | '配件' | '电脑与外设' | '软件';
@@ -136,6 +148,21 @@ export const REPO_STATUS: Record<Repo['status'], string> = { active: '活跃维�
 export const GEAR_CATEGORIES: GearCategory[] = ['相机', '镜头', '手机', '配件', '电脑与外设', '软件'];
 
 // ---------------------------------------------------------------- 字段规格（校验 + 后台表单）
+/**
+ * 作品集 EXIF 字段的格式（空字符串总是允许）。上传照片时自动读出的值符合这些格式；手填也按同样规则校验。
+ * 与 worker/src/schema.ts 的 workSchema 保持一致。
+ */
+export const WORK_EXIF_RULES: Record<string, readonly [RegExp, string]> = {
+  date: [/^\d{4}(-\d{2}(-\d{2}( \d{2}:\d{2})?)?)?$/, '拍摄时间格式：2026-09-12 或 2026-09-12 18:42'],
+  focal: [/^\d{1,4}(\.\d{1,2})? ?mm$/, '焦距格式：24mm'],
+  aperture: [/^[fF]\/\d{1,2}(\.\d{1,2})?$/, '光圈格式：f/1.8'],
+  shutter: [/^(1\/\d{1,5}|\d{1,4}(\.\d{1,2})?)s?$/, '快门格式：1/120s 或 2s'],
+  iso: [/^\d{1,6}$/, 'ISO 只能是数字'],
+  camera: [/^[^\u0000-\u001f\u007f<>]*$/, '机身不能包含控制字符或尖括号'],
+  lens: [/^[^\u0000-\u001f\u007f<>]*$/, '镜头不能包含控制字符或尖括号'],
+  location: [/^[^\u0000-\u001f\u007f<>]*$/, '地点不能包含控制字符或尖括号'],
+};
+
 export type FieldSpec =
   | { key: string; label: string; t: 'str'; max: number; required?: boolean; wide?: boolean; textarea?: boolean; placeholder?: string }
   | { key: string; label: string; t: 'url'; required?: boolean; image?: boolean; wide?: boolean; placeholder?: string }
@@ -175,7 +202,7 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       { key: 'id', label: 'id（小写字母-数字）', t: 'str', max: 60, required: true },
       { key: 'url', label: '图片 URL', t: 'url', image: true, required: true, wide: true },
       { key: 'series', label: '系列', t: 'str', max: 30 },
-      { key: 'date', label: '拍摄日期', t: 'str', max: 20, placeholder: '2026-09-12' },
+      { key: 'date', label: '拍摄时间', t: 'str', max: 20, placeholder: '2026-09-12 18:42' },
       { key: 'location', label: '地点', t: 'str', max: 40 },
       { key: 'camera', label: '机身', t: 'str', max: 40 },
       { key: 'lens', label: '镜头', t: 'str', max: 60 },
@@ -188,6 +215,9 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       { key: 'tags', label: '标签（逗号分隔）', t: 'list', max: 8, each: 20, wide: true },
       { key: 'credit', label: '署名（他人照片才填）', t: 'str', max: 200, wide: true },
       { key: 'creditUrl', label: '署名链接', t: 'url', wide: true },
+      { key: 'geo', label: '照片地图', t: 'enum', options: ['off', 'on'], labels: { off: '不公开位置', on: '公开（粗化到约 11 km）' } },
+      { key: 'lat', label: '纬度（可选）', t: 'str', max: 16, placeholder: '25.3' },
+      { key: 'lng', label: '经度（可选）', t: 'str', max: 16, placeholder: '110.3' },
     ],
   },
   gear: {
@@ -322,6 +352,18 @@ export function validateSection<K extends SectionKey>(key: K, input: unknown): {
       }
     }
     if (key === 'works' && out.id && !ID.test(String(out.id))) bad('id', 'id 只能包含小写字母、数字和连字符');
+    if (key === 'works') {
+      for (const [k, [re, message]] of Object.entries(WORK_EXIF_RULES)) {
+        const v = String(out[k] ?? '');
+        if (v && !re.test(v)) bad(k, message);
+      }
+      for (const [k, max] of [['lat', 90], ['lng', 180]] as const) {
+        const raw = String(out[k] ?? '');
+        const c = coarseCoord(raw, max);
+        if (raw && !c) bad(k, `坐标需要是 -${max}~${max} 的十进制度数`);
+        out[k] = c;
+      }
+    }
     if (key === 'repos' && (!GH_NAME.test(String(out.owner)) || !GH_NAME.test(String(out.repo)))) bad('repo', 'owner / repo 只能包含字母、数字、._-');
     return out;
   });

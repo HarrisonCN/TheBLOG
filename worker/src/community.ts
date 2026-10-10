@@ -10,6 +10,7 @@ import { randomToken, sha256Hex, timingSafeEqual } from './crypto';
 import { sniffImageType } from './images';
 import { validate } from './service';
 import { isDefaultStyle, validateNoteStyle, type NoteStyle } from './note-style';
+import { legacyDesign, normalizeBadgeDesign, validateBadgeDesign, type BadgeDesign } from './badge-design';
 
 const nowIso = () => new Date().toISOString();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -18,7 +19,8 @@ const SAFE_HTTP = /^https:\/\/[^\s<>"']+$/i;
 
 // ============================================================ 类型
 export type BadgeStyle = 'pearlescent' | 'brushed-metal';
-export interface Badge { code: string; label: string; style: BadgeStyle; grantedAt: string }
+/** design：DIY 设计（读库时严格再校验；旧徽章 / 坏数据 → 按 style 对应的预设）。 */
+export interface Badge { code: string; label: string; style: BadgeStyle; design: BadgeDesign; grantedAt: string }
 export interface Member { id: number; email: string; name: string; avatarUrl: string; bio: string; website: string; badges: Badge[]; joinedAt: string; provider: 'email' | 'google' }
 export type PublicMember = Omit<Member, 'email'>;
 
@@ -42,7 +44,7 @@ export async function rateLimit(env: Env, bucket: string, key: string, limit: nu
 }
 
 /** IP 不落库：只存加盐哈希（盐 = JWT_SECRET）。 */
-async function ipKey(req: Request, env: Env): Promise<string> {
+export async function ipKey(req: Request, env: Env): Promise<string> {
   return (await sha256Hex(`${clientIp(req)}|${env.JWT_SECRET ?? ''}`)).slice(0, 32);
 }
 
@@ -100,12 +102,12 @@ export async function sendEmail(env: Env, msg: OutgoingEmail): Promise<void> {
 async function badgesFor(env: Env, ids: number[]): Promise<Map<number, Badge[]>> {
   const out = new Map<number, Badge[]>();
   if (!ids.length) return out;
-  const { results } = await env.DB.prepare(`SELECT member_id, code, label, style, granted_at FROM badges WHERE member_id IN (${ids.map(() => '?').join(',')}) ORDER BY granted_at`)
+  const { results } = await env.DB.prepare(`SELECT member_id, code, label, style, design, granted_at FROM badges WHERE member_id IN (${ids.map(() => '?').join(',')}) ORDER BY granted_at`)
     .bind(...ids)
-    .all<{ member_id: number; code: string; label: string; style: BadgeStyle; granted_at: string }>();
+    .all<{ member_id: number; code: string; label: string; style: BadgeStyle; design: string | null; granted_at: string }>();
   for (const b of results) {
     const list = out.get(b.member_id) ?? [];
-    list.push({ code: b.code, label: b.label, style: b.style, grantedAt: b.granted_at });
+    list.push({ code: b.code, label: b.label, style: b.style, design: normalizeBadgeDesign(b.design, legacyDesign(b.style)), grantedAt: b.granted_at });
     out.set(b.member_id, list);
   }
   return out;
@@ -278,7 +280,14 @@ export const badgeGrantSchema = z.object({
   code: z.string().trim().min(1).max(24).regex(/^[A-Za-z0-9-]+$/, '编号只能包含字母、数字和连字符'),
   label: text(30).optional().default(''),
   style: z.enum(['pearlescent', 'brushed-metal']).optional().default('brushed-metal'),
-});
+  design: z.unknown().optional(),
+}).strict();
+/** 徽章 DIY 设计：同一份校验器（badge-design.ts），白名单键 + 枚举 + #rrggbb。 */
+function designOrThrow(input: unknown): BadgeDesign {
+  const r = validateBadgeDesign(input);
+  if (!r.ok) throw new HttpError(400, 'validation_error', '参数校验失败', {}, [{ path: 'design', message: r.error }]);
+  return r.design;
+}
 export const MAX_BADGES = 5;
 
 export async function grantBadge(env: Env, memberId: number, input: unknown): Promise<Member> {
@@ -288,8 +297,26 @@ export async function grantBadge(env: Env, memberId: number, input: unknown): Pr
   const code = v.code.toUpperCase();
   const taken = await env.DB.prepare('SELECT 1 FROM badges WHERE code = ?').bind(code).first();
   if (taken) throw new HttpError(409, 'badge_conflict', `编号「${code}」已被使用`);
-  await env.DB.prepare('INSERT INTO badges (code, member_id, label, style, granted_at) VALUES (?, ?, ?, ?, ?)').bind(code, memberId, v.label || '好朋友', v.style, nowIso()).run();
+  const design = v.design === undefined || v.design === null ? null : JSON.stringify(designOrThrow(v.design));
+  await env.DB.prepare('INSERT INTO badges (code, member_id, label, style, design, granted_at) VALUES (?, ?, ?, ?, ?, ?)').bind(code, memberId, v.label || '好朋友', v.style, design, nowIso()).run();
   return getMember(env, memberId);
+}
+
+/** 修改徽章设计：站长可以改任何人的；好朋友只能改自己名下的（编号和名称仍由站长决定）。 */
+export async function setBadgeDesign(env: Env, memberId: number, code: string, input: unknown): Promise<Member> {
+  const body = (input && typeof input === 'object' && !Array.isArray(input) ? input : {}) as Record<string, unknown>;
+  const extra = Object.keys(body).filter((k) => k !== 'design');
+  if (extra.length) throw new HttpError(400, 'validation_error', '参数校验失败', {}, [{ path: extra[0], message: '只能修改 design' }]);
+  const design = designOrThrow(body.design);
+  const r = await env.DB.prepare('UPDATE badges SET design = ? WHERE member_id = ? AND code = ?').bind(JSON.stringify(design), memberId, code.toUpperCase()).run();
+  if (!r.meta.changes) throw new HttpError(404, 'not_found', '徽章不存在');
+  return getMember(env, memberId);
+}
+
+export async function setOwnBadgeDesign(req: Request, env: Env, code: string, input: unknown): Promise<PublicMember> {
+  const me = await requireMember(req, env);
+  await rateLimit(env, 'badge-design', String(me.id), 30, 3600, '改得太频繁啦，一小时后再试');
+  return toPublic(await setBadgeDesign(env, me.id, code, input));
 }
 
 export async function revokeBadge(env: Env, memberId: number, code: string): Promise<Member> {
@@ -584,6 +611,8 @@ export async function routePublic(req: Request, env: Env, path: string, url: URL
     if (path === '/api/members/google/callback') return googleCallback(req, env, url);
     return null;
   }
+  // 好朋友改自己的徽章设计（Bearer 令牌，不用 Cookie）
+  if ((mt = /^\/api\/members\/me\/badges\/([A-Za-z0-9-]{1,24})$/.exec(path)) && (m === 'PUT' || m === 'PATCH')) return json({ member: await setOwnBadgeDesign(req, env, mt[1]!, await body()) }, { headers: NO_STORE });
   if (m !== 'POST') return null;
   if (path === '/api/notes') return json(await createNote(req, env, await body()), { status: 201, headers: NO_STORE });
   if ((mt = /^\/api\/notes\/(\d+)\/report$/.exec(path))) return json(await reportNote(req, env, Number(mt[1])), { headers: NO_STORE });
@@ -603,6 +632,7 @@ export async function routeAdmin(req: Request, env: Env, sub: string, body: () =
   const action = async () => ((await body()) as { action?: unknown } | null)?.action;
   if (sub === '/members' && m === 'GET') return json({ members: await listMembers(env) }, { headers: NO_STORE });
   if ((mt = /^\/members\/(\d+)\/badges$/.exec(sub)) && m === 'POST') return json(await grantBadge(env, Number(mt[1]), await body()), { headers: NO_STORE });
+  if ((mt = /^\/members\/(\d+)\/badges\/([A-Za-z0-9-]{1,24})$/.exec(sub)) && (m === 'PUT' || m === 'PATCH')) return json(await setBadgeDesign(env, Number(mt[1]), mt[2]!, await body()), { headers: NO_STORE });
   if ((mt = /^\/members\/(\d+)\/badges\/([A-Za-z0-9-]{1,24})$/.exec(sub)) && m === 'DELETE') return json(await revokeBadge(env, Number(mt[1]), mt[2]!), { headers: NO_STORE });
   if ((mt = /^\/members\/(\d+)$/.exec(sub)) && m === 'DELETE') return json(await removeMember(env, Number(mt[1])), { headers: NO_STORE });
   if (sub === '/notes' && m === 'GET') return json(await listNotes(env, { all: true }), { headers: NO_STORE });

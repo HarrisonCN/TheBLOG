@@ -1,4 +1,6 @@
 import type { NoteStyle } from './note-style';
+import type { BadgeDesign } from './badge-design';
+import type { CommentStatus, PostComment } from './comment-core';
 import type { Festival, Project, PublicMember, StickyNote, Viewer } from './demo/community-types';
 import type { CategoryCount, ContentKey, ContentMap, GuestbookEntry, Post, PostSummary, Profile, SearchDoc, Settings, TagCount } from './types';
 
@@ -63,6 +65,11 @@ export const api = {
   reactions: (slug: string) => request<{ counts: Record<string, number> }>(`/api/posts/${encodeURIComponent(slug)}/reactions`),
   react: (slug: string, emoji: string, on: boolean) =>
     request<{ counts: Record<string, number>; mine: boolean }>(`/api/posts/${encodeURIComponent(slug)}/reactions`, { method: 'POST', headers: JSON_H, body: JSON.stringify({ emoji, on }) }),
+  comments: (slug: string) => request<{ comments: PostComment[]; total: number }>(`/api/posts/${encodeURIComponent(slug)}/comments`),
+  postComment: (slug: string, body: { name: string; content: string; parentId?: number | null; homepage?: string }, token?: string) =>
+    request<{ comment: PostComment | null; status: CommentStatus }>(`/api/posts/${encodeURIComponent(slug)}/comments`, { method: 'POST', headers: token ? { ...JSON_H, authorization: `Bearer ${token}` } : JSON_H, body: JSON.stringify(body) }),
+  setMyBadge: (token: string, code: string, design: BadgeDesign) =>
+    request<{ member: PublicMember }>(`/api/members/me/badges/${encodeURIComponent(code)}`, { method: 'PUT', headers: { ...JSON_H, authorization: `Bearer ${token}` }, body: JSON.stringify({ design }) }),
   guestbook: () => request<{ entries: GuestbookEntry[] }>('/api/guestbook'),
   postGuestbook: (body: { name: string; content: string; website?: string }) =>
     request<GuestbookEntry>('/api/guestbook', { method: 'POST', headers: JSON_H, body: JSON.stringify(body) }),

@@ -16,6 +16,8 @@ export const slugSchema = z
 export const tagsSchema = z.array(z.string().trim().min(1).max(30)).max(20);
 /** 分类：单个字符串；空字符串表示「未分类」 */
 export const categorySchema = z.string().trim().max(30);
+/** 系列：单个字符串；空字符串表示不属于系列 */
+export const seriesSchema = z.string().trim().max(40);
 
 export const postCreateSchema = z.object({
   title: z.string().trim().min(1).max(200).describe('文章标题'),
@@ -25,6 +27,7 @@ export const postCreateSchema = z.object({
   tags: tagsSchema.optional().describe('标签'),
   coverUrl: optionalUrl.optional().describe('封面图 URL'),
   category: categorySchema.optional().describe('分类（单个，例如「摄影」）；空字符串表示未分类'),
+  series: seriesSchema.optional().describe('系列连载名（同名文章按发布时间组成系列）；空字符串表示不属于系列'),
   pinned: z.boolean().optional().describe('是否置顶'),
   status: z.enum(['draft', 'published']).optional().describe('默认 draft'),
 });
@@ -38,6 +41,7 @@ export const postUpdateSchema = z.object({
   tags: tagsSchema.optional(),
   coverUrl: optionalUrl.optional(),
   category: categorySchema.optional().describe('分类；空字符串表示未分类'),
+  series: seriesSchema.optional().describe('系列连载名；空字符串表示不属于系列'),
   pinned: z.boolean().optional().describe('是否置顶'),
 });
 export type PostUpdate = z.infer<typeof postUpdateSchema>;
@@ -155,10 +159,30 @@ const int = (min: number, max: number, d = min) => z.number().int().min(min).max
 const strList = (max: number, each: number) => z.array(z.string().trim().min(1).max(each)).max(max).default([]);
 const ghName = z.string().trim().max(100).regex(/^[A-Za-z0-9_.-]*$/, 'owner / repo 只能包含字母、数字、._-').default('');
 const imageUrl = z.union([safeUrl, z.string().max(3_000_000).regex(/^data:image\/(png|jpeg|webp|gif|avif);base64,[a-z0-9+/]+=*$/i)]);
+/** 经纬度：空字符串，或十进制度数（保存时四舍五入到 0.1°）。与 web/src/sections.ts 的 coarseCoord 一致。 */
+const coord = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(16)
+    .refine((v) => v === '' || (/^-?\d{1,3}(\.\d+)?$/.test(v) && Math.abs(Number(v)) <= max), `坐标需要是 -${max}~${max} 的十进制度数`)
+    .transform((v) => (v === '' ? '' : String(Math.round(Number(v) * 10) / 10)))
+    .default('');
 export const nowItemSchema = z.object({ kind: z.enum(['doing', 'learning', 'reading', 'listening', 'watching', 'playing']).default('doing'), title: req(60), since: str(20), progress: int(0, 100), url: optionalUrl.default(''), detail: str(200) });
+/** EXIF 字段：空字符串，或符合格式（与 web/src/sections.ts 的 WORK_EXIF_RULES 一致）。 */
+const fmt = (max: number, re: RegExp, message: string) => z.string().trim().max(max).refine((v) => v === '' || re.test(v), message).default('');
+const plain = (max: number, what: string) => fmt(max, /^[^\u0000-\u001f\u007f<>]*$/, `${what}不能包含控制字符或尖括号`);
 export const workSchema = z.object({
-  title: req(60), id: slugSchema, url: imageUrl, series: str(30), date: str(20), location: str(40), camera: str(40), lens: str(60), focal: str(20), aperture: str(20), shutter: str(20), iso: str(10),
+  title: req(60), id: slugSchema, url: imageUrl, series: str(30),
+  date: fmt(20, /^\d{4}(-\d{2}(-\d{2}( \d{2}:\d{2})?)?)?$/, '拍摄时间格式：2026-09-12 或 2026-09-12 18:42'),
+  location: plain(40, '地点'), camera: plain(40, '机身'), lens: plain(60, '镜头'),
+  focal: fmt(20, /^\d{1,4}(\.\d{1,2})? ?mm$/, '焦距格式：24mm'),
+  aperture: fmt(20, /^[fF]\/\d{1,2}(\.\d{1,2})?$/, '光圈格式：f/1.8'),
+  shutter: fmt(20, /^(1\/\d{1,5}|\d{1,4}(\.\d{1,2})?)s?$/, '快门格式：1/120s 或 2s'),
+  iso: fmt(10, /^\d{1,6}$/, 'ISO 只能是数字'),
   width: int(0, 20000), height: int(0, 20000), tags: strList(8, 20), credit: str(200), creditUrl: optionalUrl.default(''),
+  // 照片地图：逐张选择公开（geo=on）才会上地图；坐标保存时就粗化到 0.1°（约 11 km），精确位置不进数据库
+  geo: z.enum(['off', 'on']).default('off'), lat: coord(90), lng: coord(180),
 });
 export const gearItemSchema = z.object({ name: req(60), brand: str(30), category: z.enum(['相机', '镜头', '手机', '配件', '电脑与外设', '软件']).default('相机'), rating: int(1, 5, 3), since: str(20), url: optionalUrl.default(''), note: str(200) });
 export const shelfItemSchema = z.object({ kind: z.enum(['book', 'movie', 'music', 'game']).default('book'), title: req(60), creator: str(60), year: str(10), status: z.enum(['doing', 'done', 'want']).default('done'), rating: int(0, 5), url: optionalUrl.default(''), note: str(200) });

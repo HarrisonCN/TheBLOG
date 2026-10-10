@@ -7,6 +7,7 @@ import { CONTENT_KEYS, listQuerySchema, type ContentKey } from './schema';
 import * as svc from './service';
 import { routeAdmin as communityAdmin, routePublic as communityPublic } from './community';
 import { routeReactions } from './reactions';
+import { routeAdminComments, routeComments } from './comments';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -71,6 +72,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (m === 'POST') checkOrigin(req, env);
   const reactions = await routeReactions(req, env, path, () => readJson(req, 1024));
   if (reactions) return reactions;
+  const comments = await routeComments(req, env, path, () => readJson(req, 8 * 1024));
+  if (comments) return comments;
   const community = await communityPublic(req, env, path, url, () => readJson(req, 16 * 1024));
   if (community) return community;
 
@@ -138,6 +141,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
       return json(await svc.moderateGuestbook(env, { id: Number(match[1]), action: body?.action }), { headers: NO_STORE });
     }
     if (sub === '/images' && m === 'POST') return json(await uploadFromRequest(env, req), { status: 201, headers: NO_STORE });
+    const adminComments = await routeAdminComments(req, env, sub, url, () => readJson(req));
+    if (adminComments) return adminComments;
     const admin = await communityAdmin(req, env, sub, () => readJson(req));
     if (admin) return admin;
     throw new HttpError(404, 'not_found', '接口不存在');

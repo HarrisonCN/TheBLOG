@@ -39,6 +39,8 @@ export interface DemoDb {
   reactions?: Record<string, Record<string, number>>;
   /** 演示站只有「本机」一个访客：记录本机点过的 slug|emoji */
   reactionVotes?: string[];
+  /** 文章评论（旧的本地数据没有这个字段） */
+  comments?: import('../comment-core').PostComment[];
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */
@@ -105,6 +107,7 @@ ${credit('hero-lake')}`,
     },
     {
       slug: 'phone-night-photography',
+      series: '夜色与城市',
       title: '用手机拍夜景的五个小习惯',
       summary: '不换设备，只改习惯：稳住、找光、压曝光、等一等、少修一点。',
       tags: ['摄影', '手机摄影'],
@@ -120,21 +123,25 @@ ${credit('hero-lake')}`,
 
 ## 1. 先找一个能靠的地方
 
-夜景模式需要一两秒的多帧合成。栏杆、墙角、背包顶上都是很好的“三脚架”。手机靠稳了，画面的锐度会肉眼可见地提升。
+夜景模式需要一两秒的多帧合成[^merge]。栏杆、墙角、背包顶上都是很好的“三脚架”。手机靠稳了，画面的锐度会肉眼可见地提升。
 
 ## 2. 让画面里有光源，但别正对它
 
 路灯、招牌和车灯能给画面提供层次。把最亮的光源放在画面边缘，而不是正中央，眩光和鬼影会少很多。
 
+![港湾夜景](${photo('harbour-night')} "光源放在画面边缘：港湾夜景（示例图）")
+
 ## 3. 点一下对焦，再往下拉一点曝光
 
-手机默认会把夜晚“拍成白天”。把曝光往下压 0.3～0.7 档，暗部才像夜晚，高光也不容易溢出。
+手机默认会把夜晚“拍成白天”。把曝光往下压 0.3～0.7 档[^ev]，暗部才像夜晚，高光也不容易溢出。
 
 > 夜景的气氛来自暗部，而不是来自把一切都提亮。
 
 ## 4. 多等五秒
 
 等一辆车经过、等一个人走进光里、等红绿灯变色。很多时候，好照片只差一个“刚好”。
+
+![日月双塔的倒影](${photo('guilin-pagodas')} "多等五秒，水面安静下来（示例图）")
 
 ## 5. 后期少即是多
 
@@ -144,10 +151,14 @@ ${credit('hero-lake')}`,
 
 下次出门，试试只带手机，用这五个习惯拍一组。
 
+[^merge]: 手机在你按下快门的前后连续拍很多张，再对齐、叠加来降低噪点，所以这段时间里要尽量稳住。
+[^ev]: 1 档（1 EV）表示进光量翻倍或减半；0.3 档大约是曝光补偿滑块上的一小格。
+
 ${credit('harbour-night')}`,
     },
     {
       slug: 'city-walk-notes',
+      series: '夜色与城市',
       title: '扫街笔记：在老街区慢慢走',
       summary: '扫街不是收集风景，而是练习观察。记录一次在老街区闲逛时的取景思路。',
       tags: ['摄影', '城市'],
@@ -188,6 +199,7 @@ ${credit('street-tricycle')}`,
     },
     {
       slug: 'invisible-motion',
+      series: '动效笔记',
       title: '好的动效应该“看不见”',
       summary: '动效不是装饰，而是解释。写在做 Motionary 的过程中：时长、缓动与克制。',
       tags: ['动效', '前端', '设计'],
@@ -266,6 +278,7 @@ ${credit('panixersee')}`,
     },
     {
       slug: 'guilin-night-reflections',
+      series: '夜色与城市',
       title: '桂林夜游：日月双塔的倒影',
       summary: '在榕湖边等了四十分钟，只为一张没有风的倒影。记录一次夜景长曝光的完整流程。',
       tags: ['摄影', '夜景', '旅行'],
@@ -436,6 +449,7 @@ ${credit('field-bindweed')}`,
     },
     {
       slug: 'scroll-motion-budget',
+      series: '动效笔记',
       title: '滚动动效的性能预算',
       summary: '一个页面里同时跑多少动画才算多？我给自己定的预算：首屏传输、主线程时间和掉帧率三条线。',
       tags: ['动效', '性能', '前端'],
@@ -605,10 +619,18 @@ ${credit('baltic-view')}`,
     ],
     members: [
       { id: 1, email: 'friend1@example.com', name: '小林', avatarUrl: '', bio: '喜欢拍街头的大学生', website: '', badges: [{ code: 'FRIEND-0001', label: '第一位好朋友', style: 'pearlescent', grantedAt: day('2026-10-01T00:00:00Z') }], joinedAt: day('2026-10-01T00:00:00Z'), provider: 'email' },
-      { id: 2, email: 'friend2@example.com', name: 'Momo', avatarUrl: '', bio: '前端 / 动效爱好者', website: '', badges: [], joinedAt: day('2026-10-05T00:00:00Z'), provider: 'email' },
+      { id: 2, email: 'friend2@example.com', name: 'Momo', avatarUrl: '', bio: '前端 / 动效爱好者', website: '', badges: [{ code: 'FRIEND-0002', label: '夜猫子', style: 'brushed-metal', design: { texture: 'neon', shape: 'pill', fill: 'solid', color: '#ec4899', gradient: 'berry', border: 'solid', icon: 'flame', label: 'NIGHT', effect: 'glow', size: 'm' }, grantedAt: day('Mon 2026-10-05 8:00 PM EDT (UTC-04:00)') }], joinedAt: day('2026-10-05T00:00:00Z'), provider: 'email' },
     ],
     files: [],
     voice: [],
+    comments: [
+      { id: 1, slug: 'phone-night-photography', parentId: null, replyTo: '', name: '小林', content: '第三条太有用了，**压一点曝光**之后夜景终于像夜景了。', member: true, status: 'approved', createdAt: day('Sun 2026-09-27 9:00 PM EDT (UTC-04:00)') },
+      { id: 2, slug: 'phone-night-photography', parentId: 1, replyTo: '', name: 'Winston', content: '对，暗部才是夜晚的气氛 🌙', member: false, status: 'approved', createdAt: day('Sun 2026-09-27 10:00 PM EDT (UTC-04:00)') },
+      { id: 3, slug: 'phone-night-photography', parentId: 1, replyTo: 'Winston', name: '路过的同学', content: '想问一下靠栏杆拍的时候要不要关掉防抖？', member: false, status: 'approved', createdAt: day('Mon 2026-09-28 8:00 AM EDT (UTC-04:00)') },
+      { id: 4, slug: 'phone-night-photography', parentId: null, replyTo: '', name: '晚风', content: '收藏了，周末试试 `等五秒` 大法。', member: false, status: 'approved', createdAt: day('Tue 2026-09-29 8:00 PM EDT (UTC-04:00)') },
+      { id: 5, slug: 'phone-night-photography', parentId: null, replyTo: '', name: '新访客', content: '这条评论在等站长审核（演示用）。', member: false, status: 'pending', createdAt: day('Wed 2026-10-07 8:00 PM EDT (UTC-04:00)') },
+      { id: 6, slug: 'welcome', parentId: null, replyTo: '', name: 'Momo', content: '新博客好看！期待更多照片。', member: true, status: 'approved', createdAt: day('Thu 2026-10-01 8:00 PM EDT (UTC-04:00)') },
+    ],
     ...createSectionSeed(photo, PHOTO_CREDITS),
   };
 }

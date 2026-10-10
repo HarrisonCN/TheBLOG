@@ -30,6 +30,7 @@ export interface PostRow {
   tags: string;
   cover_url: string | null;
   category: string | null;
+  series?: string | null;
   pinned: number;
   word_count: number;
   status: 'draft' | 'published';
@@ -47,6 +48,8 @@ export interface Post {
   tags: string[];
   coverUrl: string | null;
   category: string | null;
+  /** 系列连载名（null = 不属于系列） */
+  series: string | null;
   pinned: boolean;
   /** 正文字数（近似：Markdown 去掉空白后的字符数） */
   wordCount: number;
@@ -76,6 +79,7 @@ export function rowToPost(r: PostRow): Post {
     tags: parseTags(r.tags),
     coverUrl: r.cover_url,
     category: r.category || null,
+    series: r.series || null,
     pinned: !!r.pinned,
     wordCount: Number(r.word_count ?? 0),
     status: r.status,
@@ -111,8 +115,8 @@ export function slugify(title: string): string {
 
 // 字数：去掉空白与常见 Markdown 符号后的字符数（中文按字计）
 const WORDS = "LENGTH(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content_md, ' ', ''), char(10), ''), char(13), ''), '#', ''), '*', ''), '`', '')) AS word_count";
-const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
-const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, series, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, series, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
 const ORDER = 'ORDER BY pinned DESC, COALESCE(published_at, created_at) DESC, id DESC';
 
 export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boolean }): Promise<{ posts: PostSummary[]; total: number }> {
@@ -194,10 +198,10 @@ export async function createPost(env: Env, input: unknown): Promise<Post> {
   const status = data.status ?? 'draft';
   const ts = nowIso();
   const row = await env.DB.prepare(
-    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, category, pinned, status, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
+    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, category, series, pinned, status, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
   )
-    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
+    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.series || null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
     .first<PostRow>();
   return rowToPost(row!);
 }
@@ -213,7 +217,7 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
     throw new HttpError(409, 'slug_conflict', `slug「${data.slug}」已存在`);
   }
   const row = await env.DB.prepare(
-    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, category = ?, pinned = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
+    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, category = ?, series = ?, pinned = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
   )
     .bind(
       data.slug ?? current.slug,
@@ -223,6 +227,7 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
       JSON.stringify(dedupe(data.tags ?? current.tags)),
       data.coverUrl === undefined ? current.coverUrl : data.coverUrl || null,
       data.category === undefined ? current.category : data.category || null,
+      data.series === undefined ? current.series ?? null : data.series || null,
       (data.pinned ?? current.pinned) ? 1 : 0,
       nowIso(),
       current.id,

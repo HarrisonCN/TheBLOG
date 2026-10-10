@@ -7,6 +7,8 @@ export interface PostSummary {
   tags: string[];
   coverUrl: string | null;
   category: string | null;
+  /** 系列连载名（null / 缺省 = 不属于系列）；旧接口没有这个字段 */
+  series?: string | null;
   pinned: boolean;
   /** 正文字数（近似） */
   wordCount: number;

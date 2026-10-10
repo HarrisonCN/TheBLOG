@@ -5,6 +5,7 @@
 import './styles.css';
 import './admin.css';
 import './motion-ui.css';
+import './l12.css';
 import { request, ApiError, API_BASE, DEMO } from './api';
 import { escapeHtml as e } from './markdown';
 import { renderSafe } from './sanitize';
@@ -13,18 +14,21 @@ import { defineUsed } from './usa';
 import { resultIconHtml } from './result-icon';
 import { installIconMotion } from './icon-motion';
 import { backdrop, festivalText, memberBadge } from './render';
+import { badgeBuilderHtml, bindBadgeBuilder } from './badge-view';
+import { renderCommentHtml, type CommentStatus, type PostComment } from './comment-core';
 import { toggleTheme } from './theme';
 import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SocialIcon } from './types';
 import { normalizeSettings } from './types';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
 import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
+import { coarseLabel, GEO_LABEL, gpsForSave, PhotoError, preparePhoto, type PreparedPhoto } from './photo-upload';
 
 /** 博客首页（部署前缀） */
 const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -36,7 +40,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
-  { group: '社区', items: [['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
+  { group: '社区', items: [['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -167,6 +171,7 @@ async function go(next?: View): Promise<void> {
       case 'notes': return await renderNotes();
       case 'festivals': return await renderFestivals();
       case 'members': return await renderMembers();
+      case 'comments': return await renderComments();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }
@@ -274,11 +279,48 @@ async function renderPosts(): Promise<void> {
 }
 
 async function uploadImage(file: File): Promise<{ url: string; markdown: string }> {
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('alt', file.name.replace(/\.[^.]+$/, ''));
-  return adminFetch<{ url: string; markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
+  return (await uploadPhoto(file)).res;
 }
+
+/** 上传前在浏览器里读 EXIF、去掉文件里的 EXIF / GPS（photo-upload.ts），再上传处理后的文件。 */
+async function uploadPhoto(file: File): Promise<{ res: { url: string; markdown: string }; prep: PreparedPhoto }> {
+  const prep = await preparePhoto(file);
+  const fd = new FormData();
+  fd.append('file', prep.file);
+  fd.append('alt', file.name.replace(/\.[^.]+$/, '').slice(0, 100));
+  const res = await adminFetch<{ url: string; markdown: string }>('/api/admin/images', { method: 'POST', body: fd });
+  return { res, prep };
+}
+
+const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif';
+const EXIF_FIELDS = [
+  ['date', '拍摄时间', '2026-09-12 18:42'],
+  ['camera', '机身 / 手机', 'iPhone 15 Pro'],
+  ['lens', '镜头', ''],
+  ['focal', '焦距', '24mm'],
+  ['aperture', '光圈', 'f/1.8'],
+  ['shutter', '快门', '1/120s'],
+  ['iso', 'ISO', '100'],
+] as const;
+
+/** 读出的 EXIF：可编辑字段 + 位置开关（默认不勾选）。原始坐标不写进任何输入框。 */
+function exifPanelHtml(prep: PreparedPhoto, url: string, extra: string, actions: string): string {
+  const f = prep.fields;
+  const gps = prep.gps;
+  return `<div class="adm-exif">
+  <div class="adm-exif__pv"><img src="${e(rawUrl(url))}" alt="" width="${prep.width || 160}" height="${prep.height || 120}"><p class="muted small">${prep.width && prep.height ? `${prep.width} × ${prep.height} · ` : ''}${e(prep.notes.join(' · ') || '文件里没有元数据')}</p></div>
+  <div class="adm-exif__body">
+    <p class="adm-exif__status" role="status">${f ? `${icon('check')}已从照片读取 EXIF，可以修改` : `${icon('camera')}照片里没有 EXIF，请手动填写`}</p>
+    <div class="adm-grid2">${extra}${EXIF_FIELDS.map(([k, label, ph]) => `<label class="field"><span>${label}</span><input name="exif-${k}" data-exif="${k}" maxlength="${k === 'lens' ? 60 : k === 'camera' ? 40 : 20}" value="${e(f?.[k] ?? '')}" placeholder="${e(ph)}"></label>`).join('')}</div>
+    ${gps ? `<div class="adm-exif__geo"><label class="adm-check"><input type="checkbox" data-exif-geo> ${e(GEO_LABEL)}</label><span class="muted small">照片带有位置：${e(coarseLabel(gps))}。不勾选就不保存任何位置；勾选只保存粗化到 0.1° 的坐标，精确坐标不会上传。</span></div>` : '<p class="muted small adm-exif__geo">照片里没有 GPS 位置。</p>'}
+    <div class="adm-row">${actions}</div>
+  </div>
+</div>`;
+}
+const exifValues = (box: HTMLElement): Record<string, string> =>
+  Object.fromEntries([...box.querySelectorAll<HTMLInputElement>('[data-exif]')].map((i) => [i.dataset.exif!, i.value.trim()]));
+const geoChecked = (box: HTMLElement) => !!box.querySelector<HTMLInputElement>('[data-exif-geo]')?.checked;
+const photoErr = (err: unknown) => (err instanceof PhotoError ? err.message : errText(err));
 
 async function renderEditor(): Promise<void> {
   const p = editing;
@@ -292,11 +334,12 @@ async function renderEditor(): Promise<void> {
     <div class="field"><label for="f-slug">slug（留空自动生成）</label><input id="f-slug" name="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" value="${e(p?.slug ?? '')}"></div>
     <div class="field"><label for="f-cat">分类</label><input id="f-cat" name="category" maxlength="30" list="cat-list" value="${e(p?.category ?? '')}"><datalist id="cat-list">${categories.map((c) => `<option value="${e(c.category)}">`).join('')}</datalist></div>
   </div>
+  <div class="field"><label for="f-series">系列连载（可选，同名文章按发布时间组成系列）</label><input id="f-series" name="series" maxlength="40" value="${e(p?.series ?? '')}"></div>
   <div class="field"><label for="f-summary">摘要</label><input id="f-summary" name="summary" maxlength="500" value="${e(p?.summary ?? '')}"></div>
   <div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" name="tags" value="${e((p?.tags ?? []).join(', '))}"></div>
-  <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label></div></div>
+  <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="${PHOTO_ACCEPT}" hidden></label></div></div>
   <label class="adm-check"><input type="checkbox" name="pinned" ${p?.pinned ? 'checked' : ''}> 置顶这篇文章</label>
-  <div class="field"><div class="adm-row adm-row--between"><label for="f-content">正文（Markdown）</label><label class="btn btn--ghost btn--sm">${icon('image')}插入图片<input type="file" id="f-image" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden></label></div><textarea id="f-content" name="contentMd" class="adm-md">${e(p?.contentMd ?? '')}</textarea></div>
+  <div class="field"><div class="adm-row adm-row--between"><label for="f-content">正文（Markdown）</label><label class="btn btn--ghost btn--sm">${icon('image')}插入图片<input type="file" id="f-image" accept="${PHOTO_ACCEPT}" hidden></label></div><textarea id="f-content" name="contentMd" class="adm-md">${e(p?.contentMd ?? '')}</textarea></div>
   <div class="adm-row">
     <button class="btn" type="submit">${icon('check')}${p ? '保存' : '保存草稿'}</button>
     ${p ? `<button class="btn btn--ghost" type="button" data-act="${p.status === 'published' ? 'unpublish' : 'publish'}" data-slug="${e(p.slug)}">${p.status === 'published' ? '撤回发布' : '发布'}</button>` : '<button class="btn btn--ghost" type="submit" data-publish="1">保存并发布</button>'}
@@ -305,7 +348,8 @@ async function renderEditor(): Promise<void> {
 </form>`,
       'adm-editor',
     ) +
-      tile('half', `${head('eye', '实时预览')}<article class="adm-preview" id="preview"></article>`, 'adm-preview-tile'),
+      tile('half', `${head('eye', '实时预览')}<article class="adm-preview" id="preview"></article>`, 'adm-preview-tile') +
+      tile('full', '', 'adm-exif-tile', 'id="post-exif" hidden'),
   );
   const form = root.querySelector<HTMLFormElement>('#post-form')!;
   const content = form.querySelector<HTMLTextAreaElement>('#f-content')!;
@@ -330,9 +374,9 @@ async function renderEditor(): Promise<void> {
     try {
       (form.elements.namedItem('coverUrl') as HTMLInputElement).value = (await uploadImage(file)).url;
       update();
-      msg('封面已上传');
+      msg('封面已上传（已去除 EXIF / GPS）');
     } catch (err) {
-      msg(errText(err), true);
+      msg(photoErr(err), true);
     }
   });
   form.querySelector<HTMLInputElement>('#f-image')!.addEventListener('change', async (ev) => {
@@ -340,13 +384,28 @@ async function renderEditor(): Promise<void> {
     if (!file) return;
     msg('上传中…');
     try {
-      const r = await uploadImage(file);
+      const { res: r, prep } = await uploadPhoto(file);
       const pos = content.selectionStart ?? content.value.length;
-      content.value = `${content.value.slice(0, pos)}\n\n${r.markdown}\n\n${content.value.slice(pos)}`;
+      const before = `${content.value.slice(0, pos)}\n\n${r.markdown}\n`;
+      content.value = `${before}\n${content.value.slice(pos)}`;
       update();
-      msg('图片已上传并插入正文');
+      const box = root.querySelector<HTMLElement>('#post-exif')!;
+      box.hidden = false;
+      box.innerHTML = `${head('aperture', '照片参数')}${exifPanelHtml(prep, r.url, '', `<button class="btn btn--soft btn--sm" type="button" data-exif-caption>${icon('plus')}在图片下插入参数说明</button>`)}`;
+      box.querySelector('[data-exif-caption]')!.addEventListener('click', () => {
+        const v = exifValues(box);
+        const g = gpsForSave(prep.gps, geoChecked(box));
+        const parts = [v.camera, v.focal, v.aperture, v.shutter, v.iso && `ISO ${v.iso}`, v.date, g.geo === 'on' && `约 ${g.lat}, ${g.lng}`].filter(Boolean);
+        if (!parts.length) return msg('没有可插入的参数', true);
+        const at = content.value.indexOf(r.markdown);
+        const end = at < 0 ? content.value.length : at + r.markdown.length;
+        content.value = `${content.value.slice(0, end)}\n*${parts.join(' · ').replace(/[*_[\]]/g, '')}*${content.value.slice(end)}`;
+        update();
+        msg('已插入参数说明');
+      });
+      msg(`图片已上传并插入正文${prep.notes.length ? `（${prep.notes.join('，')}）` : ''}`);
     } catch (err) {
-      msg(errText(err), true);
+      msg(photoErr(err), true);
     }
   });
   form.addEventListener('submit', async (ev) => {
@@ -361,6 +420,7 @@ async function renderEditor(): Promise<void> {
       tags: String(fd.get('tags') ?? '').split(/[,，]/).map((t) => t.trim()).filter(Boolean),
       coverUrl: String(fd.get('coverUrl') ?? '').trim(),
       category: String(fd.get('category') ?? '').trim(),
+      series: String(fd.get('series') ?? '').trim(),
       pinned: fd.get('pinned') === 'on',
     };
     if (slug) body.slug = slug;
@@ -544,7 +604,7 @@ async function renderProfile(): Promise<void> {
 
 // ============================================================ 通用列表编辑器（友链 / 收藏 / 画廊 / 项目 / 节日）
 interface FieldDef { key: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select' | 'list' | 'lines'; options?: string[]; optionLabels?: Record<string, string>; wide?: boolean; placeholder?: string }
-function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T[]; fields: FieldDef[]; blank: T; title: (x: T) => string; preview?: (x: T) => string; save: (items: T[]) => Promise<unknown> }): void {
+function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T[]; fields: FieldDef[]; blank: T; title: (x: T) => string; preview?: (x: T) => string; save: (items: T[]) => Promise<unknown> }): { add: (x: T) => Promise<void> } {
   let items = o.items.map((x) => ({ ...x }));
   const card = (x: T, i: number) => `<div class="adm-item" data-i="${i}">
   <div class="adm-item__head">${o.preview ? `<span class="adm-item__pv">${o.preview(x)}</span>` : ''}<b>${e(o.title(x) || '（未命名）')}</b>
@@ -613,6 +673,14 @@ function listEditor<T extends Record<string, unknown>>(o: { id: string; items: T
       msg(errText(err), true);
     }
   });
+  return {
+    async add(x: T) {
+      read();
+      items.push(x);
+      paint();
+      await o.save(items);
+    },
+  };
 }
 const photosText = (ph: Album['photos'] | undefined) => (ph ?? []).map((p) => `${p.url} | ${p.caption}`).join('\n');
 const parsePhotos = (s: string): Album['photos'] =>
@@ -644,7 +712,11 @@ async function renderSection(key: SectionKey): Promise<void> {
   const spec = SECTION_SPECS[key];
   const { items } = await optional(adminFetch<{ items: Record<string, unknown>[] }>(`/api/admin/content/${key}`), { items: [] });
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-  mount(listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
+  const uploadTile =
+    key === 'works'
+      ? tile('full', `${head('upload', '从照片添加', `<label class="btn btn--sm">${icon('upload')}选择照片<input type="file" id="work-photo" accept="${PHOTO_ACCEPT}" hidden></label>`)}<p class="muted small">上传时在浏览器里自动读取 EXIF（拍摄时间、手机 / 机身、镜头、焦距、光圈、快门、ISO），并从文件中去掉 EXIF 和 GPS。位置默认不公开。</p><div id="work-photo-panel"></div>`, 'adm-photo-tile')
+      : '';
+  mount(uploadTile + listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
   const fields: FieldDef[] = spec.fields.map((f) => ({
     key: f.key,
     label: f.label,
@@ -654,7 +726,7 @@ async function renderSection(key: SectionKey): Promise<void> {
   }));
   const blank = Object.fromEntries(spec.fields.map((f) => [f.key, f.t === 'int' ? f.min : f.t === 'enum' ? f.options[0] : f.t === 'list' ? [] : ''])) as Record<string, unknown>;
   const thumb = (u: unknown) => (typeof u === 'string' && u ? `<img src="${e(rawUrl(u))}" alt="" loading="lazy">` : '');
-  listEditor<Record<string, unknown>>({
+  const list = listEditor<Record<string, unknown>>({
     id: 'list',
     items,
     blank,
@@ -662,6 +734,45 @@ async function renderSection(key: SectionKey): Promise<void> {
     preview: key === 'works' ? (x) => thumb(x.url) : undefined,
     save: (list) => put(`/api/admin/content/${key}`, { items: list }),
     fields,
+  });
+  if (key === 'works') bindWorkPhoto(blank, list.add);
+}
+
+/** 作品集「从照片添加」：读 EXIF → 预填 → 位置开关（默认关）→ 加入列表并保存。 */
+function bindWorkPhoto(blank: Record<string, unknown>, add: (x: Record<string, unknown>) => Promise<void>): void {
+  const input = root.querySelector<HTMLInputElement>('#work-photo');
+  const panel = root.querySelector<HTMLElement>('#work-photo-panel');
+  if (!input || !panel) return;
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    msg('读取 EXIF 并上传中…');
+    try {
+      const { res, prep } = await uploadPhoto(file);
+      const d = prep.fields?.date ?? '';
+      const id = `p-${(d.replace(/\D/g, '').slice(0, 12) || Date.now().toString(36))}`.toLowerCase();
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 60) || '新作品';
+      panel.innerHTML = exifPanelHtml(
+        prep,
+        res.url,
+        `<label class="field"><span>标题</span><input name="exif-title" data-exif="title" maxlength="60" value="${e(title)}" required></label><label class="field"><span>id</span><input name="exif-id" data-exif="id" maxlength="60" value="${e(id)}"></label><label class="field"><span>地点</span><input name="exif-location" data-exif="location" maxlength="40" placeholder="例如：桂林"></label>`,
+        `<button class="btn btn--sm" type="button" data-exif-add>${icon('check')}添加到作品集并保存</button>`,
+      );
+      panel.querySelector('[data-exif-add]')!.addEventListener('click', async () => {
+        const v = exifValues(panel);
+        try {
+          await add({ ...blank, ...v, url: res.url, width: prep.width, height: prep.height, ...gpsForSave(prep.gps, geoChecked(panel)) });
+          panel.innerHTML = '';
+          msg('已添加到作品集并保存');
+        } catch (err) {
+          msg(errText(err), true);
+        }
+      });
+      msg(`照片已上传${prep.notes.length ? `（${prep.notes.join('，')}）` : ''}`);
+    } catch (err) {
+      msg(photoErr(err), true);
+    }
   });
 }
 
@@ -703,6 +814,26 @@ async function renderGuestbook(): Promise<void> {
   );
 }
 
+let cmStatus: CommentStatus | 'all' = 'pending';
+async function renderComments(): Promise<void> {
+  const { comments, counts } = await optional(adminFetch<{ comments: PostComment[]; counts: Record<CommentStatus, number> }>(`/api/admin/comments?status=${cmStatus}`), { comments: [], counts: { pending: 0, approved: 0, hidden: 0 } });
+  const seg = (v: string, l: string) => `<button type="button" class="adm-seg__b${cmStatus === v ? ' is-on' : ''}" data-cm="${v}" aria-pressed="${cmStatus === v}">${l}</button>`;
+  const label: Record<CommentStatus, string> = { pending: '待审核', approved: '已通过', hidden: '已隐藏' };
+  mount(
+    tile(
+      'full',
+      `${head('message', '评论审核', `<div class="adm-seg" role="group" aria-label="按状态筛选">${seg('pending', `待审核 ${counts.pending}`)}${seg('approved', `已通过 ${counts.approved}`)}${seg('hidden', `已隐藏 ${counts.hidden}`)}${seg('all', '全部')}</div>`)}
+<p class="muted small">访客评论默认进入待审核；好朋友（已登录会员）的评论直接公开。删除顶层评论会连同它的回复一起删除。</p>
+<div class="adm-gb adm-comments">${comments
+        .map(
+          (c) => `<article class="adm-gb__item adm-cm" data-id="${c.id}"><header><b>${e(c.name)}</b>${c.member ? '<span class="chip chip--pub">好朋友</span>' : ''}<span class="chip chip--${c.status}">${label[c.status]}</span><a class="muted small" href="${e(SITE_HOME)}posts/${e(c.slug)}/#comments" target="_blank" rel="noopener">${e(c.slug)}</a>${c.parentId ? `<span class="muted small">回复 #${c.parentId}${c.replyTo ? ` @${e(c.replyTo)}` : ''}</span>` : ''}<span class="muted small">${e(fmtDate(c.createdAt))}</span></header><div class="adm-cm__text">${renderCommentHtml(c.content)}</div>
+<div class="adm-row">${c.status !== 'approved' ? `<button class="btn btn--sm" type="button" data-mod="comments" data-id="${c.id}" data-action="approve">${icon('check')}通过</button>` : ''}${c.status !== 'hidden' ? `<button class="btn btn--soft btn--sm" type="button" data-mod="comments" data-id="${c.id}" data-action="hide">隐藏</button>` : ''}<button class="adm-icon-btn adm-icon-btn--danger" type="button" data-mod="comments" data-id="${c.id}" data-action="delete" aria-label="删除评论 #${c.id}">${icon('trash')}</button></div></article>`,
+        )
+        .join('') || '<p class="empty">这里没有评论</p>'}</div>`,
+    ),
+  );
+}
+
 async function renderNotes(): Promise<void> {
   const { notes } = await optional(adminFetch<{ notes: StickyNote[] }>('/api/admin/notes'), { notes: [] });
   const sorted = notes.slice().sort((a, b) => Number(b.hidden) - Number(a.hidden) || b.reports - a.reports || b.id - a.id);
@@ -729,17 +860,26 @@ async function renderMembers(): Promise<void> {
   mount(
     tile(
       'full',
-      `${head('users', `好朋友（${members.length}）`)}<p class="muted small">徽章编号全站唯一，每人最多 5 枚；珍珠母贝适合「第一位」这类纪念，拉丝金属适合日常编号。</p>
+      `${head('users', `好朋友（${members.length}）`)}<p class="muted small">徽章编号全站唯一，每人最多 5 枚。颁发后可以展开「设计样式」自由搭配（形状、底色、边框、图标、文字、特效）；好朋友也能在自己的页面改自己徽章的样式。</p>
 <div class="adm-members">${members
         .map(
           (m) => `<article class="adm-member"><header>${m.avatarUrl ? `<img class="adm-av" src="${e(m.avatarUrl)}" alt="">` : `<span class="adm-av adm-av--txt">${e(m.name.slice(0, 1))}</span>`}<div><b>${e(m.name)}</b><br><span class="muted small">${e(m.email)} · ${m.provider === 'google' ? 'Google' : '邮箱'} · ${e(fmtDate(m.joinedAt).slice(0, 10))}</span></div>
 <button class="adm-icon-btn adm-icon-btn--danger" type="button" data-act="member-del" data-id="${m.id}" data-name="${e(m.name)}" aria-label="删除 ${e(m.name)}">${icon('trash')}</button></header>
 ${m.bio ? `<p class="small">${e(m.bio)}</p>` : ''}
-<div class="adm-badges">${m.badges.map((b) => `<span class="adm-badge">${memberBadge(b.code, b.label, b.style)}<span class="small">${e(b.label)}</span><button type="button" class="adm-x" data-act="badge-revoke" data-id="${m.id}" data-code="${e(b.code)}" aria-label="收回 ${e(b.code)}">${icon('close')}</button></span>`).join('') || '<span class="muted small">还没有徽章</span>'}</div>
-<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="材质"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
+<div class="adm-badges">${m.badges.map((b) => `<span class="adm-badge">${memberBadge(b.code, b.label, b.style, b.design ?? null)}<span class="small">${e(b.label)}</span><button type="button" class="adm-x" data-act="badge-revoke" data-id="${m.id}" data-code="${e(b.code)}" aria-label="收回 ${e(b.code)}">${icon('close')}</button></span>`).join('') || '<span class="muted small">还没有徽章</span>'}</div>
+${m.badges.map((b) => `<details class="bd-edit adm-bd-edit" data-member="${m.id}"><summary>${icon('edit')}<span>设计 ${e(b.code)} 的样式</span></summary>${badgeBuilderHtml({ code: b.code, label: b.label, design: b.design ?? null, style: b.style, who: 'admin' })}</details>`).join('')}
+<form class="adm-grant" data-id="${m.id}"><input name="code" required maxlength="24" pattern="[A-Za-z0-9]+(-[A-Za-z0-9]+)*" placeholder="${e(nextCode)}" aria-label="徽章编号"><input name="label" maxlength="30" placeholder="名称，如：第一位好朋友" aria-label="徽章名称"><select name="style" aria-label="起始样式"><option value="brushed-metal">拉丝金属</option><option value="pearlescent">珍珠母贝</option></select><button class="btn btn--sm" type="submit">${icon('plus')}颁发</button></form></article>`,
         )
         .join('') || '<p class="empty">还没有好朋友。访客在「成为好朋友」页验证邮箱后会出现在这里。</p>'}</div>`,
     ),
+  );
+  root.querySelectorAll<HTMLFormElement>('.adm-bd-edit form.js-bdb').forEach((f) =>
+    bindBadgeBuilder(f, async (design) => {
+      const mid = f.closest<HTMLElement>('.adm-bd-edit')!.dataset.member;
+      await put(`/api/admin/members/${mid}/badges/${encodeURIComponent(f.dataset.code!)}`, { design }, 'PUT');
+      await renderMembers();
+      msg('徽章样式已保存');
+    }),
   );
   root.querySelectorAll<HTMLFormElement>('.adm-grant').forEach((f) =>
     f.addEventListener('submit', async (ev) => {
@@ -802,6 +942,11 @@ root.addEventListener('click', async (ev) => {
   if (t.closest('#theme-toggle')) {
     toggleTheme();
     return;
+  }
+  const cmSeg = t.closest<HTMLElement>('[data-cm]');
+  if (cmSeg) {
+    cmStatus = cmSeg.dataset.cm as CommentStatus | 'all';
+    return void renderComments();
   }
   const seg = t.closest<HTMLElement>('[data-gb]');
   if (seg) {

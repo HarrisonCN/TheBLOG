@@ -20,7 +20,7 @@
 .adm-nav .icon { color: var(--muted); font-size: 1.05rem; transition: color 0.2s; }
 .adm-nav:hover { background: var(--soft); color: var(--heading); }
 .adm-nav:active { transform: scale(0.98); }
-.adm-nav.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.adm-nav.is-active { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
 .adm-nav.is-active .icon { color: var(--accent); }
 .adm-side__foot { margin-top: auto; padding-top: 0.8rem; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 2px; }
 
@@ -112,8 +112,8 @@
 .adm-post { display: flex; align-items: center; gap: 0.75rem; min-width: 220px; }
 .adm-post img, .adm-post__ph { flex: none; width: 54px; height: 40px; border-radius: 9px; object-fit: cover; }
 .adm-post__ph { display: grid; place-items: center; background: var(--soft); color: var(--muted); }
-.chip--pub, .chip--approved { background: rgb(34 197 94 / 0.14); color: #16a34a; }
-.chip--draft, .chip--pending { background: rgb(245 158 11 / 0.15); color: #b45309; }
+.chip--pub, .chip--approved { background: rgb(34 197 94 / 0.14); color: #15803d; }
+.chip--draft, .chip--pending { background: rgb(245 158 11 / 0.15); color: #92400e; }
 .chip--hidden, .chip--rejected { background: var(--soft); color: var(--muted); }
 .chip--alert { background: rgb(239 68 68 / 0.14); color: #dc2626; }
 :root[data-theme="dark"] .chip--pub, :root[data-theme="dark"] .chip--approved { color: #4ade80; }
@@ -254,3 +254,22 @@
 .adm-top h1 { font-family: var(--serif); letter-spacing: 0; }
 .adm-msg.is-on { display: inline-flex; align-items: center; gap: 0.5rem; }
 .adm-msg--err usa-check { --usa-check-color: #fff; }
+
+/* AA：后台浅色主题里的次要文字在半透明卡片上加深一点（#5b6577 在白底上 5.9:1） */
+:root:not([data-theme="dark"]) .adm-layout { --muted: #5b6577; }
+
+/* 上传照片：EXIF 预填面板 */
+.adm-exif-tile[hidden] { display: none; }
+.adm-exif { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 1rem; margin-top: 0.6rem; }
+.adm-exif__pv img { width: 100%; height: auto; max-height: 220px; object-fit: contain; border-radius: 12px; background: var(--soft); }
+.adm-exif__pv p { margin: 0.35rem 0 0; }
+.adm-exif__status { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.5rem; font-weight: 600; }
+.adm-exif__status .si, .adm-exif__status svg { width: 1.1rem; height: 1.1rem; flex: none; }
+.adm-exif__geo { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; margin: 0.3rem 0 0.7rem; padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--soft); }
+.adm-exif__geo .adm-check { margin: 0; font-weight: 600; }
+@media (max-width: 700px) {
+  .adm-exif { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 说明文字里的链接：不只靠颜色区分（axe link-in-text-block） */
+.adm-tile p.muted a { text-decoration: underline; text-underline-offset: 2px; }

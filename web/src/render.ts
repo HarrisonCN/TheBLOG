@@ -15,6 +15,9 @@ import { noteTextHtml } from './note-style-view';
 import { DEFAULT_NOTE_STYLE, EFFECT_LABELS, FONT_LABELS, INK_PRESETS, NOTE_EFFECTS, NOTE_FONTS, NOTE_SIZES, SIZE_LABELS } from './note-style';
 import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
 export { rssXml, jsonFeed } from './sections';
+import { badgeHtml, presetGallery } from './badge-view';
+import { archiveCalendar, relatedPosts, seriesOf } from './post-extras';
+import { dailyWork, dotsPath, mapPoints, project } from './photo-map';
 import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
 
 let md: (s: string) => string = renderMarkdown;
@@ -67,6 +70,7 @@ export type Route =
   | { name: 'stats' }
   | { name: 'search' }
   | { name: 'subscribe' }
+  | { name: 'map' }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -91,9 +95,10 @@ const STATIC: Record<string, Route['name']> = {
   '/stats': 'stats',
   '/search': 'search',
   '/subscribe': 'subscribe',
+  '/map': 'map',
 };
 /** 扩展栏目的静态路由（预渲染用） */
-export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe'] as const;
+export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
 
 function decode(s: string): string | null {
   try {
@@ -261,6 +266,8 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['guestbook', 'notes'];
     case 'about':
       return ['members'];
+    case 'map':
+      return ['works'];
     case 'now':
     case 'works':
     case 'gear':
@@ -315,9 +322,10 @@ export const NAV: NavItem[] = [
     label: '摄影',
     icon: 'camera',
     href: '/works/',
-    match: ['works', 'gallery', 'album', 'gear'],
+    match: ['works', 'gallery', 'album', 'gear', 'map'],
     children: [
       { label: '作品集', icon: 'aperture', href: '/works/' },
+      { label: '照片地图', icon: 'mapPin', href: '/map/' },
       { label: '画廊', icon: 'image', href: '/gallery/' },
       { label: '器材', icon: 'camera', href: '/gear/' },
     ],
@@ -466,7 +474,9 @@ export function ownerBadge(): string {
   return `<usa-fx class="badge-fx" effect="pearlescent" trigger="load"><span class="badge badge--pearl" title="站长">站长</span></usa-fx>`;
 }
 /** 好朋友徽章：拉丝金属 / 珍珠母贝材质，刻有自定义编号（社交 ID）。 */
-export function memberBadge(code: string, label: string, style: 'pearlescent' | 'brushed-metal' = 'brushed-metal'): string {
+export function memberBadge(code: string, label: string, style: 'pearlescent' | 'brushed-metal' = 'brushed-metal', design?: unknown): string {
+  // 新接口返回 design（DIY 设计，已在服务端校验；这里再宽松归一化一次）；旧接口 / 站长自己的 ID 徽章保持原来的材质
+  if (design !== undefined) return badgeHtml(code, label, design, style);
   const cls = style === 'pearlescent' ? 'badge--pearl' : 'badge--metal';
   return `<usa-fx class="badge-fx" effect="${style}" trigger="load"><span class="badge ${cls}" title="${e(label)}"><span class="badge__code">${e(code)}</span></span></usa-fx>`;
 }
@@ -800,6 +810,7 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
     ? [
         s.sections.about ? profileCard(site, 'full') : '',
         continueCard(),
+        dailyPhotoCard(x.works ?? []),
         subscribeCard(),
         festivalTile(site.festivals),
         s.sections.latest ? hotCard(site) : '',
@@ -818,6 +829,110 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
     main: `<h1 class="visually-hidden">${e(s.siteTitle)}${page > 1 ? ` · 第 ${page} 页` : ''}</h1><div class="home" id="content"><div class="home__main">${mainCol}</div><aside class="home__side" aria-label="侧栏">${side}</aside></div>`,
     kind: page > 1 ? 'page--home page--list' : 'page--home',
   });
+}
+
+
+// ---------------------------------------------------------------- 文章工具：阅读设置 / 朗读 / 系列 / 评论
+/** 文章顶部工具条：阅读设置（字号、行距、字体、宽度、护眼）+ 朗读（不支持 Web Speech 时整组隐藏）。 */
+export function postTools(): string {
+  const seg = (name: string, label: string, opts: [string, string][]) =>
+    `<fieldset class="rs__fs"><legend>${label}</legend><div class="rs__seg">${opts.map(([v, l]) => `<label class="rs__opt"><input type="radio" name="rs-${name}" value="${v}" data-rs="${name}"><span>${l}</span></label>`).join('')}</div></fieldset>`;
+  return `<div class="post-tools" role="toolbar" aria-label="阅读工具">
+  <button class="pt-btn js-rs-toggle" type="button" aria-expanded="false" aria-controls="rs-panel">${icon('settings')}<span>阅读设置</span></button>
+  <div class="tts js-tts" hidden role="group" aria-label="朗读"><button class="pt-btn js-tts-play" type="button" aria-pressed="false">${icon('play', 'tts__ic-play')}${icon('pause', 'tts__ic-pause')}<span class="js-tts-label">朗读全文</span></button><button class="pt-btn pt-btn--icon js-tts-stop" type="button" aria-label="停止朗读" disabled>${icon('close')}</button><label class="tts__rate">语速 <select class="js-tts-rate"><option value="0.8">0.8×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><span class="tts__status js-tts-status muted small" aria-live="polite"></span></div>
+  <div class="rs-panel" id="rs-panel" hidden role="group" aria-label="阅读设置">
+    ${seg('size', '字号', [['s', '小'], ['m', '中'], ['l', '大'], ['xl', '特大']])}
+    ${seg('lh', '行距', [['tight', '紧凑'], ['normal', '适中'], ['loose', '宽松']])}
+    ${seg('font', '字体', [['sans', '黑体'], ['serif', '宋体']])}
+    ${seg('width', '版心', [['narrow', '窄'], ['normal', '标准'], ['wide', '宽']])}
+    ${seg('theme', '主题', [['default', '默认'], ['sepia', '护眼']])}
+    <button class="link-btn js-rs-reset" type="button">恢复默认</button>
+  </div>
+</div>`;
+}
+
+/** 系列连载：进度条 + 全部篇目 + 系列内上一篇 / 下一篇。 */
+export function seriesNav(s: { name: string; posts: PostSummary[]; index: number; prev: PostSummary | null; next: PostSummary | null }, slug: string): string {
+  const n = s.posts.length;
+  const pct = Math.round(((s.index + 1) / n) * 100);
+  return `<nav class="series-nav" aria-label="系列连载：${e(s.name)}">
+  <p class="series-nav__kicker">${icon('list')}<span>系列连载 · <b>${e(s.name)}</b></span><span class="series-nav__pos">第 ${s.index + 1} / ${n} 篇</span></p>
+  <div class="series-nav__bar" role="progressbar" aria-label="系列阅读进度" aria-valuemin="1" aria-valuemax="${n}" aria-valuenow="${s.index + 1}" aria-valuetext="第 ${s.index + 1} 篇，共 ${n} 篇"><span style="width:${pct}%"></span></div>
+  <ol class="series-nav__list">${s.posts.map((p, i) => (p.slug === slug ? `<li class="is-current" aria-current="page"><span class="series-nav__n">${i + 1}</span><span>${e(p.title)}</span></li>` : `<li><span class="series-nav__n">${i + 1}</span><a href="${postPath(p.slug)}">${e(p.title)}</a></li>`)).join('')}</ol>
+  <div class="series-nav__pn">${s.prev ? `<a class="series-nav__a series-nav__a--prev" href="${postPath(s.prev.slug)}" rel="prev">${icon('arrowLeft')}<span><small>系列上一篇</small>${e(s.prev.title)}</span></a>` : '<span></span>'}${s.next ? `<a class="series-nav__a series-nav__a--next" href="${postPath(s.next.slug)}" rel="next"><span><small>系列下一篇</small>${e(s.next.title)}</span>${icon('arrowRight')}</a>` : '<span class="series-nav__done muted small">已经是系列最新一篇</span>'}</div>
+</nav>`;
+}
+
+/** 评论区外壳：列表由浏览器端拉取（comments-client.ts）；表单带蜜罐字段。旧 Worker 没有评论接口时整块隐藏。 */
+export function commentsSection(slug: string): string {
+  return `<section class="tile tile--full pcomments js-comments reveal" id="comments" data-slug="${e(slug)}" aria-labelledby="h-comments">
+  <h2 class="pcomments__h" id="h-comments">${icon('message')}评论 <span class="pcomments__n js-c-count"></span></h2>
+  <form class="c-form js-c-form" novalidate>
+    <div class="c-form__row"><label class="c-field"><span>昵称</span><input name="name" maxlength="30" required autocomplete="nickname" class="js-c-name"></label><span class="c-form__me js-c-me muted small" hidden></span></div>
+    <label class="c-field"><span>说点什么</span><textarea name="content" rows="3" maxlength="1000" required class="js-c-content"></textarea></label>
+    <div class="c-hp" aria-hidden="true"><label>主页<input name="homepage" tabindex="-1" autocomplete="off"></label></div>
+    <div class="c-form__foot"><span class="muted small">支持 <code>**粗体**</code> <code>*斜体*</code> <code>\`代码\`</code> <code>[链接](https://…)</code> <code>&gt; 引用</code>；访客评论审核后显示。</span><button class="btn btn--primary btn--sm" type="submit">${icon('send')}发表评论</button></div>
+    <p class="c-form__msg js-c-msg" role="status" aria-live="polite"></p>
+  </form>
+  <div class="c-list js-c-list"><p class="muted">评论加载中…</p></div>
+</section>`;
+}
+
+/** 首页侧栏：每日一图（按日期轮换的作品，同一天所有人看到同一张）。 */
+export function dailyPhotoCard(works: Work[], now = new Date()): string {
+  const w = dailyWork(works, now);
+  if (!w) return '';
+  const day = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric' }).format(now);
+  const exif = [w.focal, w.aperture, w.shutter, w.iso ? `ISO ${w.iso}` : ''].filter(Boolean).join(' · ');
+  return sideCard(
+    'daily-card js-daily',
+    `${secHead('image', '每日一图', day)}<a class="daily-card__img" href="${url('/works/')}#${e(w.id)}">${img(w.url, w.title, 'daily-card__photo', { sizes: '320px', w: w.width || undefined, h: w.height || undefined })}</a>
+<p class="daily-card__t"><b>${e(w.title)}</b>${w.location ? `<span class="muted small">${icon('mapPin')}${e(w.location)}</span>` : ''}</p>${exif ? `<p class="daily-card__exif small">${e(exif)}</p>` : ''}<a class="tile__more" href="${url('/map/')}">在照片地图上看${icon('arrowRight')}</a>`,
+    '每日一图',
+  );
+}
+
+/** 照片地图：内置点阵世界地图 + 作品点位（只有作品自己选择公开、坐标粗化到 0.1°）。 */
+export function mapPage(site: SiteData, works: Work[]): Page {
+  const pts = mapPoints(works);
+  const hidden = works.length - pts.reduce((s, p) => s + p.works.length, 0);
+  const fmt = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(1)}°${v >= 0 ? pos : neg}`;
+  const pins = pts
+    .map((p, i) => {
+      const { x, y } = project(p.lat, p.lng);
+      const t = `${p.works.map((w) => w.title).join('、')} · ${p.works[0]!.location || ''}`;
+      return `<a class="pmap__pin" href="#pm-${i}" data-pin="${i}" aria-label="${e(`${t}（${p.works.length} 张）`)}"><title>${e(t)}</title><circle class="pmap__halo" cx="${x}" cy="${y}" r="5"></circle><circle class="pmap__dot" cx="${x}" cy="${y}" r="2.6"></circle></a>`;
+    })
+    .join('');
+  const svg = `<svg class="pmap__svg" viewBox="0 0 360 144" role="group" aria-label="世界地图上的作品点位（${pts.length} 处）" preserveAspectRatio="xMidYMid meet"><path class="pmap__land" d="${dotsPath()}"></path>${pins}</svg>`;
+  const list = pts
+    .map((p, i) => `<li class="pmap__item" id="pm-${i}" tabindex="-1">${p.works.map((w) => `<a class="pmap__card" href="${url('/works/')}#${e(w.id)}">${img(w.url, w.title, 'pmap__img', { sizes: '96px' })}<span><b>${e(w.title)}</b><small>${e(w.location || '未标注地点')}</small><small class="pmap__coord">约 ${fmt(p.lat, 'N', 'S')}，${fmt(p.lng, 'E', 'W')}</small></span></a>`).join('')}</li>`)
+    .join('');
+  return shell(site, { name: 'map' }, {
+    title: '照片地图',
+    description: '作品拍摄地点（粗略位置，作者逐张选择公开）',
+    top: pageHead('照片地图', `${pts.length} 个地点 · ${pts.reduce((s, p) => s + p.works.length, 0)} 张作品。只显示作者选择公开的作品，坐标粗化到约 11 公里；底图内置，不加载第三方地图。`),
+    main: bento(
+      `${tile('full', `<figure class="pmap">${svg}<figcaption class="muted small">点位是粗略位置（0.1°）。${hidden > 0 ? `另有 ${hidden} 张作品没有公开位置。` : ''}底图：Natural Earth（公有领域）。</figcaption></figure>`, { cls: 'pmap-tile' })}
+${tile('full', pts.length ? `<ul class="pmap__list">${list}</ul>` : '<p class="empty">还没有公开位置的作品。在后台「作品集」里给作品填上坐标，并把「照片地图」设为公开。</p>', { cls: 'pmap-list-tile', label: '地点列表' })}`,
+    ),
+  });
+}
+
+/** 归档日历：年 × 12 个月的篇数，点击跳到那个月。 */
+export function archiveCalendarTable(posts: PostSummary[]): string {
+  const years = archiveCalendar(posts);
+  if (!years.length) return '';
+  const max = Math.max(1, ...years.flatMap((y) => y.months));
+  const lvl = (n: number) => (n === 0 ? 0 : Math.min(4, Math.ceil((n / max) * 4)));
+  return `<table class="acal"><caption>${icon('calendar')}归档日历 <span class="muted small">按年月统计，点数字跳到那个月</span></caption><thead><tr><th scope="col">年份</th>${Array.from({ length: 12 }, (_, i) => `<th scope="col"><abbr title="${i + 1} 月">${i + 1}</abbr></th>`).join('')}<th scope="col">合计</th></tr></thead><tbody>${years
+    .map((y) => `<tr><th scope="row"><a href="#y${y.year}">${y.year}</a></th>${y.months
+      .map((n, i) => {
+        const m = String(i + 1).padStart(2, '0');
+        return `<td class="acal__c acal__c--${lvl(n)}">${n ? `<a href="#y${y.year}-${m}" aria-label="${y.year} 年 ${i + 1} 月：${n} 篇">${n}</a>` : '<span aria-label="0 篇">·</span>'}</td>`;
+      })
+      .join('')}<td class="acal__sum">${y.total}</td></tr>`)
+    .join('')}</tbody></table>`;
 }
 
 /** 把正文按二级标题切成 <section data-chapter>，并生成目录。 */
@@ -847,13 +962,8 @@ export function postPage(site: SiteData, post: Post): Page {
   const idx = site.posts.findIndex((p) => p.slug === post.slug);
   const newer = idx > 0 ? site.posts[idx - 1] : undefined;
   const older = idx >= 0 ? site.posts[idx + 1] : undefined;
-  const related = site.posts
-    .filter((p) => p.slug !== post.slug)
-    .map((p) => ({ p, score: p.tags.filter((t) => post.tags.includes(t)).length + (p.category && p.category === post.category ? 0.5 : 0) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((x) => x.p);
+  const series = seriesOf(site.posts, post);
+  const related = relatedPosts(site.posts, post, 3);
   const words = post.wordCount || plainText(post.contentMd, 1e9).length;
   const link = postPath(post.slug);
   const pn = (p: PostSummary | undefined, label: string, cls: string) =>
@@ -878,11 +988,13 @@ export function postPage(site: SiteData, post: Post): Page {
   const main = `<usa-scroll-progress target="#post" label="阅读进度" class="read-progress"></usa-scroll-progress>
 <div class="post-layout">
 <article class="tile tile--full post reveal" id="post">
+  ${postTools()}
   <usa-double-tap class="post__body" label="双击点赞">
     <div class="prose" id="post-body">${html}</div>
   </usa-double-tap>
   <div class="post__like"><usa-like class="js-like" data-slug="${e(post.slug)}" label="喜欢这篇文章"></usa-like><span class="post__like-hint">喜欢就点个赞，或在正文上双击 ❤</span></div>
   ${reactionsBar(post.slug)}
+  ${series ? seriesNav(series, post.slug) : ''}
   <div class="copyright">
     <p><b>文章作者：</b><a href="${url('/about/')}">${e(site.profile.name)}</a></p>
     <p><b>文章链接：</b><a class="js-abs-link" href="${link}">${link}</a> <button class="copy-btn js-copy-link" type="button" aria-label="复制文章链接">${icon('copy')}</button></p>
@@ -899,7 +1011,8 @@ export function postPage(site: SiteData, post: Post): Page {
 </aside>
 </div>
 ${newer || older ? bento(`${pn(newer, '上一篇', 'pn--prev')}${pn(older, '下一篇', 'pn--next')}`, 'bento--pn') : ''}
-${related.length ? `<h2 class="section-h reveal" id="h-related">${icon('heart')}相关推荐</h2>${bento(related.map((p, i) => postCard(p, i, 'third')).join(''), 'bento--posts')}` : ''}`;
+${related.length ? `<h2 class="section-h reveal" id="h-related">${icon('heart')}相关推荐</h2>${bento(related.map((p, i) => postCard(p, i, 'third')).join(''), 'bento--posts')}` : ''}
+${commentsSection(post.slug)}`;
   return shell(site, { name: 'post', slug: post.slug }, {
     title: post.title,
     description: post.summary || plainText(post.contentMd),
@@ -922,7 +1035,9 @@ export function archivesPage(site: SiteData): Page {
 ${tile('third', `${kicker('calendar', '按日期跳转')}<usa-date-picker id="archive-date" class="js-archive-date"${first ? ` min="${first}"` : ''}${last ? ` max="${last}" value="${last}"` : ''} first-day="1" locale="zh-CN" label="按日期跳转"></usa-date-picker>`, { cls: 'archive-filter' })}`,
     'bento--head',
   );
-  const main = bento(
+  const cal = archiveCalendarTable(site.posts);
+  const seenMonth = new Set<string>();
+  const main = (cal ? bento(tile('full', cal, { cls: 'acal-tile' }), 'bento--acal') : '') + bento(
     [...years]
       .map(
         ([y, list]) => tile(
@@ -930,7 +1045,9 @@ ${tile('third', `${kicker('calendar', '按日期跳转')}<usa-date-picker id="ar
           `<div class="timeline__year" id="y${y}"><h2>${y}</h2><span class="muted">${list.length} 篇</span></div><div class="timeline">${list
             .map((p) => {
               const { m } = ymd(pubDate(p));
-              return `<article class="timeline__item" id="y${y}-${m}" data-date="${formatDate(pubDate(p))}">
+              const first = !seenMonth.has(`${y}-${m}`);
+              seenMonth.add(`${y}-${m}`);
+              return `<article class="timeline__item"${first ? ` id="y${y}-${m}"` : ''} data-date="${formatDate(pubDate(p))}">
   <a class="timeline__thumb" href="${postPath(p.slug)}" tabindex="-1" aria-hidden="true">${img(p.coverUrl, '', 'timeline__img', { sizes: '120px' }) || `<span class="mini-list__ph">${icon('file')}</span>`}</a>
   <div class="timeline__info"><time datetime="${e(pubDate(p))}">${formatDate(pubDate(p))}</time><a class="timeline__title" href="${postPath(p.slug)}">${e(p.title)}</a>${p.category ? `<span class="chip">${e(p.category)}</span>` : ''}</div>
 </article>`;
@@ -1089,7 +1206,7 @@ export function linksPage(site: SiteData, friends: Friend[], members: PublicMemb
     )}
 ${members.length ? `<h2 class="section-h reveal">${icon('heart')}好朋友</h2>${bento(
       members
-        .map((m) => tile('third', `<usa-presence name="${e(m.name)}"${m.avatarUrl ? ` src="${e(safeHref(m.avatarUrl, true) ?? '')}"` : ''} status="offline"></usa-presence><span><b>${e(m.name)}</b><span class="member__badges">${m.badges.map((b) => memberBadge(b.code, b.label, b.style)).join('')}</span><small>${e(m.bio)}</small></span>`, { cls: 'member' }))
+        .map((m) => tile('third', `<usa-presence name="${e(m.name)}"${m.avatarUrl ? ` src="${e(safeHref(m.avatarUrl, true) ?? '')}"` : ''} status="offline"></usa-presence><span><b>${e(m.name)}</b><span class="member__badges">${m.badges.map((b) => memberBadge(b.code, b.label, b.style, b.design)).join('')}</span><small>${e(m.bio)}</small></span>`, { cls: 'member' }))
         .join('') + tile('third', `<p>想出现在这里？</p><a class="btn" href="${url('/join/')}">${icon('heart')}注册成为好朋友</a>`, { cls: 'member member--cta' }),
     )}` : ''}
 ${bento(tile('full', `${kicker('plus', '申请友链')}
@@ -1220,9 +1337,9 @@ export function joinPage(site: SiteData): Page {
   <usa-button deform="squash" morph="submit" class="js-submit-btn"><button class="btn btn--primary btn--block" type="submit">${icon('mail')}发送验证码</button></usa-button>
 </form>
 <div class="join__otp js-join-otp" hidden><p>验证码已发送到 <b class="js-join-email"></b>，请输入 6 位数字<span class="js-demo-otp"></span>。</p><usa-otp length="6" label="邮箱验证码" class="js-otp"></usa-otp><p class="js-otp-msg muted" role="status"></p></div>
-<div class="join__done js-join-done" hidden><usa-check kind="success" size="64" label="已登录"></usa-check><h3>欢迎你，<span class="js-join-name"></span>！</h3><p class="js-join-badges join__badges"></p><p>现在可以去 <a href="${url('/mailbox/')}">信箱</a> 给我传文件或留语音，或者去 <a href="${url('/guestbook/#wall')}">便签墙</a> 贴一张。</p><button class="btn btn--soft btn--sm js-logout" type="button">${icon('logout')}退出登录</button></div>
+<div class="join__done js-join-done" hidden><usa-check kind="success" size="64" label="已登录"></usa-check><h2 class="join__done-h">欢迎你，<span class="js-join-name"></span>！</h2><p class="js-join-badges join__badges"></p><div class="join__designs js-join-designs"></div><p>现在可以去 <a href="${url('/mailbox/')}">信箱</a> 给我传文件或留语音，或者去 <a href="${url('/guestbook/#wall')}">便签墙</a> 贴一张。</p><button class="btn btn--soft btn--sm js-logout" type="button">${icon('logout')}退出登录</button></div>
 <div class="join__google"><p class="muted">或者</p><button class="btn btn--ghost js-google" type="button">${icon('globe')}用 Google 登录（可选公开头像）</button><p class="muted small">只有你同意后才会读取 Google 名字和头像；演示站不会真的连接 Google。</p></div></div>`, { cls: 'join-main', rows: 2 })}
-${tile('third', `${kicker('award', '专属徽章')}<p class="muted">站长会给好朋友发徽章，编号刻在徽章上：</p><div class="join-tile__badges">${memberBadge('FRIEND-0001', '珍珠母贝', 'pearlescent')}${memberBadge('FRIEND-0002', '拉丝金属', 'brushed-metal')}</div>`, { cls: 'badge-tile' })}
+${tile('third', `${kicker('award', '专属徽章')}<p class="muted">站长会给好朋友发徽章，编号刻在徽章上。拿到徽章后可以自己搭配样式：</p>${presetGallery('FRIEND-0001')}`, { cls: 'badge-tile' })}
 ${tile('third', `${kicker('eye', '隐私')}<p class="muted">邮箱不会公开。访客默认匿名，头像只在你同意后显示。</p>${more(url('/privacy/'), '隐私说明')}`)}`),
   });
 }
@@ -1318,6 +1435,8 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return searchPage(site);
     case 'subscribe':
       return subscribePage(site);
+    case 'map':
+      return mapPage(site, x.works ?? []);
     default:
       return notFoundPage(site);
   }

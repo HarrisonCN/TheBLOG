@@ -687,7 +687,7 @@ a.album:hover { color: #fff; }
 .steps li.is-active { background: var(--heading); color: var(--bg); }
 .join__form { display: grid; gap: 0.9rem; max-width: 480px; }
 .join__otp, .join__done { display: grid; gap: 0.6rem; justify-items: center; text-align: center; padding: 1rem 0; }
-.join__done h3 { margin: 0; color: var(--heading); }
+.join__done h3, .join__done-h { margin: 0; color: var(--heading); font-size: 1.25rem; }
 .join__google { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--hairline); display: grid; gap: 0.4rem; justify-items: start; }
 .join__google p { margin: 0; }
 .upload { display: grid; gap: 0.8rem; }
