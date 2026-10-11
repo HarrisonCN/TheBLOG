@@ -8,6 +8,7 @@ _L16 · 用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注
 
 ### 新功能 Features
 
+- **prerender:** static shells for public works and their authors (/w/:id/, /u/:name/ return 200 on Pages) (22b1a36)
 - **web:** L16 UI — community feed, work page, composer (lazy ugc-client), profile works, notifications, admin moderation queue (c7581ee)
 - **demo:** L16 mock parity — works, feeds, comments, reactions, reports, moderation (mock-ugc.ts) (88efe7f)
 - **worker:** L16 community publishing — user works, feeds, comments, reactions, reports, moderation queue (migration 0013) (c63ff31)
