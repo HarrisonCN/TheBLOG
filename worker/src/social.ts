@@ -7,6 +7,7 @@ import type { Env } from './env';
 import { HttpError, json } from './http';
 import { profileWorks, routeUgc } from './ugc';
 import { exportDiscovery, purgeDiscovery, routeDiscovery } from './discovery';
+import { exportStudio, purgeStudio, routeStudio } from './studio';
 import { getMember, ipKey, optionalMember, rateLimit, removeMember, requireMember, sendEmail, type Badge, type Member } from './community';
 import {
   aggregates,
@@ -384,7 +385,7 @@ export async function notify(env: Env, n: { to: number; type: NotificationType; 
       }
     }
     const prefs = await prefsOf(env, n.to);
-    if (n.type !== 'system' && n.type !== 'moderation' && !prefs[n.type]) return false;
+    if (n.type !== 'system' && n.type !== 'moderation' && n.type !== 'collab' && !prefs[n.type]) return false;
     const key = n.key ?? notificationKey(n.type, n);
     const st = storedType(n.type);
     const t = nowIso();
@@ -404,7 +405,7 @@ export async function notify(env: Env, n: { to: number; type: NotificationType; 
   }
 }
 
-const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知', reaction: '有人回应了你的作品', new_work: '你关注的人发布了新作品', moderation: '你的内容有审核结果', topic_work: '你订阅的话题有新作品', event_result: '你参加的活动公布了结果' };
+const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知', reaction: '有人回应了你的作品', new_work: '你关注的人发布了新作品', moderation: '你的内容有审核结果', topic_work: '你订阅的话题有新作品', event_result: '你参加的活动公布了结果', collab: '有人邀请你一起创作' };
 async function emailNotice(env: Env, to: number, type: NotificationType): Promise<void> {
   try {
     await rateLimit(env, 'notify-email', String(to), 5, 3600);
@@ -528,6 +529,7 @@ export async function exportMe(req: Request, env: Env) {
     workComments: await all('SELECT post_id, body, status, deleted_at, created_at FROM user_post_comments WHERE author_id = ?'),
     notificationPrefs: await prefsOf(env, me.id),
     ...(await exportDiscovery(env, me.id)),
+    ...(await exportStudio(env, me.id)),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="theblog-${p.username}-export.json"`, ...NO_STORE },
@@ -550,6 +552,7 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
     env.DB.prepare('DELETE FROM user_profiles WHERE member_id = ?').bind(me.id),
     env.DB.prepare('UPDATE comments SET member_id = NULL WHERE member_id = ?').bind(me.id),
     // L16：注销 = 硬删除本人的投稿（媒体 / 评论 / 回应随外键级联）与互动；审核日志保留（只记 id）
+    ...purgeStudio(env, me.id),
     env.DB.prepare('DELETE FROM user_posts WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_post_comments WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_reactions WHERE member_id = ?').bind(me.id),
@@ -578,6 +581,9 @@ export async function routeSocial(req: Request, env: Env, path: string, url: URL
   // L17 话题 / 发现 / 活动 / 合集 / 社区徽章
   const disc = await routeDiscovery(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
   if (disc) return disc;
+  // L18 EXIF 筛选 / 共同作者 / 修订 / 项目 / 摄影专题 / 数据中心
+  const studio = await routeStudio(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
+  if (studio) return studio;
   if (m === 'GET') {
     if ((mt = new RegExp(`^/users/${U}$`).exec(sub))) return ok(await getProfile(req, env, mt[1]!));
     if ((mt = new RegExp(`^/users/${U}/(followers|following)$`).exec(sub))) return ok(await listFollows(req, env, mt[1]!, mt[2] as 'followers' | 'following', url));

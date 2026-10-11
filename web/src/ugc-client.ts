@@ -53,7 +53,9 @@ export interface Work {
   createdAt: string;
   topics?: { slug: string; name: string }[];
   counts: { comments: number; bookmarks: number; reactions: Partial<Record<WorkReaction, number>> };
-  mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean };
+  mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean; role?: 'owner' | 'editor' | 'contributor' | null; status?: string | null; can?: Record<'edit' | 'visibility' | 'delete' | 'publish' | 'members' | 'restore', boolean> };
+  /** L18 共同作者（已加入 / 曾参与；所有者还能看到邀请中） */
+  coauthors?: { user: Card; role: 'editor' | 'contributor'; status: 'invited' | 'accepted' | 'declined' | 'removed' }[];
 }
 interface WComment { id: number; parentId: number | null; author: Card; body: string; pending: boolean; createdAt: string; canDelete: boolean; helpful?: boolean; canMarkHelpful?: boolean }
 
@@ -97,6 +99,28 @@ export const ugc = {
 };
 interface ReactState { reactions: Partial<Record<WorkReaction, number>>; mine: WorkReaction[]; bookmarked: boolean; bookmarks: number }
 
+/**
+ * L18 创作者数据中心：作品 / 项目 / 专题 / 主页被浏览时 +1（服务端只按天汇总计数和来源域名，不存访客身份或 IP）。
+ * 浏览器开启「请勿追踪」或 GPC 时不发送；同一页面一个会话只记一次。
+ */
+export function recordView(kind: 'work' | 'project' | 'feature' | 'profile', ref: string): void {
+  try {
+    const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
+    if (nav.doNotTrack === '1' || nav.globalPrivacyControl) return;
+    const k = `blog:view:${currentMember()?.member.id ?? 'guest'}:${kind}:${ref}`; // 只在本机去重（换账号算新的一次）
+    if (sessionStorage.getItem(k)) return;
+    sessionStorage.setItem(k, '1');
+    let referrer = '';
+    try {
+      referrer = document.referrer ? new URL(document.referrer).origin : '';
+    } catch {
+      referrer = '';
+    }
+    void request('/api/social/views', { method: 'POST', headers: { ...JH, ...auth() }, body: JSON.stringify({ kind, ref, referrer }) }).catch(() => undefined);
+  } catch {
+    /* 统计失败不影响页面 */
+  }
+}
 export const errMsg = (x: unknown) => {
   if (x instanceof ApiError) {
     const d = Array.isArray(x.details) ? (x.details as { message: string }[]).map((y) => y.message).join('；') : '';
@@ -122,8 +146,12 @@ export function avatar(c: Card, cls = 'soc-av'): string {
   for (const ch of c.username) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return `<span class="${cls} soc-av--letter" style="--h:${h}" aria-hidden="true">${e((c.nickname || c.username).slice(0, 1))}</span>`;
 }
+const credits = (w: Work) => {
+  const co = (w.coauthors ?? []).filter((c) => c.status === 'accepted');
+  return co.length ? `<span class="muted small ugc-co">与 ${co.map((c) => `<a href="${userPath(c.user.username)}">${e(c.user.nickname)}</a>`).join('、')} 共同创作</span>` : '';
+};
 const byline = (w: Work) =>
-  `<a class="ugc-by" href="${userPath(w.author.username)}">${avatar(w.author)}<span><b>${e(w.author.nickname)}</b><span class="muted small"> @${e(w.author.username)}</span></span></a><span class="muted small ugc-meta"><span class="soc-chip">${WORK_TYPE_LABEL[w.type]}</span>${w.visibility !== 'public' ? `<span class="soc-chip soc-chip--soft">${icon('lock')}${VISIBILITY_LABEL[w.visibility]}</span>` : ''}<time datetime="${e(w.publishedAt ?? w.createdAt)}">${ago(w.publishedAt ?? w.createdAt)}</time>${w.editedAt ? '<span>· 已编辑</span>' : ''}</span>`;
+  `<a class="ugc-by" href="${userPath(w.author.username)}">${avatar(w.author)}<span><b>${e(w.author.nickname)}</b><span class="muted small"> @${e(w.author.username)}</span></span></a>${credits(w)}<span class="muted small ugc-meta"><span class="soc-chip">${WORK_TYPE_LABEL[w.type]}</span>${w.visibility !== 'public' ? `<span class="soc-chip soc-chip--soft">${icon('lock')}${VISIBILITY_LABEL[w.visibility]}</span>` : ''}<time datetime="${e(w.publishedAt ?? w.createdAt)}">${ago(w.publishedAt ?? w.createdAt)}</time>${w.editedAt ? '<span>· 已编辑</span>' : ''}</span>`;
 export const img = (m: Media, cls = '', eager = false) => `<img class="${cls}" src="${e(imgSrc(m.url))}" alt="${e(m.alt)}"${m.width && m.height ? ` width="${m.width}" height="${m.height}"` : ''} loading="${eager ? 'eager' : 'lazy'}" decoding="async">`;
 const totalReactions = (w: Work) => Object.values(w.counts.reactions).reduce((a, b) => a + (b ?? 0), 0);
 function stateBanner(w: Work): string {
@@ -282,7 +310,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
     <div class="ugc-reacts" role="group" aria-label="回应">${reactBar}</div>
     <button type="button" class="btn btn--soft btn--sm js-wbookmark" aria-pressed="${w.mine.bookmarked}"${me ? '' : ' disabled'}>${icon('bookmark')}<span>${w.mine.bookmarked ? '已收藏' : '收藏'}</span></button>
     ${me && w.status === 'published' && w.modState === 'ok' ? `<button type="button" class="btn btn--ghost btn--sm js-collect" aria-haspopup="dialog">${icon('folder')}加入合集</button>` : ''}
-    ${w.mine.canEdit ? `<a class="btn btn--ghost btn--sm" href="${url(`/compose/?edit=${w.id}`)}">${icon('edit')}编辑</a>${w.status === 'draft' ? `<button type="button" class="btn btn--primary btn--sm js-publish">${icon('send')}发布</button>` : ''}<button type="button" class="btn btn--ghost btn--sm js-delete">${icon('trash')}删除</button>` : me ? `<button type="button" class="btn btn--ghost btn--sm js-report" data-kind="work" data-id="${w.id}">${icon('flag')}举报</button>` : ''}
+    ${w.mine.canEdit ? `<a class="btn btn--ghost btn--sm" href="${url(`/compose/?edit=${w.id}`)}">${icon('edit')}编辑</a>${w.status === 'draft' && (w.mine.can?.publish ?? true) ? `<button type="button" class="btn btn--primary btn--sm js-publish">${icon('send')}发布</button>` : ''}${w.mine.can?.delete ?? true ? `<button type="button" class="btn btn--ghost btn--sm js-delete">${icon('trash')}删除</button>` : ''}` : me ? `<button type="button" class="btn btn--ghost btn--sm js-report" data-kind="work" data-id="${w.id}">${icon('flag')}举报</button>` : ''}
   </div>
   ${me ? '' : `<p class="muted small"><a href="${url('/join/')}">登录</a>后可以回应、收藏和评论。</p>`}
 </article>
@@ -410,6 +438,9 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
       btn.disabled = false;
     }
   });
+  // L18：共同作者 / 修订历史 / 协作邀请（按需加载，只在有协作信息或有权限时下载）
+  if (w.coauthors?.length || w.mine.can?.members || w.mine.can?.restore || w.mine.status === 'invited') void import('./studio-client').then((m) => m.workStudio(box, w, ctx)).catch(() => undefined);
+  if (w.status === 'published' && w.modState === 'ok') recordView('work', String(w.id));
 }
 
 function openReport(kind: string, id: number, ctx: UgcCtx, opener: HTMLElement): void {
@@ -439,6 +470,28 @@ function openReport(kind: string, id: number, ctx: UgcCtx, opener: HTMLElement):
   });
   dlg.showModal();
   dlg.querySelector<HTMLInputElement>('input[name=reason]')?.focus();
+}
+
+/** L18：删除其他作者上传的图片前的确认对话框（列出上传者和仍引用它的历史版本数）。 */
+export function confirmMediaRemoval(items: { url: string; alt: string; uploadedBy: string | null; revisions: number }[], opener: HTMLElement): Promise<boolean> {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'soc-dialog';
+    dlg.setAttribute('aria-labelledby', 'mi-h');
+    dlg.innerHTML = `<form method="dialog" class="soc-form"><h2 id="mi-h" class="soc-h">${icon('trash')}删除其他作者的图片？</h2>
+<p>这是多人共同创作的作品，下面的图片由其他作者上传。删除后它们不再出现在作品里；历史版本里的记录会保留，恢复旧版本时可以找回。</p>
+<ul class="ugc-impact">${items.map((m) => `<li>${img({ url: m.url, alt: m.alt, width: 0, height: 0 })}<span><b>${e(m.alt || '图片')}</b><span class="muted small">上传者 @${e(m.uploadedBy ?? '作品所有者')} · ${m.revisions} 个历史版本里有它</span></span></li>`).join('')}</ul>
+<div class="ugc-row"><button class="btn btn--soft" value="cancel" type="submit">取消</button><button class="btn btn--primary js-mi-yes" value="yes" type="submit">确认删除并保存</button></div></form>`;
+    document.body.append(dlg);
+    dlg.addEventListener('close', () => {
+      const yes = dlg.returnValue === 'yes';
+      dlg.remove();
+      opener.focus?.();
+      resolve(yes);
+    });
+    dlg.showModal();
+    dlg.querySelector<HTMLElement>('.js-mi-yes')?.focus();
+  });
 }
 
 // ---------------------------------------------------------------- 发布器
@@ -497,7 +550,7 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
   ${paramsHtml}
   ${field('notes', '拍摄手记', r.notes, 0, 4, '这张照片背后的故事：怎么拍的、当时的天气和心情。')}
   ${allTopics.length ? `<fieldset class="ugc-topicpick"><legend>话题 <span class="muted small">（可选，最多 3 个；会出现在话题页，订阅了话题的人能看到）</span></legend><div class="soc-filters">${allTopics.map((t) => `<label class="ugc-type${d.topics.includes(t.slug) ? ' is-on' : ''}"><input type="checkbox" class="js-topic" value="${e(t.slug)}"${d.topics.includes(t.slug) ? ' checked' : ''}>#${e(t.name)}</label>`).join('')}</div><p class="field__err js-err" data-for="topics" hidden></p></fieldset>` : ''}
-  <div class="field"><label class="field__label" for="ugc-vis">谁可以看</label><select id="ugc-vis" name="visibility">${(['public', 'followers', 'private'] as const).map((v) => `<option value="${v}"${d.visibility === v ? ' selected' : ''}>${VISIBILITY_LABEL[v]}</option>`).join('')}</select></div>
+  <div class="field"><label class="field__label" for="ugc-vis">谁可以看${editing && editing.mine.can && !editing.mine.can.visibility ? '<span class="muted small">（只有作品所有者可以修改）</span>' : ''}</label><select id="ugc-vis" name="visibility"${editing && editing.mine.can && !editing.mine.can.visibility ? ' disabled' : ''}>${(['public', 'followers', 'private'] as const).map((v) => `<option value="${v}"${d.visibility === v ? ' selected' : ''}>${VISIBILITY_LABEL[v]}</option>`).join('')}</select></div>
   <p class="field__err js-err" data-for="" role="alert" hidden></p>
   <div class="ugc-row ugc-submit">${!editing || editing.status === 'draft' ? `<button class="btn btn--soft js-save-draft" type="submit" value="draft">${icon('file')}${editing ? '保存草稿' : '存为草稿'}</button>` : ''}<button class="btn btn--primary js-submit" type="submit" value="publish">${icon('send')}${editing ? (editing.status === 'draft' ? '发布' : '保存修改') : '发布'}</button></div>
 </form>`;
@@ -601,7 +654,16 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     try {
       let res: { work: Work; status: string };
       if (editing) {
-        res = await ugc.update(editing.id, { ...c.value, topics: d.topics });
+        const body = { ...c.value, topics: d.topics };
+        try {
+          res = await ugc.update(editing.id, body);
+        } catch (x) {
+          // L18 多人作品：删除其他作者上传的图片要先确认影响（只有所有者能删；可编辑的共同作者会收到 403 media_not_yours）
+          if (!(x instanceof ApiError && x.code === 'media_impact')) throw x;
+          const items = ((x.details as { items?: { url: string; alt: string; uploadedBy: string | null; revisions: number }[] } | undefined)?.items ?? []);
+          if (!(await confirmMediaRemoval(items, submitter ?? box))) throw new ApiError(409, '已取消：图片没有删除，修改未保存', 'cancelled');
+          res = await ugc.update(editing.id, { ...body, confirmMediaRemoval: true });
+        }
         if (editing.status === 'draft' && !asDraft) res = await ugc.publish(editing.id);
       } else res = await ugc.create({ ...c.value, topics: d.topics, draft: asDraft });
       void ctx.notify(res.status === 'draft' ? '草稿已保存，只有你能看到' : res.status === 'pending' ? '已提交，等待站长审核后公开' : editing ? '修改已保存' : '发布成功', 'success');

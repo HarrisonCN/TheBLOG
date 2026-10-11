@@ -46,7 +46,8 @@ export interface DemoWork {
   caption: string;
   notes: string;
   params: WorkParams;
-  media: { url: string; alt: string; width: number; height: number }[];
+  /** uploadedBy：L18 多人作品里图片的上传者（缺省 = 作品所有者） */
+  media: { url: string; alt: string; width: number; height: number; uploadedBy?: number | null }[];
   visibility: WorkVisibility;
   status: WorkStatus;
   modState: ModState;
@@ -194,7 +195,23 @@ export interface UgcHost {
   now(): Date;
   /** L17 话题 / 徽章 / 有帮助的评论（由 MockDiscovery 提供；构造时还没有，所以是取值函数） */
   disc?(): DiscoveryHooks | null;
+  /** L18 共同作者 / 修订 / EXIF（由 MockStudio 提供） */
+  studio?(): StudioHooks | null;
 }
+type CollabRoleT = 'editor' | 'contributor';
+type CollabStatusT = 'invited' | 'accepted' | 'declined' | 'removed';
+type RightsT = Record<'edit' | 'visibility' | 'delete' | 'publish' | 'members' | 'restore', boolean>;
+export interface StudioHooks {
+  collab(w: DemoWork, viewerId: number | null): { coauthors: { user: { username: string; nickname: string; avatarUrl: string; bio: string }; role: CollabRoleT; status: CollabStatusT }[]; role: 'owner' | CollabRoleT | null; status: CollabStatusT | null; can: RightsT };
+  canSee(workId: number, viewerId: number | null): boolean;
+  role(w: DemoWork, memberId: number): { role: 'owner' | CollabRoleT | null; status: CollabStatusT | null };
+  guardMedia(w: DemoWork, actorId: number, next: { url: string }[], confirmed: boolean): (number | null)[];
+  ensureBase(w: DemoWork): void;
+  afterSave(workId: number, editorId: number, note?: string): void;
+  exifMatch(w: DemoWork, q: URLSearchParams): boolean;
+}
+const OWNER_RIGHTS: RightsT = { edit: true, visibility: true, delete: true, publish: true, members: true, restore: true };
+const NO_RIGHTS: RightsT = { edit: false, visibility: false, delete: false, publish: false, members: false, restore: false };
 export interface DiscoveryHooks {
   topicsOf(workId: number): { slug: string; name: string }[];
   resolveTopics(input: unknown): number[] | undefined;
@@ -237,7 +254,7 @@ export class MockUgc {
   // ------------------------------------------------------------ 权限
   access(w: DemoWork, viewerId: number | null): 'full' | 'own' | 'none' {
     const rel = viewerId && viewerId !== w.authorId ? this.h.social.rel(viewerId, w.authorId) : null;
-    return workAccess({
+    const a = workAccess({
       authorId: w.authorId,
       status: w.status,
       visibility: w.visibility,
@@ -248,6 +265,19 @@ export class MockUgc {
       viewerFollowsAuthor: !!rel?.following,
       blockedEitherWay: !!rel && (rel.blocked || rel.blockedBy),
     });
+    // L18：被邀请 / 已加入的共同作者能看到草稿和私密作品
+    if (a === 'none' && !w.deletedAt && this.h.studio?.()?.canSee(w.id, viewerId)) return 'own';
+    return a;
+  }
+  /** L18 给 MockStudio 用：整块状态（只读）、话题内作品、直接改写作品字段（恢复修订）。 */
+  state(): UgcState {
+    return this.h.state();
+  }
+  topicPostIds(slug: string): Set<number> {
+    return this.h.disc?.()?.topicPostIds(slug) ?? new Set<number>();
+  }
+  patchWork(id: number, patch: Partial<DemoWork>): void {
+    this.h.commit((s) => Object.assign(s.works.find((w) => w.id === id)!, patch));
   }
   visible(w: DemoWork): boolean {
     return w.status === 'published' && w.modState === 'ok' && !w.deletedAt && !this.standing(w.authorId).banned;
@@ -280,6 +310,7 @@ export class MockUgc {
     const reactions: Partial<Record<WorkReaction, number>> = {};
     for (const r of s.reactions) if (r.postId === w.id) reactions[r.kind] = (reactions[r.kind] ?? 0) + 1;
     const own = viewerId === w.authorId;
+    const co = this.h.studio?.()?.collab(w, viewerId) ?? { coauthors: [], role: own ? ('owner' as const) : null, status: null, can: own ? OWNER_RIGHTS : NO_RIGHTS };
     return {
       id: w.id,
       type: w.type,
@@ -289,7 +320,7 @@ export class MockUgc {
       caption: w.caption,
       notes: w.notes,
       params: w.params,
-      media: w.media.map((m) => ({ ...m })),
+      media: w.media.map((m) => ({ url: m.url, alt: m.alt, width: m.width, height: m.height })),
       visibility: w.visibility,
       status: w.status,
       modState: w.modState,
@@ -303,7 +334,8 @@ export class MockUgc {
         bookmarks: s.bookmarks.filter((b) => b.postId === w.id).length,
         reactions,
       },
-      mine: { reactions: s.reactions.filter((r) => r.postId === w.id && r.memberId === viewerId).map((r) => r.kind), bookmarked: s.bookmarks.some((b) => b.postId === w.id && b.memberId === viewerId), canEdit: own },
+      mine: { reactions: s.reactions.filter((r) => r.postId === w.id && r.memberId === viewerId).map((r) => r.kind), bookmarked: s.bookmarks.some((b) => b.postId === w.id && b.memberId === viewerId), canEdit: co.can.edit, role: co.role, can: co.can },
+      coauthors: co.coauthors,
     };
   }
   private pageOf<T extends { id: number }>(rows: T[], q: URLSearchParams, key: (r: T) => string, desc = true) {
@@ -343,7 +375,7 @@ export class MockUgc {
     const inTopic = topic ? (this.h.disc?.()?.topicPostIds(topic) ?? new Set<number>()) : null;
     const rows = this.h
       .state()
-      .works.filter((w) => this.visible(w) && !hidden.has(w.authorId) && (!type || w.type === type) && (!inTopic || inTopic.has(w.id)))
+      .works.filter((w) => this.visible(w) && !hidden.has(w.authorId) && (!type || w.type === type) && (!inTopic || inTopic.has(w.id)) && (this.h.studio?.()?.exifMatch(w, q) ?? true))
       .filter((w) =>
         tab === 'following'
           ? (w.authorId === vid && w.visibility !== 'private') || (following.has(w.authorId) && w.visibility !== 'private') || (w.visibility === 'public' && subscribed.has(w.id))
@@ -441,6 +473,7 @@ export class MockUgc {
       if (status === 'pending') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: `新会员前 ${rules.reviewFirstN} 条内容先审核` });
     });
     if (topicIds) this.h.disc?.()?.setTopics(w.id, topicIds);
+    this.h.studio?.()?.afterSave(w.id, me.id);
     if (status === 'published') this.afterPublish(w);
     return { work: this.toWork(this.work(w.id)!, me.id), status };
   }
@@ -455,21 +488,35 @@ export class MockUgc {
     return { me, w };
   }
   updateWork(headers: Record<string, string>, id: number, input: unknown) {
-    const { me, w } = this.own(headers, id);
+    // L18：已接受邀请的「可编辑」共同作者也能修改内容和图片；可见范围、发布、删除只属于所有者
+    const me = this.poster(headers);
+    const w = this.work(id);
+    if (!w || w.deletedAt) throw notFound();
+    const st = this.h.studio?.() ?? null;
+    const role = st ? st.role(w, me.id) : { role: w.authorId === me.id ? ('owner' as const) : null, status: null };
+    const canEdit = role.role === 'owner' || (role.role === 'editor' && role.status === 'accepted');
+    if (!canEdit) {
+      if (this.access(w, me.id) === 'none') throw notFound();
+      throw new SocialError(403, 'forbidden', '只能编辑或删除自己的内容');
+    }
     const c = checkWork(input, { allowDataUrl: true });
     if (!c.ok) throw bad(c.path, c.error);
     const v = c.value;
     if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+    if (role.role !== 'owner') v.visibility = w.visibility;
+    const uploaders = st ? st.guardMedia(w, me.id, v.media, (input as { confirmMediaRemoval?: unknown }).confirmMediaRemoval === true) : v.media.map(() => null);
+    st?.ensureBase(w);
     const topicIds = this.h.disc?.()?.resolveTopics(input);
     const { fp } = this.spam(me, v, w.id);
     const status: WorkStatus = w.status === 'published' && needsReview(this.standing(me.id), this.h.state().rules) ? 'pending' : w.status;
     const t = this.iso();
     this.h.commit((s) => {
       const x = s.works.find((y) => y.id === w.id)!;
-      Object.assign(x, v, { status, fingerprint: fp, editedAt: w.status === 'published' ? t : null, updatedAt: t });
+      Object.assign(x, v, { media: v.media.map((m, i) => ({ ...m, uploadedBy: uploaders[i] ?? null })), status, fingerprint: fp, editedAt: w.status === 'published' ? t : null, updatedAt: t });
       if (status === 'pending' && w.status === 'published') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: '新会员修改已发布内容，重新审核' });
     });
     if (topicIds) this.h.disc?.()?.setTopics(w.id, topicIds);
+    st?.afterSave(w.id, me.id);
     const fresh = this.work(w.id)!;
     if (fresh.status === 'published' && fresh.modState === 'ok') this.afterPublish(fresh);
     return { work: this.toWork(fresh, me.id), status };

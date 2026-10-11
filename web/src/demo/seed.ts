@@ -51,6 +51,7 @@ export interface DemoDb {
   ugc?: import('./mock-ugc').UgcState;
   /** L17 话题 / 活动 / 合集 / 社区徽章；旧的本地数据没有这个字段时用种子补齐 */
   discovery?: import('./mock-discovery').DiscoveryState;
+  studio?: import('./mock-studio').StudioState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

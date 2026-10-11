@@ -14,6 +14,7 @@ import { routeAdminComments, routeComments } from './comments';
 import { routeSocial } from './social';
 import { routeAdminUgc } from './ugc';
 import { routeAdminDiscovery } from './discovery';
+import { routeAdminStudio } from './studio';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -141,6 +142,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     // L17 话题 / 精选创作者 / 认证 / 摄影活动
     const discAdmin = await routeAdminDiscovery(req, env, sub, () => readJson(req, 16 * 1024));
     if (discAdmin) return discAdmin;
+    const studioAdmin = await routeAdminStudio(req, env, sub);
+    if (studioAdmin) return studioAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });

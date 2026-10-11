@@ -8,15 +8,15 @@ export const USERNAME_RE = /^[a-z0-9](?:[a-z0-9_]{1,18})[a-z0-9]$/;
 export const RESERVED_USERNAMES = new Set(['admin', 'administrator', 'root', 'system', 'winston', 'theblog', 'api', 'me', 'settings', 'notifications', 'support', 'help', 'about', 'null', 'undefined', 'login', 'logout', 'official', 'mod', 'moderator']);
 
 export type Visibility = 'public' | 'members' | 'private';
-export type NotificationType = 'follow' | 'reply' | 'mention' | 'bookmark' | 'system' | 'reaction' | 'new_work' | 'moderation' | 'topic_work' | 'event_result';
+export type NotificationType = 'follow' | 'reply' | 'mention' | 'bookmark' | 'system' | 'reaction' | 'new_work' | 'moderation' | 'topic_work' | 'event_result' | 'collab';
 export type BookmarkKind = 'post' | 'photo' | 'essay';
 export type RelationKind = 'block' | 'mute';
-export const NOTIFICATION_TYPES: readonly NotificationType[] = ['follow', 'reply', 'mention', 'bookmark', 'system', 'reaction', 'new_work', 'moderation', 'topic_work', 'event_result'];
+export const NOTIFICATION_TYPES: readonly NotificationType[] = ['follow', 'reply', 'mention', 'bookmark', 'system', 'reaction', 'new_work', 'moderation', 'topic_work', 'event_result', 'collab'];
 /** L16 新事件：库里以 type = 'system' + event 列存储（0012 的 CHECK 约束不变，迁移只做加法），API 对外返回 type = event。 */
-export const EVENT_TYPES: readonly NotificationType[] = ['reaction', 'new_work', 'moderation', 'topic_work', 'event_result'];
+export const EVENT_TYPES: readonly NotificationType[] = ['reaction', 'new_work', 'moderation', 'topic_work', 'event_result', 'collab'];
 export const storedType = (t: NotificationType): { type: NotificationType; event: string } => (EVENT_TYPES.includes(t) ? { type: 'system', event: t } : { type: t, event: '' });
 export const BOOKMARK_KINDS: readonly BookmarkKind[] = ['post', 'photo', 'essay'];
-export const NOTIFICATION_FILTERS = ['all', 'unread', 'follow', 'reply', 'mention', 'bookmark', 'reaction', 'new_work', 'topic_work', 'event_result'] as const;
+export const NOTIFICATION_FILTERS = ['all', 'unread', 'follow', 'reply', 'mention', 'bookmark', 'reaction', 'new_work', 'topic_work', 'event_result', 'collab'] as const;
 export type NotificationFilter = (typeof NOTIFICATION_FILTERS)[number];
 
 export interface SocialLink { label: string; url: string }

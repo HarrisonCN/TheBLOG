@@ -20,7 +20,7 @@ import { pageInPlace } from './list-pager';
 import { upgradeToastIcon } from './result-icon';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
-  stripBase, url, postPath, tagPath, categoryPath, latestParts, NAV, type Extra, type Page, type Route,
+  stripBase, url, postPath, tagPath, categoryPath, latestParts, NAV, SOCIAL_ROUTES, type Extra, type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type PostSummary, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
@@ -696,7 +696,7 @@ function bindPage(page: Page): void {
     );
   }
   // L15 社交页：内容在按需加载的 social-client 里渲染（社交代码不进首屏包）
-  if (['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection'].includes(page.route.name)) {
+  if ((SOCIAL_ROUTES as readonly string[]).includes(page.route.name)) {
     void import('./social-client').then((m) => m.mountSocial(root, { notify: (msg, t) => void notify(msg, t), navigate: (h) => void go(h) }));
   }
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));

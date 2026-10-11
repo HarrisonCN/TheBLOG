@@ -17,6 +17,8 @@ import { encodeCursor, extractMentions } from './social-core';
 import { onWorkPublished, resolveWorkTopics, setWorkTopicsStmts, workTopics, type TopicRef } from './discovery';
 import { TOPIC_SLUG_RE } from './discovery-core';
 import { HIDE_RELATED_SQL, VISIBLE_SQL } from './ugc-sql';
+import { coauthorCanSee, collabFor, ensureBaseRevision, exifStmts, feedExifFilter, guardMedia, recordRevision, workRoleOf, type Coauthor } from './studio';
+import { workCan, type WorkRight } from './studio-core';
 export { HIDE_RELATED_SQL, VISIBLE_SQL };
 import {
   checkFeedQuery,
@@ -92,7 +94,9 @@ export interface Work {
   createdAt: string;
   topics: TopicRef[];
   counts: { comments: number; bookmarks: number; reactions: Partial<Record<WorkReaction, number>> };
-  mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean };
+  /** L18 共同作者署名（已加入 + 曾参与；邀请中只给所有者和被邀请人看） */
+  coauthors: Coauthor[];
+  mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean; role: 'owner' | 'editor' | 'contributor' | null; can: Record<WorkRight, boolean> };
 }
 export interface PublicWork { kind: 'work'; id: number; type: WorkType; title: string; excerpt: string; cover: WorkMedia | null; visibility: WorkVisibility; createdAt: string }
 export interface WorkComment { id: number; parentId: number | null; author: UserCard; body: string; pending: boolean; createdAt: string; canDelete: boolean; helpful: boolean; canMarkHelpful: boolean }
@@ -125,7 +129,7 @@ export async function loadWork(env: Env, id: number): Promise<WorkRow | null> {
 export async function accessOf(env: Env, w: WorkRow, viewerId: number | null): Promise<'full' | 'own' | 'none'> {
   const st = await standing(env, w.author_id);
   const rel = viewerId && viewerId !== w.author_id ? await relation(env, viewerId, w.author_id) : null;
-  return workAccess({
+  const a = workAccess({
     authorId: w.author_id,
     status: w.status,
     visibility: w.visibility,
@@ -136,6 +140,9 @@ export async function accessOf(env: Env, w: WorkRow, viewerId: number | null): P
     viewerFollowsAuthor: !!rel?.following,
     blockedEitherWay: !!rel && (rel.blocked || rel.blockedBy),
   });
+  // L18：被邀请 / 已加入的共同作者可以看到草稿、待审和私密作品（已删除的仍然不可见）
+  if (a === 'none' && !w.deleted_at && (await coauthorCanSee(env, w.id, viewerId))) return 'own';
+  return a;
 }
 const parseParams = (raw: string): WorkParams => {
   try {
@@ -160,6 +167,7 @@ export async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null
   ]);
   const by = <T>(rs: D1Result<Record<string, unknown>> | undefined) => (rs?.results ?? []) as unknown as T[];
   const topics = await workTopics(env, ids);
+  const collab = await collabFor(env, rows, viewerId);
   const authors = new Map<number, UserCard>();
   for (const a of new Set(rows.map((r) => r.author_id))) authors.set(a, (await card(env, a)) ?? { username: 'unknown', nickname: '已注销用户', avatarUrl: '', bio: '' });
   return rows.map((r) => {
@@ -197,8 +205,11 @@ export async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null
           .filter((x) => x.post_id === r.id)
           .map((x) => x.kind),
         bookmarked: by<{ post_id: number }>(mineB).some((x) => x.post_id === r.id),
-        canEdit: own,
+        canEdit: collab.get(r.id)!.can.edit,
+        role: collab.get(r.id)!.role,
+        can: collab.get(r.id)!.can,
       },
+      coauthors: collab.get(r.id)!.coauthors,
     };
   });
 }
@@ -246,6 +257,12 @@ export async function feed(req: Request, env: Env, url: URL) {
   if (topic) {
     where.push('p.id IN (SELECT pt.post_id FROM post_topics pt JOIN topics t ON t.id = pt.topic_id WHERE t.slug = ?)');
     args.push(topic);
+  }
+  // L18 EXIF 筛选（device / camera / lens / focal / aperture / iso）
+  const ex = feedExifFilter(url);
+  if (ex) {
+    where.push(ex.sql);
+    args.push(...ex.args);
   }
   if (cursor) {
     where.push('(p.published_at < ? OR (p.published_at = ? AND p.id < ?))');
@@ -330,8 +347,12 @@ async function spamChecks(env: Env, me: Member, v: WorkInput, rules: CommunityRu
   if (dup) throw new HttpError(409, 'duplicate', '你刚发过一模一样的内容');
   return { fp, links };
 }
-function mediaStmts(env: Env, postId: number, v: WorkInput): D1PreparedStatement[] {
-  return [env.DB.prepare('DELETE FROM user_post_media WHERE post_id = ?').bind(postId), ...v.media.map((m, i) => env.DB.prepare('INSERT INTO user_post_media (post_id, position, url, alt, width, height) VALUES (?, ?, ?, ?, ?, ?)').bind(postId, i, m.url, m.alt, m.width, m.height))];
+/** uploaders[i] = 第 i 张图的上传者（null = 作品所有者）；L18 起用于多人作品的删除权限。 */
+function mediaStmts(env: Env, postId: number, v: WorkInput, uploaders: (number | null)[] = []): D1PreparedStatement[] {
+  return [
+    env.DB.prepare('DELETE FROM user_post_media WHERE post_id = ?').bind(postId),
+    ...v.media.map((m, i) => env.DB.prepare('INSERT INTO user_post_media (post_id, position, url, alt, width, height, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(postId, i, m.url, m.alt, m.width, m.height, uploaders[i] ?? null)),
+  ];
 }
 async function logAction(env: Env, a: { actor: string; action: string; targetKind: string; targetId: number; memberId?: number | null; reportId?: number | null; reason?: string }): Promise<void> {
   await env.DB.prepare('INSERT INTO moderation_actions (actor, action, target_kind, target_id, member_id, report_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
@@ -394,7 +415,8 @@ export async function createWork(req: Request, env: Env, input: unknown) {
   )
     .bind(me.id, v.type, v.title, v.body, v.caption, v.notes, JSON.stringify(v.params), v.visibility, status, fp, links, status === 'published' ? t : null, t, t)
     .first<WorkRow>();
-  await env.DB.batch([...mediaStmts(env, row!.id, v), ...(topicIds ? setWorkTopicsStmts(env, row!.id, topicIds) : []), ...(status === 'published' ? [bump(env, me.id, 1, 1)] : [])]);
+  await env.DB.batch([...mediaStmts(env, row!.id, v), ...exifStmts(env, row!), ...(topicIds ? setWorkTopicsStmts(env, row!.id, topicIds) : []), ...(status === 'published' ? [bump(env, me.id, 1, 1)] : [])]);
+  await recordRevision(env, row!.id, me.id);
   if (status === 'pending') await logAction(env, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: row!.id, memberId: me.id, reason: `新会员前 ${rules.reviewFirstN} 条内容先审核` });
   if (status === 'published') await afterPublish(env, row!);
   return { work: (await toWorks(env, [row!], me.id))[0]!, status };
@@ -413,12 +435,23 @@ async function ownWork(req: Request, env: Env, id: number): Promise<{ me: Member
 }
 
 export async function updateWork(req: Request, env: Env, id: number, input: unknown) {
-  const { me, w } = await ownWork(req, env, id);
+  // L18：已接受邀请的「可编辑」共同作者也能修改内容和图片；可见范围、发布、删除仍只属于所有者
+  const me = await requirePoster(req, env);
+  const w = await loadWork(env, id);
+  if (!w || w.deleted_at) throw notFound();
+  const role = await workRoleOf(env, w, me.id);
+  if (!workCan(role.role, role.status, 'edit')) {
+    if ((await accessOf(env, w, me.id)) === 'none') throw notFound();
+    throw new HttpError(403, 'forbidden', '只能编辑或删除自己的内容');
+  }
   await rateLimit(env, 'work-edit', String(me.id), 30, 3600, '编辑太频繁，请稍后再试');
   const c = checkWork(input);
   if (!c.ok) throw bad(c.path, c.error);
   const v = c.value;
   if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+  if (role.role !== 'owner') v.visibility = w.visibility;
+  const uploaders = await guardMedia(env, w, me.id, v.media, (input as { confirmMediaRemoval?: unknown }).confirmMediaRemoval === true);
+  await ensureBaseRevision(env, w);
   const topicIds = await resolveWorkTopics(env, input);
   const rules = await getRules(env);
   const { fp, links } = await spamChecks(env, me, v, rules, w.id);
@@ -440,9 +473,11 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
       t,
       w.id,
     ),
-    ...mediaStmts(env, w.id, v),
+    ...mediaStmts(env, w.id, v, uploaders),
+    ...exifStmts(env, { id: w.id, type: w.type, params: JSON.stringify(v.params) }),
     ...(topicIds ? setWorkTopicsStmts(env, w.id, topicIds) : []),
   ]);
+  await recordRevision(env, w.id, me.id);
   if (status === 'pending' && w.status === 'published') await logAction(env, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: '新会员修改已发布内容，重新审核' });
   const fresh = (await loadWork(env, w.id))!;
   if (fresh.status === 'published' && fresh.mod_state === 'ok') await afterPublish(env, fresh);
