@@ -206,7 +206,7 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events', 'projects', 'features', 'mystats', 'messages', 'msgrequests', 'msgsettings']) await emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events', 'projects', 'features', 'mystats', 'messages', 'msgrequests', 'msgsettings', 'status']) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
@@ -403,6 +403,8 @@ writeFileSync(
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 /sw.js
+  Cache-Control: no-cache
+/build.json
   Cache-Control: no-cache
 /admin*
   Cache-Control: no-store

@@ -36,7 +36,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | 'discovery' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | 'discovery' | 'ops' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -49,6 +49,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目'], ['playlist', 'music', '音乐歌单']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
   { group: '社区', items: [['ugc', 'flag', '社区审核'], ['discovery', 'camera', '发现与活动'], ['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
+  { group: '运维', items: [['ops', 'chart', '运行状态']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -183,6 +184,7 @@ async function go(next?: View): Promise<void> {
       case 'comments': return await renderComments();
       case 'ugc': return await renderUgc();
       case 'discovery': return await renderDiscoveryAdmin();
+      case 'ops': return await renderOpsAdmin();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }
@@ -1106,6 +1108,45 @@ ${
   });
 }
 
+// ============================================================ L21 运行状态（健康检查 / 定时任务 / 绑定 / 错误事件）
+interface OpsErr { id: number; source: string; level: string; kind: string; message: string; stack: string; route: string; release: string; status: number; count: number; first_seen: string; last_seen: string; forwarded: number }
+interface OpsStatus {
+  overall: string; version: string; commit: string; environment: string; demo?: boolean;
+  components: { key: string; label: string; state: string; ms?: number }[];
+  migration: { latest: string | null; count: number; expected: string; ok: boolean };
+  uptime: Record<string, { ratio: number | null; checks: number; failed: number }>;
+  bindings: Record<string, boolean>; sampling: { worker: number; client: number };
+  limits: { errorRing: number; healthRetentionDays: number; clientPerMinute: number; clientPerDay: number };
+  recentChecks: { id: number; at: string; ok: number; d1_ok: number; r2_ok: number | null; do_ok: number | null; d1_ms: number; total_ms: number; source: string; detail: string }[];
+  runs: { job: string; last_run: string; last_ok: number; last_ms: number; runs: number; failures: number; detail: string }[];
+  errors: { last24h: { source: string; groups: number; events: number }[]; stored: number };
+}
+let opsSource = '';
+let opsBefore: number[] = [];
+const OPS_STATE: Record<string, string> = { ok: '正常', degraded: '部分异常', down: '故障', unconfigured: '未配置', unknown: '暂无数据' };
+const pct = (u: { ratio: number | null }) => (u.ratio === null ? '—' : `${(u.ratio * 100).toFixed(u.ratio === 1 ? 0 : 2)}%`);
+const yes = (b: boolean | number | null) => (b === null ? '—' : b ? '✓' : '✗');
+async function renderOpsAdmin(): Promise<void> {
+  const before = opsBefore.at(-1);
+  const qs = new URLSearchParams({ limit: '20', ...(opsSource ? { source: opsSource } : {}), ...(before ? { before: String(before) } : {}) });
+  const [s, er] = await Promise.all([adminFetch<OpsStatus>('/api/admin/ops/status'), adminFetch<{ errors: OpsErr[]; nextBefore: number | null }>(`/api/admin/ops/errors?${qs}`)]);
+  const seg = (v: string, label: string) => `<button type="button" class="adm-seg__b${opsSource === v ? ' is-on' : ''}" data-ops="filter" data-src="${v}" aria-pressed="${opsSource === v}">${label}</button>`;
+  const e24 = (src: string) => s.errors.last24h.find((x) => x.source === src);
+  mount(
+    tile('full', `${head('chart', `整体：${OPS_STATE[s.overall] ?? s.overall}`, `<button class="btn btn--sm" type="button" data-ops="check">${icon('refresh')}立即健康检查</button>`)}
+<p class="muted small">版本 <b>${e(s.version)}</b> · commit <code>${e(s.commit)}</code> · 环境 ${e(s.environment)} · D1 迁移 <code>${e(s.migration.latest ?? '未知')}</code>（共 ${s.migration.count} 个，代码需要 ${e(s.migration.expected)}）${s.migration.ok ? '' : ' · <b>迁移落后，请执行 wrangler d1 migrations apply</b>'}${s.demo ? ' · 演示站：健康历史是虚构数据' : ''}</p>
+<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">服务组件</caption><thead><tr><th scope="col">组件</th><th scope="col">状态</th><th scope="col">耗时</th></tr></thead><tbody>${s.components.map((c) => `<tr><td>${e(c.label)}</td><td>${e(OPS_STATE[c.state] ?? c.state)}</td><td>${c.ms !== undefined ? `${c.ms} ms` : '—'}</td></tr>`).join('')}</tbody></table></div>
+<p class="small">可用率：24 小时 <b>${pct(s.uptime['24h']!)}</b> · 7 天 <b>${pct(s.uptime['7d']!)}</b> · 30 天 <b>${pct(s.uptime['30d']!)}</b>（${s.uptime['30d']!.checks} 次检查，保留 ${s.limits.healthRetentionDays} 天）· <a href="${e(`${location.origin}${url('/status/')}`)}" target="_blank" rel="noopener">公开状态页</a></p>`) +
+      tile('half', `${head('settings', '绑定与配置')}<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">绑定与配置</caption><tbody>${Object.entries(s.bindings).map(([k, v]) => `<tr><th scope="row"><code>${e(k)}</code></th><td>${v ? '已配置' : '未配置'}</td></tr>`).join('')}<tr><th scope="row">采样率</th><td>Worker ${s.sampling.worker} · 前端 ${s.sampling.client}（新错误总是记录）</td></tr><tr><th scope="row">前端上报限流</th><td>每 IP 每分钟 ${s.limits.clientPerMinute} 条 / 每天 ${s.limits.clientPerDay} 条</td></tr></tbody></table></div>`) +
+      tile('half', `${head('clock', '定时任务')}<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">定时任务</caption><thead><tr><th scope="col">任务</th><th scope="col">最近运行</th><th scope="col">结果</th><th scope="col">次数 / 失败</th></tr></thead><tbody>${s.runs.map((r) => `<tr><td><code>${e(r.job)}</code></td><td class="small">${e(fmtDate(r.last_run))}</td><td>${r.last_ok ? '成功' : `失败${r.detail ? `：${e(r.detail)}` : ''}`}</td><td>${r.runs} / ${r.failures}</td></tr>`).join('') || '<tr><td colspan="4">还没有运行过（Cron 每 15 分钟触发一次）</td></tr>'}</tbody></table></div>`) +
+      tile('full', `${head('history', `最近的健康检查（${s.recentChecks.length}）`)}<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">最近的健康检查</caption><thead><tr><th scope="col">时间</th><th scope="col">结果</th><th scope="col">D1</th><th scope="col">R2</th><th scope="col">DO</th><th scope="col">耗时</th><th scope="col">来源</th></tr></thead><tbody>${s.recentChecks.slice(0, 12).map((c) => `<tr><td class="small">${e(fmtDate(c.at))}</td><td>${c.ok ? '通过' : `失败${c.detail ? `：${e(c.detail)}` : ''}`}</td><td>${yes(c.d1_ok)} ${c.d1_ms} ms</td><td>${yes(c.r2_ok)}</td><td>${yes(c.do_ok)}</td><td>${c.total_ms} ms</td><td>${c.source === 'manual' ? '手动' : '定时'}</td></tr>`).join('') || '<tr><td colspan="7">还没有记录</td></tr>'}</tbody></table></div>`) +
+      tile('full', `${head('flag', `错误事件（保存 ${s.errors.stored} 组，最多 ${s.limits.errorRing}）`, `<div class="adm-seg" role="group" aria-label="错误来源">${seg('', '全部')}${seg('worker', `Worker${e24('worker') ? ` · 24h ${e24('worker')!.events}` : ''}`)}${seg('client', `前端${e24('client') ? ` · 24h ${e24('client')!.events}` : ''}`)}</div>`)}
+<p class="muted small">已清洗：邮箱、IP、令牌、密钥类参数、长哈希、电话号码会被替换。同一错误 1 小时内只累加次数。配置 <code>SENTRY_DSN</code> 后会同时转发到 Sentry 兼容服务。</p>
+${er.errors.length ? `<ul class="adm-ops-errs">${er.errors.map((x) => `<li class="adm-ops-err"><div class="adm-row"><b>${e(x.kind)}</b><span class="muted small">${x.source === 'client' ? '前端' : 'Worker'}${x.status ? ` · ${x.status}` : ''} · ×${x.count} · 最近 ${e(fmtDate(x.last_seen))}${x.release ? ` · ${e(x.release)}` : ''}${x.forwarded ? ' · 已转发' : ''}</span><button class="btn btn--soft btn--sm" type="button" data-ops="delete" data-id="${x.id}" aria-label="删除错误 ${x.id}">${icon('trash')}删除</button></div><p class="adm-ops-err__msg">${e(x.message)}</p>${x.route ? `<p class="muted small"><code>${e(x.route)}</code></p>` : ''}${x.stack ? `<details><summary>调用栈</summary><pre class="adm-ops-err__stack">${e(x.stack)}</pre></details>` : ''}</li>`).join('')}</ul>` : `<p class="muted">${opsBefore.length ? '没有更早的错误了。' : '没有错误记录。'}</p>`}
+<div class="adm-row">${opsBefore.length ? '<button class="btn btn--soft btn--sm" type="button" data-ops="first">回到最新</button>' : ''}${er.nextBefore ? `<button class="btn btn--soft btn--sm" type="button" data-ops="more" data-before="${er.nextBefore}">更早的错误</button>` : ''}${s.errors.stored ? '<button class="btn btn--sm btn--danger" type="button" data-ops="clear">清空全部</button>' : ''}</div>`),
+  );
+}
+
 // ============================================================ L17 发现与活动（话题 / 精选创作者 / 认证 / 摄影活动）
 interface DTopic { slug: string; name: string; intro: string; sort: number; tags: string[]; counts: { works: number; subscribers: number } }
 interface DEvent { slug: string; kind: 'daily' | 'weekly' | 'open'; title: string; phase: string; startsAt: string; endsAt: string; voting: boolean; voteEndsAt: string | null; resultsAt: string | null; counts: { entries: number; participants: number } }
@@ -1336,6 +1377,41 @@ root.addEventListener('click', async (ev) => {
   }
   if (t.closest('#theme-toggle')) {
     toggleTheme();
+    return;
+  }
+  // L21 运行状态：立即检查 / 错误筛选 / 加载更多 / 删除 / 清空
+  const opsBtn = t.closest<HTMLElement>('[data-ops]');
+  if (opsBtn) {
+    const a = opsBtn.dataset.ops!;
+    try {
+      if (a === 'check') {
+        const r = await put<{ check: { ok: number } }>('/api/admin/ops/health-check', {}, 'POST');
+        await renderOpsAdmin();
+        msg(r.check.ok ? '健康检查通过，已记录' : '健康检查失败，已记录', !r.check.ok);
+      } else if (a === 'filter') {
+        opsSource = opsBtn.dataset.src ?? '';
+        opsBefore = [];
+        await renderOpsAdmin();
+      } else if (a === 'more') {
+        opsBefore.push(Number(opsBtn.dataset.before));
+        await renderOpsAdmin();
+      } else if (a === 'first') {
+        opsBefore = [];
+        await renderOpsAdmin();
+      } else if (a === 'delete') {
+        await adminFetch(`/api/admin/ops/errors/${Number(opsBtn.dataset.id)}`, { method: 'DELETE' });
+        await renderOpsAdmin();
+        msg('已删除这条错误');
+      } else if (a === 'clear') {
+        if (!confirm('清空全部错误记录？不能撤销。')) return;
+        const r = await adminFetch<{ deleted: number }>('/api/admin/ops/errors', { method: 'DELETE' });
+        opsBefore = [];
+        await renderOpsAdmin();
+        msg(`已清空 ${r.deleted} 条错误记录`);
+      }
+    } catch (err) {
+      msg(errText(err), true);
+    }
     return;
   }
   const ugcSeg = t.closest<HTMLElement>('[data-ugcv]');

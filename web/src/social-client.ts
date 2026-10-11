@@ -171,6 +171,8 @@ document.addEventListener('blog:dm-unread', (ev) => {
 const DISCOVERY_VIEWS = new Set(['discover', 'topics', 'topic', 'events', 'event', 'collection']);
 const STUDIO_VIEWS = new Set(['projects', 'project', 'features', 'feature', 'mystats']);
 const DM_VIEWS = new Set(['messages', 'msgrequests', 'msgsettings', 'conversation']);
+/** L21 运行状态页：单独一个小包 */
+const OPS_VIEWS = new Set(['status']);
 const OPEN_VIEWS = new Set(['user', 'work', 'topic', 'project', 'me']);
 export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<void> {
   const box = root.querySelector<HTMLElement>('.js-social');
@@ -185,6 +187,8 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     else if (view && STUDIO_VIEWS.has(view)) await (await import('./studio-client')).mountStudio(box, view, ctx);
     // L19 私信 / 消息请求 / 设置 / 会话：再分一个包
     else if (view && DM_VIEWS.has(view)) await (await import('./dm-client')).mountDm(box, view, ctx);
+    // L21 运行状态
+    else if (view && OPS_VIEWS.has(view)) await (await import('./ops-client')).mountOps(box, view);
     else if (view === 'user') await renderProfile(box, box.dataset.username ?? '', ctx);
     else if (view === 'notifications') await renderNotifications(box, ctx);
     else if (view === 'me') await renderMe(box, ctx);
@@ -192,7 +196,7 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     if (view && OPEN_VIEWS.has(view)) void import('./open-client').then((m) => m.enhance(box, view, ctx)).catch(() => undefined);
   } catch (x) {
     const nf = x instanceof ApiError && x.status === 404;
-    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view)));
+    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view) || OPS_VIEWS.has(view)));
     box.innerHTML = `<div class="soc-gate tile tile--full">${icon(nf ? 'user' : 'close')}<h2>${nf ? (isWork ? '内容不存在' : '没有这个用户') : '加载失败'}</h2><p class="muted">${e(nf ? (isWork ? '可能已被删除，或者你没有权限查看。' : '可能是用户名写错了，或者对方不想被你看到。') : errMsg(x))}</p><a class="btn btn--soft" href="${url('/')}">回到首页</a></div>`;
   } finally {
     box.removeAttribute('aria-busy');

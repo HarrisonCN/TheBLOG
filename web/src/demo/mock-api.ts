@@ -21,6 +21,7 @@ import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
+import { MockOps, opsSeed } from './mock-ops';
 import type { DmEvent } from '../dm-core';
 
 export interface KV {
@@ -270,6 +271,19 @@ export class DemoBackend {
       isAdmin: () => this.isAuthenticated(),
       now: () => this.now(),
     });
+    this.ops = new MockOps({
+      state: () => this.db().ops ?? opsSeed(),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.ops ??= opsSeed();
+        mutate(db.ops);
+        this.save(db);
+      },
+      social: this.social,
+      isAdmin: () => this.isAuthenticated(),
+      now: () => this.now(),
+      version: String(import.meta.env.VITE_APP_VERSION ?? ''),
+    });
     this.open = new MockOpen({
       state: () => this.db().open ?? openSeed(this.now(), this.base),
       commit: (mutate) => {
@@ -300,6 +314,7 @@ export class DemoBackend {
     });
   }
   private open: MockOpen;
+  private ops!: MockOps;
   /** 构建期（prerender）：生成静态订阅源 */
   openFeeds(): MockOpen {
     return this.open;
@@ -407,6 +422,11 @@ export class DemoBackend {
     const q = u.searchParams;
     const ok = (b: unknown, status = 200): MockResponse => ({ status, body: b });
 
+    // ---- L21 健康检查 / 版本 / 运行状态 / 前端错误上报 ----
+    if (path === '/api/health' || path === '/api/version' || path === '/api/status' || path === '/api/errors') {
+      const o = this.ops.routePublic(m, path, body);
+      if (o) return o;
+    }
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
       const o = this.open.routePublic(m, path, q, body, headers);
@@ -510,6 +530,8 @@ export class DemoBackend {
       }
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
+      const opsAdmin = this.ops.routeAdmin(m, sub, q);
+      if (opsAdmin) return opsAdmin;
       const discAdmin = this.disc.routeAdmin(m, sub, body);
       if (discAdmin) return discAdmin;
       const studioAdmin = this.studio.routeAdmin(m, sub);

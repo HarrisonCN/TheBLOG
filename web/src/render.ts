@@ -96,6 +96,7 @@ export type Route =
   | { name: 'msgrequests' }
   | { name: 'msgsettings' }
   | { name: 'conversation'; id: number }
+  | { name: 'status' }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -134,6 +135,7 @@ const STATIC: Record<string, Route['name']> = {
   '/messages': 'messages',
   '/messages/requests': 'msgrequests',
   '/messages/settings': 'msgsettings',
+  '/status': 'status',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -418,7 +420,7 @@ export const NAV: NavItem[] = [
     label: '技术',
     icon: 'code',
     href: '/opensource/',
-    match: ['opensource', 'changelog', 'projects', 'project'],
+    match: ['opensource', 'changelog', 'projects', 'project', 'status'],
     children: [
       { label: '开源项目', icon: 'code', href: '/opensource/' },
       { label: '创作者项目', icon: 'briefcase', href: '/projects/' },
@@ -530,7 +532,7 @@ export function footer(site: SiteData): string {
     <nav class="footer__cols" aria-label="页脚导航">
       ${col('内容', [['最新文章', '/archives/'], ['热门标签', '/tags/'], ['专题合集', '/categories/'], ['作品集', '/works/'], ['搜索', '/search/']])}
       ${col('关于', [['关于我', '/about/'], ['此刻', '/now/'], ['时间线', '/timeline/'], ['留言与便签', '/guestbook/'], ['友链', '/links/']])}
-      ${col('更多', [['RSS 订阅', '/subscribe/'], ['开源项目', '/opensource/'], ['更新日志', '/changelog/'], ['数据', '/stats/'], ['隐私说明', '/privacy/']])}
+      ${col('更多', [['RSS 订阅', '/subscribe/'], ['开源项目', '/opensource/'], ['更新日志', '/changelog/'], ['数据', '/stats/'], ['运行状态', '/status/'], ['隐私说明', '/privacy/']])}
     </nav>
     <figure class="footer__quote"><blockquote>“${e(FOOTER_QUOTE)}”</blockquote><figcaption>—— ${e(site.profile.name)}</figcaption></figure>
   </div>
@@ -1440,6 +1442,8 @@ export function privacyPage(site: SiteData): Page {
 <li>邮箱只用来发送验证码和识别你的好朋友账号，不会出现在任何公开页面或接口里。验证码和登录令牌在服务器上只存哈希，验证码 10 分钟后失效。</li>
 <li>限流和防重复举报用的是加盐哈希后的 IP，不保存原始 IP；在线状态记录 2 分钟后自动删除。</li>
 <li>Google 登录只在你点击后发生，授权页由 Google 显示并由你确认；本站只读取名字、头像和用于识别账号的邮箱。站长删除好朋友账号时，徽章、登录令牌和你上传的文件一并删除。</li></ul>
+<h2 id="h-privacy-7">出错时的错误报告</h2>
+<p>页面脚本出错时，浏览器会把错误信息（错误类型、消息、调用栈和页面路径，<b>不含</b>查询参数、Cookie 或你填写的内容）发给本站服务器，服务器再去掉其中可能出现的邮箱、IP、令牌等信息后保存，最多保留最近 500 条，只用来修 bug。开启「请勿追踪」或 GPC 时不会发送。服务是否正常可以在 <a href="${url('/status/')}">运行状态</a> 页面查看。</p>
 <h2 id="h-privacy-5">本地存储</h2>
 <p>浏览器本地只保存：深色 / 浅色、点赞与「收藏」书签、好朋友登录状态。演示站的数据也只保存在你的浏览器里。首页的「订阅」框不会把邮箱发给任何第三方：它只是把你带到「成为好朋友」页，由你自己决定是否用邮箱验证码注册。</p>
 <h2 id="h-privacy-6">图片致谢</h2>
@@ -1585,15 +1589,16 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'msgrequests':
     case 'msgsettings':
     case 'conversation':
+    case 'status':
       return socialPage(site, route);
     default:
       return notFoundPage(site);
   }
 }
 
-export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats' | 'messages' | 'msgrequests' | 'msgsettings' | 'conversation';
+export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats' | 'messages' | 'msgrequests' | 'msgsettings' | 'conversation' | 'status';
 /** 所有交给 social-client 按需渲染的路由 */
-export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats', 'messages', 'msgrequests', 'msgsettings', 'conversation'];
+export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats', 'messages', 'msgrequests', 'msgsettings', 'conversation', 'status'];
 /**
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
@@ -1613,6 +1618,7 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: SocialR
     messages: ['私信', '和互相关注的好朋友一对一聊天'],
     msgrequests: ['消息请求', '还没有互相关注的人发来的消息，接受后才能回复'],
     msgsettings: ['私信设置', '谁可以给你发私信、已读回执与在线状态'],
+    status: ['运行状态', 'API、数据库、存储与定时任务是否正常，最近 30 天可用率与当前版本'],
   } as const;
   const head =
     route.name === 'user'

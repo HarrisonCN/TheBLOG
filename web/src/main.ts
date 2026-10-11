@@ -7,7 +7,7 @@ import './motion-ui.css';
 import './l12.css';
 import './music-tab.css';
 import './l14.css';
-import { api, ApiError, DEMO } from './api';
+import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -734,8 +734,36 @@ document.addEventListener('blog:bookmark', (ev) => {
   if (d && currentMember()) void import('./social-client').then((m) => m.syncBookmark(d.slug, d.on, d.title, { notify: (msg, t) => void notify(msg, t) }));
 });
 
+// ---------------------------------------------------------------- L21 前端错误上报
+/**
+ * 页面脚本出错时把错误信息发给 /api/errors（服务端再做 PII 清洗、去重、限流、采样）。只发路径不发查询参数；
+ * 每页最多 3 条、同一条只发一次；只上报本站脚本的错误（浏览器扩展等外部脚本忽略）；开启「请勿追踪」或 GPC 时不发送。
+ */
+function installErrorReporter(): void {
+  const nav = navigator as Navigator & { globalPrivacyControl?: boolean };
+  if (nav.doNotTrack === '1' || nav.globalPrivacyControl) return;
+  let sent = 0;
+  const seen = new Set<string>();
+  const send = (kind: string, message: string, stack = '') => {
+    if (sent >= 3 || !message || seen.has(message) || /ResizeObserver loop|Script error\.?$/.test(message)) return;
+    seen.add(message);
+    sent++;
+    void request('/api/errors', { method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: true, body: JSON.stringify({ kind, message: message.slice(0, 500), stack: stack.slice(0, 4000), url: location.pathname, release: import.meta.env.VITE_APP_VERSION }) }).catch(() => undefined);
+  };
+  addEventListener('error', (ev) => {
+    if (!(ev instanceof ErrorEvent) || (ev.filename && !ev.filename.startsWith(location.origin))) return;
+    send('error', ev.message, (ev.error as Error | undefined)?.stack);
+  });
+  addEventListener('unhandledrejection', (ev) => {
+    const r = ev.reason as unknown;
+    if (r instanceof ApiError) return; // 接口错误已经在界面上提示过
+    send('unhandledrejection', r instanceof Error ? r.message : String(r), r instanceof Error ? r.stack : '');
+  });
+}
+
 // ---------------------------------------------------------------- 启动
 async function boot(): Promise<void> {
+  installErrorReporter();
   if (DEMO) {
     const { mountDemoBanner } = await import('./demo/client');
     mountDemoBanner({ adminHref: url('/admin/') });
