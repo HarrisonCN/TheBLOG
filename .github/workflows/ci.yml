@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Versions agree (package.json ×3, lockfile, CHANGELOG, README badges)
+        run: npm run version:check
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests (worker on local D1/R2 via wrangler, web)
