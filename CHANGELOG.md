@@ -11,6 +11,14 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 - **prerender:** walk all pages, strict mode for CI/Pages/deploy, 250-post fixtures; deploy reports SKIPPED (9d84453)
 - **api:** cursor pagination + cached post summary index with ETag (10a881b)
 
+### 修复 Fixes
+
+- **ci:** deploy.yml YAML (quote summary steps as block scalars) (c7a3195)
+
+### 文档 Docs
+
+- **changelog:** regenerate (90eadc8)
+
 ### 构建 Build
 
 - **release:** SemVer 1.14.1 (Lnn = 1.nn.0), generated CHANGELOG + README version badges, CI version check (96461b6)
