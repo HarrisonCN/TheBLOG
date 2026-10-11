@@ -170,6 +170,7 @@ async function renderFeed(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     ${DEMO ? `<p class="ugc-demo muted small" role="note">${icon('sparkles')}演示站：这里的作品由虚构的示例用户发布，数据只保存在你的浏览器里。</p>` : ''}
   </div>
   <p class="visually-hidden js-live" role="status" aria-live="polite"></p>
+  <h2 class="visually-hidden">动态列表</h2>
   <div class="ugc-list js-list" aria-busy="true"></div>
   <button class="btn btn--ghost btn--sm ugc-more js-more" type="button" hidden>加载更多</button>
 </div>`;
@@ -263,7 +264,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
   ${w.notes ? `<section class="ugc-notes" aria-labelledby="ugc-notes-h"><h2 class="soc-h" id="ugc-notes-h">${icon('book')}拍摄手记</h2><div class="prose">${renderCommentHtml(w.notes)}</div></section>` : ''}
   <div class="ugc-actions">
     <div class="ugc-reacts" role="group" aria-label="回应">${reactBar}</div>
-    <button type="button" class="btn btn--soft btn--sm js-bookmark" aria-pressed="${w.mine.bookmarked}"${me ? '' : ' disabled'}>${icon('bookmark')}<span>${w.mine.bookmarked ? '已收藏' : '收藏'}</span></button>
+    <button type="button" class="btn btn--soft btn--sm js-wbookmark" aria-pressed="${w.mine.bookmarked}"${me ? '' : ' disabled'}>${icon('bookmark')}<span>${w.mine.bookmarked ? '已收藏' : '收藏'}</span></button>
     ${w.mine.canEdit ? `<a class="btn btn--ghost btn--sm" href="${url(`/compose/?edit=${w.id}`)}">${icon('edit')}编辑</a>${w.status === 'draft' ? `<button type="button" class="btn btn--primary btn--sm js-publish">${icon('send')}发布</button>` : ''}<button type="button" class="btn btn--ghost btn--sm js-delete">${icon('trash')}删除</button>` : me ? `<button type="button" class="btn btn--ghost btn--sm js-report" data-kind="work" data-id="${w.id}">${icon('flag')}举报</button>` : ''}
   </div>
   ${me ? '' : `<p class="muted small"><a href="${url('/join/')}">登录</a>后可以回应、收藏和评论。</p>`}
@@ -302,7 +303,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
       b.setAttribute('aria-label', `${WORK_REACTION_EMOJI[k]} 回应（${n}）`);
       b.querySelector('.ugc-react__n')!.textContent = String(n);
     });
-    const bm = box.querySelector<HTMLButtonElement>('.js-bookmark');
+    const bm = box.querySelector<HTMLButtonElement>('.js-wbookmark');
     if (bm) {
       bm.setAttribute('aria-pressed', String(r.bookmarked));
       bm.querySelector('span')!.textContent = r.bookmarked ? '已收藏' : '收藏';
@@ -317,7 +318,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
         b.disabled = true;
         applyReact(await ugc.react(w.id, b.dataset.k as WorkReaction, b.getAttribute('aria-pressed') !== 'true'));
         b.disabled = false;
-      } else if (b.classList.contains('js-bookmark')) {
+      } else if (b.classList.contains('js-wbookmark')) {
         const on = b.getAttribute('aria-pressed') !== 'true';
         applyReact(await ugc.bookmark(w.id, on));
         void ctx.notify(on ? '已收藏' : '已取消收藏', on ? 'success' : 'info');
