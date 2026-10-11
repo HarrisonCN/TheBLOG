@@ -15,7 +15,7 @@
   "dependencies": {
     "dompurify": "3.4.16",
     "marked": "18.1.0",
-    "motionary": "13.0.2",
+    "motionary": "^13.5.0",
     "uqr": "0.1.3"
   },
   "devDependencies": {
