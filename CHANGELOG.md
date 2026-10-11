@@ -12,8 +12,13 @@ _L15 · 社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云
 - **social:** demo mock parity for /api/social (shared social-core, web unit tests) (41e8ad3)
 - **social:** L15 worker API — usernames, profiles, follow/block/mute, cloud bookmarks, notifications (migration 0012_social) (16e0ffb)
 
+### 修复 Fixes
+
+- **social:** placeholder weight/contrast in profile forms (15612a8)
+
 ### 杂项 Chores
 
+- **release:** 1.15.0 — L15 social foundation (docs: migration 0012_social) (b2d5c54)
 - **release:** freeze 1.14.1 merge sha 11354ee (3ed8fa2)
 
 ## [1.14.1](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.1)
