@@ -138,3 +138,4 @@
   .social__spin { animation-duration: 2.4s; }
   .soc-filter, .soc-n { transition: none; }
 }
+.soc-me input::placeholder, .soc-me textarea::placeholder, .soc-find input::placeholder { font-weight: 400; color: var(--muted); opacity: 1; }
