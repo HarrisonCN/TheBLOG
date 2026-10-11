@@ -45,7 +45,7 @@ export function renderSection({ version, date, title, commits }) {
   const groups = new Map();
   for (const c of commits) {
     const p = parseCommit(c.subject);
-    if (/^(wip|squash!|fixup!)/i.test(c.subject)) continue;
+    if (/^(wip|squash!|fixup!|docs\(changelog\)(!)?:\s*regenerate)/i.test(c.subject)) continue;
     if (!groups.has(p.type)) groups.set(p.type, []);
     groups.get(p.type).push({ ...p, sha: c.sha });
   }

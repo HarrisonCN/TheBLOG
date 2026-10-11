@@ -18,6 +18,11 @@ describe('版本 / 更新日志（scripts/changelog.mjs）', () => {
     expect(md).not.toContain('y (bbbbbbb)');
     expect(topChangelogVersion(md)).toBe('9.9.9');
   });
+  it('跳过 docs(changelog): regenerate 提交（避免自引用）', () => {
+    const md = renderSection({ version: '9.9.9', date: '2026-10-11', title: 't', commits: [{ sha: 'd'.repeat(40), subject: 'docs(changelog): regenerate' }, { sha: 'e'.repeat(40), subject: 'docs(readme): keep me' }] });
+    expect(md).not.toContain('regenerate');
+    expect(md).toContain('keep me');
+  });
   it('徽章来自 package.json / package-lock（Motionary 用实际解析的版本）', () => {
     const v = collectVersions();
     const b = badgeBlock(v);

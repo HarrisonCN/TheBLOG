@@ -15,10 +15,6 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 
 - **ci:** deploy.yml YAML (quote summary steps as block scalars) (c7a3195)
 
-### 文档 Docs
-
-- **changelog:** regenerate (90eadc8)
-
 ### 构建 Build
 
 - **release:** SemVer 1.14.1 (Lnn = 1.nn.0), generated CHANGELOG + README version badges, CI version check (96461b6)
