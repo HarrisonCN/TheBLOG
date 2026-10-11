@@ -2,6 +2,20 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.20.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.20.0) — 2026-10-11
+
+_L20 · 开放创作者网络：Webmention 收发与审核、RSS / Atom / JSON Feed、开放只读 API、GitHub 项目卡片、邮件订阅摘要、分级 MCP 令牌、可选 AI 辅助_
+
+### 新功能 Features
+
+- **web:** L20 lazy open UI — webmentions panel, feed and email subscribe, GitHub card, MCP token console, composer AI panel, h-entry/h-card markup; prerender static feeds, autodiscovery and OG (19da9ed)
+- **web:** L20 demo mock parity for webmentions, feeds, subscriptions, MCP tokens and AI assist (8a938ec)
+- **worker:** L20 open creator network — Webmention receive/verify/moderate/send, RSS/Atom/JSON feeds, open read API v1, h-entry source pages, GitHub repo cards (D1 cache + ETag), email digest subscriptions with one-click unsubscribe, scoped member MCP tokens with audit, optional AI assist gate, cron (migration 0017) (929ad9d)
+
+### 杂项 Chores
+
+- **release:** 1.20.0 — README L20 (API, cron triggers, migrations 0006–0017), release-meta (9d0d43c)
+
 ## [1.19.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.19.0) — 2026-10-11
 
 _L19 · 实时交流：私信与消息请求、隐私开关、已读回执 / 撤回、离线同步、Durable Object WebSocket 实时推送、活动聊天室_
