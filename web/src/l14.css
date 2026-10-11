@@ -161,6 +161,10 @@ html.story-open { overflow: hidden; }
 .shelf__date { margin-left: auto; }
 .shelf-count { margin: 0.2rem 0 0; }
 .shelf-bar .seg { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .shelf__cover--img { aspect-ratio: auto; height: 240px; }
+  .shelf__cover--img .shelf__img { object-fit: contain; }
+}
 
 /* ---------------------------------------------------------------- 嵌入块错误提示 */
 .embed-error { padding: 0.5em 0.8em; border: 1px dashed #b91c1c; border-radius: 8px; color: #991b1b; font-size: 0.88em; }
