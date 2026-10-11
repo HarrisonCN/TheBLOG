@@ -106,7 +106,7 @@ describe('恢复演练（本地 D1）', () => {
     const man = JSON.parse(readFileSync(manFile, 'utf8'));
     const gz = join(out, man.d1.file);
     const bytes = readFileSync(gz);
-    bytes[bytes.length - 10] ^= 0xff;
+    bytes[bytes.length - 10] = bytes[bytes.length - 10]! ^ 0xff;
     const bad = join(tmp, 'bad');
     mkdirSync(bad, { recursive: true });
     writeFileSync(join(bad, man.d1.file), bytes);
