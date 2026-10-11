@@ -27,4 +27,6 @@ export interface Env {
   SITE_URL?: string;
   SESSION_TTL_SECONDS?: string;
   COOKIE_SECURE?: string;
+  /** L19 私信实时层：Durable Object 绑定（class DmHub）。未绑定时私信照常可用，浏览器退回轮询 */
+  DM_HUB?: DurableObjectNamespace;
 }
