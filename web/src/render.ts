@@ -13,6 +13,8 @@ import { activeFestival, type Festival, type Project, type PublicMember, type St
 import { REACTIONS } from './reactions-core';
 import { noteTextHtml } from './note-style-view';
 import { DEFAULT_NOTE_STYLE, EFFECT_LABELS, FONT_LABELS, INK_PRESETS, NOTE_EFFECTS, NOTE_FONTS, NOTE_SIZES, SIZE_LABELS } from './note-style';
+import { ESSAY_LAYOUT_LABEL, type Essay } from './essay-core';
+import { exifStripHtml, shotNotesHtml } from './essay-view';
 import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
 export { rssXml, jsonFeed } from './sections';
 import { badgeHtml, presetGallery } from './badge-view';
@@ -562,7 +564,7 @@ export function postCard(p: PostSummary, i: number, size: Size = 'third', big = 
   const body = `<usa-spatial-card class="post-tile__spatial" max="6"><a class="post-tile__link" href="${postPath(p.slug)}">
   <span class="post-tile__cover" data-depth="1">${cover || `<span class="post-tile__ph" style="--h:${hashHue(p.slug)}">${icon('file')}</span>`}</span>
   <span class="post-tile__info" data-depth="2">
-    <span class="post-tile__chips">${featured ? `<span class="chip chip--accent">${icon('star')}精选</span>` : ''}${p.pinned ? `<span class="chip chip--accent">${icon('pin')}置顶</span>` : ''}${p.category ? `<span class="chip">${e(p.category)}</span>` : ''}<span class="chip chip--ghost">${formatDate(pubDate(p))}</span></span>
+    <span class="post-tile__chips">${p.kind === 'essay' ? `<span class="chip chip--accent">${icon('aperture')}影集</span>` : ''}${featured ? `<span class="chip chip--accent">${icon('star')}精选</span>` : ''}${p.pinned ? `<span class="chip chip--accent">${icon('pin')}置顶</span>` : ''}${p.category ? `<span class="chip">${e(p.category)}</span>` : ''}<span class="chip chip--ghost">${formatDate(pubDate(p))}</span></span>
     <span class="post-tile__title">${e(p.title)}</span>
     ${p.summary ? `<span class="post-tile__excerpt">${e(p.summary)}</span>` : ''}
     <span class="post-tile__foot">${icon('clock')}${readingMinutes(p.wordCount || 0)} 分钟 · ${formatCount(p.wordCount || 0)} 字${p.tags.length ? ` · ${p.tags.slice(0, 3).map((t) => `#${e(t)}`).join(' ')}` : ''}</span>
@@ -957,8 +959,25 @@ export function chapterize(html: string): { html: string; toc: string; chapters:
   return { html: out, toc, chapters };
 }
 
+/** 影集：版式（单列全幅 / 双联 / 网格）+ 每张照片的图注、EXIF 条、署名和可折叠的拍摄手记；点照片进入故事模式。 */
+export function essaySection(essay: Essay): string {
+  const n = essay.photos.length;
+  const items = essay.photos
+    .map((p, i) => {
+      const cap = p.caption || p.alt || `第 ${i + 1} 张`;
+      const pic = img(p.src, p.alt || p.caption || `影集第 ${i + 1} 张`, 'essay__img', { sizes: essay.layout === 'single' ? '(max-width: 1100px) 100vw, 1100px' : essay.layout === 'diptych' ? '(max-width: 640px) 100vw, 560px' : '(max-width: 640px) 50vw, 380px', eager: i === 0, w: p.width || undefined, h: p.height || undefined });
+      return `<li class="essay__item"><figure class="essay__fig"><button type="button" class="essay__open js-essay-open" data-i="${i}" aria-label="故事模式查看第 ${i + 1} 张：${e(cap)}">${pic}</button><figcaption class="essay__cap"><span class="essay__n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><span class="essay__txt">${p.caption ? `<span class="essay__caption">${e(p.caption)}</span>` : ''}${exifStripHtml(p.exif)}${p.credit ? `<small class="essay__credit">署名：${e(p.credit)}</small>` : ''}</span></figcaption></figure>${shotNotesHtml(p.notes, `拍摄手记 · 第 ${i + 1} 张`)}</li>`;
+    })
+    .join('');
+  return `<section class="essay essay--${essay.layout}" aria-label="影集：${n} 张照片" data-essay>
+  <div class="essay__bar"><span class="essay__meta">${icon('aperture')}影集 · ${n} 张 · ${ESSAY_LAYOUT_LABEL[essay.layout]}</span><button type="button" class="btn btn--soft essay__story js-essay-story" data-i="0">${icon('play')}故事模式</button></div>
+  <ol class="essay__list">${items}</ol>
+</section>`;
+}
+
 export function postPage(site: SiteData, post: Post): Page {
   const { html, toc, chapters } = chapterize(md(post.contentMd));
+  const essay = post.kind === 'essay' && post.essay?.photos.length ? post.essay : null;
   const idx = site.posts.findIndex((p) => p.slug === post.slug);
   const newer = idx > 0 ? site.posts[idx - 1] : undefined;
   const older = idx >= 0 ? site.posts[idx + 1] : undefined;
@@ -973,7 +992,7 @@ export function postPage(site: SiteData, post: Post): Page {
       'full',
       `<div class="head-tile__bg"${bgStyle(post.coverUrl ?? site.settings.heroImage)}></div>
   <div class="head-tile__body post-top">
-    <p class="post-top__chips">${post.category ? `<a class="chip chip--glass" href="${categoryPath(post.category)}">${icon('folder')}${e(post.category)}</a>` : ''}${post.status === 'draft' ? '<span class="chip chip--accent">草稿</span>' : ''}</p>
+    <p class="post-top__chips">${essay ? `<span class="chip chip--glass">${icon('aperture')}影集</span>` : ''}${post.category ? `<a class="chip chip--glass" href="${categoryPath(post.category)}">${icon('folder')}${e(post.category)}</a>` : ''}${post.status === 'draft' ? '<span class="chip chip--accent">草稿</span>' : ''}</p>
     <h1 class="head-tile__title post-top__title" data-split>${e(post.title)}</h1>
     ${postMeta(post)}
     <div class="post-meta post-meta--sub"><span>${icon('file')}字数总计：${formatCount(words)}</span><span>${icon('clock')}阅读时长：${readingMinutes(words)} 分钟</span></div>
@@ -986,12 +1005,14 @@ export function postPage(site: SiteData, post: Post): Page {
     ? `<usa-chapter-nav for="#post-body" orientation="vertical" label="文章目录" class="chapter-nav"${chapters ? '' : ' hidden'}></usa-chapter-nav>${toc}`
     : '<p class="empty">这篇文章没有小标题。</p>';
   const main = `<usa-scroll-progress target="#post" label="阅读进度" class="read-progress"></usa-scroll-progress>
-<div class="post-layout">
-<article class="tile tile--full post reveal" id="post">
+<div class="post-layout${essay ? ' post-layout--essay' : ''}">
+<article class="tile tile--full post reveal${essay ? ' post--essay' : ''}" id="post">
   ${postTools()}
   <usa-double-tap class="post__body" label="双击点赞">
     <div class="prose" id="post-body">${html}</div>
   </usa-double-tap>
+  ${essay ? essaySection(essay) : ''}
+  ${post.notes ? `<div class="post-notes">${shotNotesHtml(post.notes, essay ? '这组照片的拍摄手记' : '拍摄手记', true)}</div>` : ''}
   <div class="post__like"><usa-like class="js-like" data-slug="${e(post.slug)}" label="喜欢这篇文章"></usa-like><span class="post__like-hint">喜欢就点个赞，或在正文上双击 ❤</span></div>
   ${reactionsBar(post.slug)}
   ${series ? seriesNav(series, post.slug) : ''}
@@ -1018,7 +1039,7 @@ ${commentsSection(post.slug)}`;
     description: post.summary || plainText(post.contentMd),
     top,
     main,
-    kind: 'page--post',
+    kind: essay ? 'page--post page--essay' : 'page--post',
   });
 }
 

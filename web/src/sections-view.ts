@@ -8,7 +8,7 @@ import { icon } from './icons';
 import { bento, formatDate, hashHue, img, kicker, more, pageHead, postPath, shell, tagCloud, tile, url, type Extra, type Page } from './render';
 import type { PostSummary, SiteData } from './types';
 import {
-  activityHeatmap, CHANGE_TYPE, GEAR_CATEGORIES, NOW_KIND, REPO_STATUS, SHELF_KIND, SHELF_STATUS, sortByDateDesc, TIMELINE_KIND,
+  activityHeatmap, CHANGE_TYPE, GEAR_CATEGORIES, NOW_KIND, REPO_STATUS, SHELF_KIND, SHELF_STATUS, shelfStatusLabel, sortByDateDesc, TIMELINE_KIND,
   type ChangelogEntry, type GearItem, type HeatCell, type NowItem, type Repo, type ShelfItem, type TimelineItem, type Work,
 } from './sections';
 
@@ -259,18 +259,20 @@ export function shelfPage(site: SiteData, shelf: ShelfItem[]): Page {
     `<div class="shelf-bar"><div class="seg js-shelf-kind" role="group" aria-label="按类型筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">全部 <small>${shelf.length}</small></button>${kinds
       .map((k) => `<button type="button" class="seg__b" data-v="${k}" aria-pressed="false">${icon(SHELF_KIND[k].icon)}${SHELF_KIND[k].label} <small>${count(k)}</small></button>`)
       .join('')}</div>
-<div class="seg seg--soft js-shelf-status" role="group" aria-label="按状态筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">全部</button>${(Object.keys(SHELF_STATUS) as ShelfItem['status'][])
+<div class="seg seg--soft js-shelf-status" role="group" aria-label="按状态筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">全部</button>${(['want', 'doing', 'done'] as ShelfItem['status'][])
       .map((s) => `<button type="button" class="seg__b" data-v="${s}" aria-pressed="false">${SHELF_STATUS[s]}</button>`)
-      .join('')}</div></div>`,
+      .join('')}</div>
+<div class="seg seg--soft js-shelf-rating" role="group" aria-label="按评分筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">不限评分</button><button type="button" class="seg__b" data-v="4" aria-pressed="false">4 星以上</button><button type="button" class="seg__b" data-v="5" aria-pressed="false">5 星</button></div>
+<p class="shelf-count muted small js-shelf-count" aria-live="polite">共 ${shelf.length} 项</p></div>`,
     { cls: 'shelf-head' },
   );
   const items = shelf
     .map((s) =>
       tile(
         'quarter',
-        `<div class="shelf__cover" style="--h:${hashHue(s.title + s.creator)}"><span class="shelf__kind">${icon(SHELF_KIND[s.kind]?.icon ?? 'book')}${SHELF_KIND[s.kind]?.label ?? ''}</span><b class="shelf__t">${e(s.title)}</b></div>
-  <div class="shelf__body"><p class="shelf__by muted small">${e([s.creator, s.year].filter(Boolean).join(' · '))}</p><p class="shelf__row"><span class="chip chip--${s.status}">${SHELF_STATUS[s.status]}</span>${s.rating ? stars(s.rating) : ''}</p>${s.note ? `<p class="shelf__note">${e(s.note)}</p>` : ''}${aOpen(s.url) ? `${aOpen(s.url, 'tile__more')}详情${icon('arrowRight')}</a>` : ''}</div>`,
-        { cls: 'shelf', attrs: `data-kind="${e(s.kind)}" data-status="${e(s.status)}"` },
+        `<div class="shelf__cover${s.cover ? ' shelf__cover--img' : ''}" style="--h:${hashHue(s.title + s.creator)}">${s.cover ? img(s.cover, `《${s.title}》封面`, 'shelf__img', { sizes: '(max-width: 640px) 50vw, 240px' }) : ''}<span class="shelf__kind">${icon(SHELF_KIND[s.kind]?.icon ?? 'book')}${SHELF_KIND[s.kind]?.label ?? ''}</span>${s.cover ? '' : `<b class="shelf__t">${e(s.title)}</b>`}</div>
+  <div class="shelf__body">${s.cover ? `<p class="shelf__title"><b>${e(s.title)}</b></p>` : ''}<p class="shelf__by muted small">${e([s.creator, s.year].filter(Boolean).join(' · '))}</p><p class="shelf__row"><span class="chip chip--${s.status}">${shelfStatusLabel(s.kind, s.status)}</span>${s.rating ? stars(s.rating) : ''}${s.date ? `<time class="shelf__date muted small">${e(s.date)}</time>` : ''}</p>${s.note ? `<p class="shelf__note">${e(s.note)}</p>` : ''}${aOpen(s.url) ? `${aOpen(s.url, 'tile__more')}详情${icon('arrowRight')}</a>` : ''}</div>`,
+        { cls: 'shelf', attrs: `data-kind="${e(s.kind)}" data-status="${e(s.status)}" data-rating="${s.rating}"` },
       ),
     )
     .join('');
