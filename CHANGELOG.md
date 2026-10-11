@@ -13,6 +13,7 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 
 ### 修复 Fixes
 
+- **release:** changelog skips docs(changelog): regenerate commits (957dbbe)
 - **ci:** deploy.yml YAML (quote summary steps as block scalars) (c7a3195)
 
 ### 构建 Build
