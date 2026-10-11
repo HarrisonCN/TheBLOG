@@ -11,6 +11,10 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 - **prerender:** walk all pages, strict mode for CI/Pages/deploy, 250-post fixtures; deploy reports SKIPPED (9d84453)
 - **api:** cursor pagination + cached post summary index with ETag (10a881b)
 
+### 构建 Build
+
+- **release:** SemVer 1.14.1 (Lnn = 1.nn.0), generated CHANGELOG + README version badges, CI version check (96461b6)
+
 ## [1.14.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.0) — 2026-10-11
 
 _L14 · 影集 / 拍摄手记 / 书影音封面 / 引用卡片 / 正文嵌入块 (#11)_
