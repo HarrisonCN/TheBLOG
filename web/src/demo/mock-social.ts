@@ -330,7 +330,7 @@ export class MockSocial {
         return false;
       }
     }
-    if (n.type !== 'system' && n.type !== 'moderation' && !this.prefs(n.to)[n.type]) return false;
+    if (n.type !== 'system' && n.type !== 'moderation' && n.type !== 'collab' && !this.prefs(n.to)[n.type as keyof DemoPrefs]) return false;
     const key = n.key ?? notificationKey(n.type, n);
     const t = this.iso();
     let changed = false;
