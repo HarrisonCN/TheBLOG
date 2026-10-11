@@ -288,3 +288,35 @@ export function wrapText(s: string, maxWidth: number, measure: (t: string) => nu
   if (lines.length >= maxLines) lines[maxLines - 1] = lines[maxLines - 1]!.replace(/.$/, '…');
   return lines.slice(0, maxLines);
 }
+
+/**
+ * 文章的「类型 / 影集 / 文章级拍摄手记」三个字段一起校验（Worker 与演示 mock 共用）。
+ * - 创建时缺省 kind = 'post'；更新时缺省沿用 current。
+ * - kind = 'essay' 必须带至少 1 张照片的影集；kind = 'post' 时影集被清空（不保留孤儿数据）。
+ */
+export function validatePostMedia(
+  input: { kind?: unknown; essay?: unknown; notes?: unknown },
+  current?: { kind: PostKind; essay: Essay | null; notes: ShotNote | null },
+): { kind: PostKind; essay: Essay | null; notes: ShotNote | null; issues: Issue[] } {
+  const issues: Issue[] = [];
+  let kind: PostKind = current?.kind ?? 'post';
+  if (input.kind !== undefined) {
+    if ((POST_KINDS as readonly unknown[]).includes(input.kind)) kind = input.kind as PostKind;
+    else issues.push({ path: 'kind', message: '类型只能是 post / essay' });
+  }
+  let essay = current?.essay ?? null;
+  if (input.essay !== undefined) {
+    const r = validateEssay(input.essay);
+    for (const i of r.issues) issues.push({ path: `essay.${i.path}`.replace(/\.$/, ''), message: i.message });
+    essay = r.essay;
+  }
+  let notes = current?.notes ?? null;
+  if (input.notes !== undefined) {
+    const r = validateShotNote(input.notes, 'notes.');
+    issues.push(...r.issues);
+    notes = r.note;
+  }
+  if (kind === 'essay' && !essay?.photos.length && !issues.some((i) => i.path.startsWith('essay'))) issues.push({ path: 'essay', message: '影集至少需要 1 张照片' });
+  if (kind === 'post') essay = null;
+  return { kind, essay, notes, issues };
+}
