@@ -14,6 +14,7 @@ _L15 · 社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云
 
 ### 修复 Fixes
 
+- **social:** keep worker social-core.ts identical to web copy (3cc8a77)
 - **social:** placeholder weight/contrast in profile forms (15612a8)
 
 ### 杂项 Chores
