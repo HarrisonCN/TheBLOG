@@ -14,6 +14,10 @@ import { getMember, rateLimit, requireMember, optionalMember, type Member } from
 import { uploadFromRequest } from './images';
 import { card, notify, pageArgs, relation, type UserCard } from './social';
 import { encodeCursor, extractMentions } from './social-core';
+import { onWorkPublished, resolveWorkTopics, setWorkTopicsStmts, workTopics, type TopicRef } from './discovery';
+import { TOPIC_SLUG_RE } from './discovery-core';
+import { HIDE_RELATED_SQL, VISIBLE_SQL } from './ugc-sql';
+export { HIDE_RELATED_SQL, VISIBLE_SQL };
 import {
   checkFeedQuery,
   checkModAction,
@@ -47,7 +51,7 @@ const bad = (path: string, message: string) => new HttpError(400, 'validation_er
 const notFound = () => new HttpError(404, 'not_found', '内容不存在或你没有权限查看');
 
 // ============================================================ 类型
-interface WorkRow {
+export interface WorkRow {
   id: number;
   author_id: number;
   type: WorkType;
@@ -86,18 +90,19 @@ export interface Work {
   publishedAt: string | null;
   editedAt: string | null;
   createdAt: string;
+  topics: TopicRef[];
   counts: { comments: number; bookmarks: number; reactions: Partial<Record<WorkReaction, number>> };
   mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean };
 }
 export interface PublicWork { kind: 'work'; id: number; type: WorkType; title: string; excerpt: string; cover: WorkMedia | null; visibility: WorkVisibility; createdAt: string }
-export interface WorkComment { id: number; parentId: number | null; author: UserCard; body: string; pending: boolean; createdAt: string; canDelete: boolean }
+export interface WorkComment { id: number; parentId: number | null; author: UserCard; body: string; pending: boolean; createdAt: string; canDelete: boolean; helpful: boolean; canMarkHelpful: boolean }
 
 // ============================================================ 规则 / 信誉
 export async function getRules(env: Env): Promise<CommunityRules> {
   const r = await env.DB.prepare('SELECT review_first_n, max_links FROM community_rules WHERE id = 1').first<{ review_first_n: number; max_links: number }>();
   return r ? { reviewFirstN: r.review_first_n, maxLinks: r.max_links } : { ...DEFAULT_RULES };
 }
-async function standing(env: Env, id: number) {
+export async function standing(env: Env, id: number) {
   const r = await env.DB.prepare('SELECT approved, reputation, banned_at FROM member_standing WHERE member_id = ?').bind(id).first<{ approved: number; reputation: number; banned_at: string | null }>();
   return { approved: r?.approved ?? 0, reputation: r?.reputation ?? 0, banned: !!r?.banned_at };
 }
@@ -107,17 +112,17 @@ function bump(env: Env, id: number, approved: number, rep: number): D1PreparedSt
      ON CONFLICT(member_id) DO UPDATE SET approved = member_standing.approved + excluded.approved, reputation = member_standing.reputation + excluded.reputation, updated_at = excluded.updated_at`,
   ).bind(id, Math.max(0, approved), rep, nowIso());
 }
-async function requirePoster(req: Request, env: Env): Promise<Member> {
+export async function requirePoster(req: Request, env: Env): Promise<Member> {
   const me = await requireMember(req, env);
   if ((await standing(env, me.id)).banned) throw new HttpError(403, 'banned', '你的账号已被限制发布与互动，如有疑问请联系站长');
   return me;
 }
 
 // ============================================================ 读取与权限
-async function loadWork(env: Env, id: number): Promise<WorkRow | null> {
+export async function loadWork(env: Env, id: number): Promise<WorkRow | null> {
   return env.DB.prepare('SELECT * FROM user_posts WHERE id = ?').bind(id).first<WorkRow>();
 }
-async function accessOf(env: Env, w: WorkRow, viewerId: number | null): Promise<'full' | 'own' | 'none'> {
+export async function accessOf(env: Env, w: WorkRow, viewerId: number | null): Promise<'full' | 'own' | 'none'> {
   const st = await standing(env, w.author_id);
   const rel = viewerId && viewerId !== w.author_id ? await relation(env, viewerId, w.author_id) : null;
   return workAccess({
@@ -141,7 +146,7 @@ const parseParams = (raw: string): WorkParams => {
   }
 };
 
-async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null): Promise<Work[]> {
+export async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null): Promise<Work[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const qs = ids.map(() => '?').join(',');
@@ -154,6 +159,7 @@ async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null): Prom
     env.DB.prepare(`SELECT post_id FROM user_post_bookmarks WHERE member_id = ? AND post_id IN (${qs})`).bind(viewerId ?? 0, ...ids),
   ]);
   const by = <T>(rs: D1Result<Record<string, unknown>> | undefined) => (rs?.results ?? []) as unknown as T[];
+  const topics = await workTopics(env, ids);
   const authors = new Map<number, UserCard>();
   for (const a of new Set(rows.map((r) => r.author_id))) authors.set(a, (await card(env, a)) ?? { username: 'unknown', nickname: '已注销用户', avatarUrl: '', bio: '' });
   return rows.map((r) => {
@@ -175,6 +181,7 @@ async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null): Prom
       visibility: r.visibility,
       status: r.status,
       modState: r.mod_state,
+      topics: topics.get(r.id) ?? [],
       // 审核原因只给作者本人看
       modReason: own ? r.mod_reason : '',
       publishedAt: r.published_at,
@@ -206,21 +213,24 @@ export async function getWork(req: Request, env: Env, id: number) {
   return { work: (await toWorks(env, [w], viewer?.id ?? null))[0]! };
 }
 
-const VISIBLE_SQL = "p.status = 'published' AND p.mod_state = 'ok' AND p.deleted_at IS NULL AND p.author_id NOT IN (SELECT member_id FROM member_standing WHERE banned_at IS NOT NULL)";
-const HIDE_RELATED_SQL = "p.author_id NOT IN (SELECT target_id FROM user_relations WHERE owner_id = ?) AND p.author_id NOT IN (SELECT owner_id FROM user_relations WHERE target_id = ? AND kind = 'block')";
 
 /** 动态流：following（关注的人 + 自己）/ latest（全站公开）；按类型筛选；静音 / 拉黑的作者不出现；游标 = (published_at, id)。 */
 export async function feed(req: Request, env: Env, url: URL) {
   const q = checkFeedQuery(url.searchParams);
   if (!q.ok) throw bad(q.path, q.error);
   const { tab, type } = q.value;
+  const topic = url.searchParams.get('topic');
+  if (topic !== null && !TOPIC_SLUG_RE.test(topic)) throw bad('topic', 'topic 无效');
   const { limit, cursor } = pageArgs(url);
   const viewer = tab === 'following' ? await requireMember(req, env) : await optionalMember(req, env);
   const where = [VISIBLE_SQL];
   const args: unknown[] = [];
   if (tab === 'following') {
-    where.push("((p.visibility IN ('public', 'followers') AND p.author_id IN (SELECT following_id FROM user_follows WHERE follower_id = ?)) OR (p.author_id = ? AND p.visibility <> 'private'))");
-    args.push(viewer!.id, viewer!.id);
+    // L17：订阅话题里的公开作品也进入「关注」流
+    where.push(
+      "((p.visibility IN ('public', 'followers') AND p.author_id IN (SELECT following_id FROM user_follows WHERE follower_id = ?)) OR (p.author_id = ? AND p.visibility <> 'private') OR (p.visibility = 'public' AND p.id IN (SELECT pt.post_id FROM post_topics pt JOIN topic_subscriptions ts ON ts.topic_id = pt.topic_id WHERE ts.member_id = ?)))",
+    );
+    args.push(viewer!.id, viewer!.id, viewer!.id);
   } else {
     where.push("(p.visibility = 'public' OR (p.visibility = 'followers' AND p.author_id = ?))");
     args.push(viewer?.id ?? 0);
@@ -232,6 +242,10 @@ export async function feed(req: Request, env: Env, url: URL) {
   if (type) {
     where.push('p.type = ?');
     args.push(type);
+  }
+  if (topic) {
+    where.push('p.id IN (SELECT pt.post_id FROM post_topics pt JOIN topics t ON t.id = pt.topic_id WHERE t.slug = ?)');
+    args.push(topic);
   }
   if (cursor) {
     where.push('(p.published_at < ? OR (p.published_at = ? AND p.id < ?))');
@@ -343,6 +357,8 @@ async function afterPublish(env: Env, w: WorkRow): Promise<void> {
         .run();
     }
     await mentionAll(env, 'work', w.id, w.author_id, `${w.body}\n${w.caption}\n${w.notes}`, w, workNoticeKey('mention', { workId: w.id }));
+    // L17：第一次发布徽章 + 订阅话题的新作品通知
+    await onWorkPublished(env, w);
   } catch (e) {
     console.error('afterPublish failed', e);
   }
@@ -365,6 +381,7 @@ export async function createWork(req: Request, env: Env, input: unknown) {
   const c = checkWork(input);
   if (!c.ok) throw bad(c.path, c.error);
   const v = c.value;
+  const topicIds = await resolveWorkTopics(env, input);
   const rules = await getRules(env);
   const { fp, links } = await spamChecks(env, me, v, rules);
   const draft = (input as { draft?: unknown }).draft === true;
@@ -377,7 +394,7 @@ export async function createWork(req: Request, env: Env, input: unknown) {
   )
     .bind(me.id, v.type, v.title, v.body, v.caption, v.notes, JSON.stringify(v.params), v.visibility, status, fp, links, status === 'published' ? t : null, t, t)
     .first<WorkRow>();
-  await env.DB.batch([...mediaStmts(env, row!.id, v), ...(status === 'published' ? [bump(env, me.id, 1, 1)] : [])]);
+  await env.DB.batch([...mediaStmts(env, row!.id, v), ...(topicIds ? setWorkTopicsStmts(env, row!.id, topicIds) : []), ...(status === 'published' ? [bump(env, me.id, 1, 1)] : [])]);
   if (status === 'pending') await logAction(env, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: row!.id, memberId: me.id, reason: `新会员前 ${rules.reviewFirstN} 条内容先审核` });
   if (status === 'published') await afterPublish(env, row!);
   return { work: (await toWorks(env, [row!], me.id))[0]!, status };
@@ -402,6 +419,7 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
   if (!c.ok) throw bad(c.path, c.error);
   const v = c.value;
   if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+  const topicIds = await resolveWorkTopics(env, input);
   const rules = await getRules(env);
   const { fp, links } = await spamChecks(env, me, v, rules, w.id);
   // 未建立信誉的作者修改已发布内容 → 重新进入审核（防止先发正常内容再改成垃圾内容）
@@ -423,6 +441,7 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
       w.id,
     ),
     ...mediaStmts(env, w.id, v),
+    ...(topicIds ? setWorkTopicsStmts(env, w.id, topicIds) : []),
   ]);
   if (status === 'pending' && w.status === 'published') await logAction(env, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: '新会员修改已发布内容，重新审核' });
   const fresh = (await loadWork(env, w.id))!;
@@ -469,7 +488,7 @@ export async function uploadWorkImage(req: Request, env: Env) {
 }
 
 // ============================================================ 评论
-interface CommentRow { id: number; post_id: number; author_id: number; parent_id: number | null; body: string; status: 'pending' | 'published'; mod_state: ModState; deleted_at: string | null; created_at: string }
+interface CommentRow { id: number; post_id: number; author_id: number; parent_id: number | null; body: string; status: 'pending' | 'published'; mod_state: ModState; deleted_at: string | null; created_at: string; helpful_at?: string | null }
 async function readable(req: Request, env: Env, id: number): Promise<{ viewer: Member | null; w: WorkRow; access: 'full' | 'own' }> {
   const viewer = await optionalMember(req, env);
   const w = await loadWork(env, id);
@@ -495,7 +514,7 @@ export async function listWorkComments(req: Request, env: Env, id: number, url: 
     .all<CommentRow>();
   const page = results.slice(0, limit);
   const out: WorkComment[] = [];
-  for (const r of page) out.push({ id: r.id, parentId: r.parent_id, author: (await card(env, r.author_id))!, body: r.body, pending: r.status === 'pending', createdAt: r.created_at, canDelete: vid === r.author_id || vid === w.author_id });
+  for (const r of page) out.push({ id: r.id, parentId: r.parent_id, author: (await card(env, r.author_id))!, body: r.body, pending: r.status === 'pending', createdAt: r.created_at, canDelete: vid === r.author_id || vid === w.author_id, helpful: !!r.helpful_at, canMarkHelpful: vid === w.author_id && r.author_id !== vid && r.status === 'published' });
   const last = page.at(-1);
   return { comments: out, nextCursor: results.length > limit && last ? encodeCursor({ t: last.created_at, id: last.id }) : null };
 }
@@ -526,7 +545,7 @@ export async function addWorkComment(req: Request, env: Env, id: number, input: 
   const row = await env.DB.prepare('INSERT INTO user_post_comments (post_id, author_id, parent_id, body, status, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *').bind(w.id, me.id, parentId, c.value.body, status, nowIso()).first<CommentRow>();
   if (status === 'pending') await logAction(env, { actor: 'system', action: 'auto_pending', targetKind: 'comment', targetId: row!.id, memberId: me.id, reason: '新会员评论先审核' });
   else await afterComment(env, w, row!, parentAuthor);
-  return { comment: { id: row!.id, parentId, author: (await card(env, me.id))!, body: row!.body, pending: review, createdAt: row!.created_at, canDelete: true } satisfies WorkComment, status };
+  return { comment: { id: row!.id, parentId, author: (await card(env, me.id))!, body: row!.body, pending: review, createdAt: row!.created_at, canDelete: true, helpful: false, canMarkHelpful: false } satisfies WorkComment, status };
 }
 async function afterComment(env: Env, w: WorkRow, c: CommentRow, parentAuthor: number | null): Promise<void> {
   const ex = c.body;
