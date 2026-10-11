@@ -93,7 +93,7 @@ function gate(view: string): string {
 // ---------------------------------------------------------------- 未读角标（导航 / 抽屉）
 export async function refreshUnread(): Promise<number> {
   const me = currentMember();
-  const links = document.querySelectorAll<HTMLElement>('.js-notif-link');
+  const links = document.querySelectorAll<HTMLElement>('.js-notif-link, .js-dm-link');
   links.forEach((l) => (l.hidden = !me));
   document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => (a.href = me ? url('/me/') : url('/join/')));
   if (!me) return 0;

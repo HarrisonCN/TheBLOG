@@ -475,7 +475,7 @@ export function navbar(site: SiteData, route: Route): string {
       <button class="nav__btn nav__btn--search js-search" type="button" aria-label="搜索">${icon('search')}</button>
       <button class="nav__btn js-theme" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
       <a class="nav__btn nav__bell js-notif-link" href="${url('/notifications/')}" aria-label="通知" title="通知" hidden>${icon('bell')}<span class="nav__dot js-notif-dot" hidden></span></a>
-      <a class="nav__btn nav__bell nav__dm js-notif-link" href="${url('/messages/')}" aria-label="私信" title="私信" hidden>${icon('message')}<span class="nav__dot js-dm-dot" hidden></span></a>
+      <a class="nav__btn nav__bell nav__dm js-dm-link" href="${url('/messages/')}" aria-label="私信" title="私信" hidden>${icon('message')}<span class="nav__dot js-dm-dot" hidden></span></a>
       <a class="nav__btn nav__me js-me" href="${url('/join/')}" aria-label="好朋友登录 / 注册" title="好朋友登录 / 注册">${icon('user')}</a>
       <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('menu')}</usa-icon-morph></button>
     </div>
