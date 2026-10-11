@@ -297,5 +297,5 @@
 .adm-ol-list { display: grid; gap: 0.5rem; margin: 0.5rem 0 0; padding: 0; list-style: none; }
 .adm-ol-hit { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem; border: 1px solid var(--hairline); border-radius: 10px; }
 .adm-ol-hit img, .adm-ol-ph { flex: none; width: 48px; height: 72px; border-radius: 6px; object-fit: cover; background: var(--soft); display: grid; place-items: center; }
-.adm-ol-hit > span { display: grid; flex: 1; min-width: 0; }
+.adm-ol-hit > span:not(.adm-ol-ph) { display: grid; flex: 1; min-width: 0; }
 .adm-preview .essay--single .essay__open { width: 100%; margin-inline: 0; }
