@@ -24,7 +24,7 @@ import type { Member } from './community-types';
 
 export interface DemoProfile { memberId: number; username: string; coverUrl: string; links: SocialLink[]; visibility: Visibility; showFollows: boolean; discoverable: boolean }
 export interface DemoNotification { id: number; memberId: number; type: NotificationType; actorId: number | null; objectKind: string; objectRef: string; excerpt: string; count: number; key: string; readAt: string | null; createdAt: string; updatedAt: string }
-export interface DemoPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; email: boolean }
+export interface DemoPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; topic_work: boolean; event_result: boolean; email: boolean }
 export interface SocialState {
   profiles: DemoProfile[];
   follows: { follower: number; following: number; createdAt: string }[];
@@ -77,7 +77,7 @@ export interface SocialHost {
   now(): Date;
 }
 
-const PREF_DEFAULT: DemoPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false };
+const PREF_DEFAULT: DemoPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, topic_work: true, event_result: true, email: false };
 const bad = (path: string, message: string) => new SocialError(400, 'validation_error', '参数校验失败', [{ path, message }]);
 
 export class MockSocial {

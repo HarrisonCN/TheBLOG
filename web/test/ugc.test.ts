@@ -55,7 +55,7 @@ describe('演示 mock：L16 用户内容发布（与 Worker 同规则）', () =>
     expect(B(await api.handle('GET', '/api/social/works?tab=latest&type=album')).works.every((w: any) => w.type === 'album')).toBe(true);
     const p = B(await api.handle('GET', '/api/social/users/xiaolin'));
     expect(p.works[0].kind).toBe('work');
-    expect(p.profile.counts.works).toBe(2);
+    expect(p.profile.counts.works).toBe(4);
   });
 
   it('发布闭环：上传 → 草稿 → 待审 → 后台通过（审核日志）→ 关注者动态流 + 通知 → 评论 / 回应 / 收藏 → 作者通知', async () => {

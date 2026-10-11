@@ -49,6 +49,8 @@ export interface DemoDb {
   social?: import('./mock-social').SocialState;
   /** L16 用户投稿 / 评论 / 回应 / 举报 / 审核日志；旧的本地数据没有这个字段时用种子补齐 */
   ugc?: import('./mock-ugc').UgcState;
+  /** L17 话题 / 活动 / 合集 / 社区徽章；旧的本地数据没有这个字段时用种子补齐 */
+  discovery?: import('./mock-discovery').DiscoveryState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */
