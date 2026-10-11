@@ -85,6 +85,11 @@ export type Route =
   | { name: 'events' }
   | { name: 'event'; slug: string }
   | { name: 'collection'; id: number }
+  | { name: 'projects' }
+  | { name: 'project'; slug: string }
+  | { name: 'features' }
+  | { name: 'feature'; slug: string }
+  | { name: 'mystats' }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -117,6 +122,9 @@ const STATIC: Record<string, Route['name']> = {
   '/discover': 'discover',
   '/t': 'topics',
   '/events': 'events',
+  '/projects': 'projects',
+  '/f': 'features',
+  '/me/stats': 'mystats',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -149,6 +157,10 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'topic', slug: m[1]! };
   m = /^\/events\/([a-z0-9][a-z0-9-]{0,38}[a-z0-9])$/.exec(p);
   if (m) return { name: 'event', slug: m[1]! };
+  m = /^\/p\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)$/.exec(p);
+  if (m) return { name: 'project', slug: m[1]! };
+  m = /^\/f\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)$/.exec(p);
+  if (m) return { name: 'feature', slug: m[1]! };
   m = /^\/c\/(\d{1,10})$/.exec(p);
   if (m) return { name: 'collection', id: Number(m[1]) };
   m = /^\/u\/([A-Za-z0-9_]{3,20})$/.exec(p);
@@ -198,6 +210,14 @@ export function routePath(r: Route): string {
       return `/events/${r.slug}/`;
     case 'collection':
       return `/c/${r.id}/`;
+    case 'project':
+      return `/p/${r.slug}/`;
+    case 'features':
+      return '/f/';
+    case 'feature':
+      return `/f/${r.slug}/`;
+    case 'mystats':
+      return '/me/stats/';
     case 'notfound':
       return '/404/';
     default:
@@ -366,9 +386,10 @@ export const NAV: NavItem[] = [
     label: '摄影',
     icon: 'camera',
     href: '/works/',
-    match: ['works', 'gallery', 'album', 'gear', 'map'],
+    match: ['works', 'gallery', 'album', 'gear', 'map', 'features', 'feature'],
     children: [
       { label: '作品集', icon: 'aperture', href: '/works/' },
+      { label: '摄影专题', icon: 'book', href: '/f/' },
       { label: '照片地图', icon: 'mapPin', href: '/map/' },
       { label: '画廊', icon: 'image', href: '/gallery/' },
       { label: '器材', icon: 'camera', href: '/gear/' },
@@ -378,9 +399,10 @@ export const NAV: NavItem[] = [
     label: '技术',
     icon: 'code',
     href: '/opensource/',
-    match: ['opensource', 'changelog'],
+    match: ['opensource', 'changelog', 'projects', 'project'],
     children: [
       { label: '开源项目', icon: 'code', href: '/opensource/' },
+      { label: '创作者项目', icon: 'briefcase', href: '/projects/' },
       { label: '更新日志', icon: 'list', href: '/changelog/' },
       { label: '技术文章', icon: 'book', href: '/categories/%E5%89%8D%E7%AB%AF/' },
     ],
@@ -1527,17 +1549,25 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'events':
     case 'event':
     case 'collection':
+    case 'projects':
+    case 'project':
+    case 'features':
+    case 'feature':
+    case 'mystats':
       return socialPage(site, route);
     default:
       return notFoundPage(site);
   }
 }
 
+export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats';
+/** 所有交给 social-client 按需渲染的路由 */
+export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats'];
 /**
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
  */
-export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' }>): Page {
+export function socialPage(site: SiteData, route: Extract<Route, { name: SocialRouteName }>): Page {
   const HEADS = {
     notifications: ['通知', '关注、回复、提及、回应与收藏'],
     me: ['我的', '个人主页、收藏与设置'],
@@ -1546,6 +1576,9 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' 
     discover: ['发现社区', '不用先关注谁：从话题、精选创作者和摄影活动开始逛'],
     topics: ['话题', '摄影、编程、硬件、建模、设计和日常'],
     events: ['摄影活动', '每日一图、每周主题与作品征集'],
+    projects: ['创作者项目', '好朋友们正在做的项目：开发日志、版本和关联作品'],
+    features: ['摄影专题', '用一组照片和文字讲一个完整的故事'],
+    mystats: ['我的数据', '只有你能看到：按天汇总的浏览与互动，不记录访客身份'],
   } as const;
   const head =
     route.name === 'user'
@@ -1558,9 +1591,13 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' 
             ? { title: '摄影活动', sub: '活动规则、投稿与精选' }
             : route.name === 'collection'
               ? { title: '合集', sub: '好朋友整理的作品与文章' }
-              : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
-  const attr = route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' || route.name === 'collection' ? ` data-id="${route.id}"` : route.name === 'topic' || route.name === 'event' ? ` data-slug="${e(route.slug)}"` : '';
-  const bare = route.name === 'user' || route.name === 'work' || route.name === 'topic' || route.name === 'event' || route.name === 'collection';
+              : route.name === 'project'
+                ? { title: '项目', sub: '开发日志、版本与关联作品' }
+                : route.name === 'feature'
+                  ? { title: '摄影专题', sub: '照片与文字组成的专题' }
+                  : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
+  const attr = route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' || route.name === 'collection' ? ` data-id="${route.id}"` : route.name === 'topic' || route.name === 'event' || route.name === 'project' || route.name === 'feature' ? ` data-slug="${e(route.slug)}"` : '';
+  const bare = route.name === 'user' || route.name === 'work' || route.name === 'topic' || route.name === 'event' || route.name === 'collection' || route.name === 'project' || route.name === 'feature';
   return shell(site, route, {
     title: head.title,
     description: head.sub,

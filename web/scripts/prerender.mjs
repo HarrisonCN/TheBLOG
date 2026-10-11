@@ -182,7 +182,7 @@ if (API || DEMO) {
         count++;
         if (route.name === 'post') postPages++;
         if (route.name === 'home') listPages++;
-        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me' && route.name !== 'compose') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me' && route.name !== 'compose' && route.name !== 'mystats') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
       } catch (e) {
         failures.push(`${label}：${e.message}`);
         if (!STRICT) console.warn(`[prerender] ⚠ 跳过失败页 ${label}：${e.message}`);
@@ -191,7 +191,7 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events']) await emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events', 'projects', 'features', 'mystats']) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
@@ -231,6 +231,15 @@ if (API || DEMO) {
       for (const ev of events ?? []) if (/^[a-z0-9-]{2,40}$/.test(ev.slug)) await emit({ name: 'event', slug: ev.slug });
     } catch (e) {
       console.warn(`[prerender] 跳过话题 / 活动外壳：${e.message}`);
+    }
+    // L18：项目页 / 摄影专题的静态外壳（内容在浏览器端加载）；旧 Worker 没有这些接口时跳过。
+    try {
+      const { projects } = await get('/api/social/projects');
+      for (const p of projects ?? []) if (/^[a-z0-9-]{1,40}$/.test(p.slug)) await emit({ name: 'project', slug: p.slug });
+      const { features } = await get('/api/social/features');
+      for (const f of features ?? []) if (/^[a-z0-9-]{1,40}$/.test(f.slug)) await emit({ name: 'feature', slug: f.slug });
+    } catch (e) {
+      console.warn(`[prerender] 跳过项目 / 专题外壳：${e.message}`);
     }
     // 文章页：小批量并发拉取正文
     const queue = [...list.posts];

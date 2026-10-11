@@ -1,0 +1,140 @@
+/* L18 摄影与创作工具（摄影专题 / EXIF 筛选 / 项目页 / 共同作者 / 数据中心）—— 只随 studio-client 按需加载 */
+.st { display: grid; gap: var(--gap, 1rem); grid-column: 1 / -1; min-width: 0; }
+.st-sec { display: grid; gap: 0.75rem; min-width: 0; align-content: start; }
+.st-sec__h { margin: 0.25rem 0 0; }
+.st-demo, .st-hint { display: flex; gap: 0.4rem; align-items: center; margin: 0; }
+.st-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin: 0; }
+.st-row > .field { flex: 1 1 12rem; min-width: 0; }
+.st .btn, .st-work .btn, .st-me .btn, .st-sec .btn { min-height: 44px; }
+.st-form { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
+.st-form input, .st-form select, .st-form textarea { width: 100%; }
+.st-new { border-top: 1px solid var(--hairline); padding-top: 0.6rem; }
+.st-new > summary { cursor: pointer; font-weight: 600; color: var(--heading); min-height: 44px; display: flex; align-items: center; gap: 0.35rem; }
+.st-new > summary .icon { width: 1em; height: 1em; }
+
+.st-grid { display: grid; gap: var(--gap, 1rem); grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); align-items: stretch; }
+.st-grid--features { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.st-grid > .tile { grid-column: auto; }
+
+.st-pcard { display: grid; gap: 0.4rem; align-content: start; padding: 1rem; }
+.st-pcard__meta { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0; }
+.st-pcard__title, .st-fcard__title { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
+.st-pcard__title a, .st-fcard__title a { color: var(--heading); }
+.st-pcard__tag { margin: 0; overflow-wrap: anywhere; }
+.st-pcard__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; align-items: center; margin: 0.25rem 0 0; }
+.st-owner { display: inline-flex; align-items: center; gap: 0.4rem; color: inherit; text-decoration: none; min-height: 32px; }
+.st-owner:hover b, .st-owner:focus-visible b { text-decoration: underline; }
+.st-status { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; background: var(--soft); color: var(--heading); box-shadow: inset 0 0 0 1px var(--hairline); }
+.st-status--active { background: color-mix(in srgb, #16a34a 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #16a34a 45%, transparent); }
+.st-status--paused { background: color-mix(in srgb, #d97706 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 45%, transparent); }
+
+.st-fcard { display: grid; overflow: hidden; padding: 0; align-content: start; }
+.st-fcard__cover { display: block; aspect-ratio: 3 / 2; background: var(--soft); }
+.st-fcard__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.st-fcard__txt { display: grid; gap: 0.35rem; padding: 0.9rem 1rem 1rem; }
+.st-fcard__txt p { margin: 0; }
+
+/* 项目页 */
+.st-head { display: grid; gap: 0.6rem; padding: clamp(1rem, 3vw, 1.75rem); }
+.st-head p { margin: 0; }
+.st-head__kicker a { color: inherit; }
+.st-head__title { margin: 0; font-size: clamp(1.4rem, 3.4vw, 2rem); color: var(--heading); overflow-wrap: anywhere; }
+.st-head__dek { font-size: 1.05rem; overflow-wrap: anywhere; }
+.st-people { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.st-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.st-desc { border-top: 1px solid var(--hairline); padding-top: 0.75rem; overflow-wrap: anywhere; }
+.st-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.st-versions li { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: baseline; }
+.st-logs { list-style: none; margin: 0; padding: 0 0 0 1rem; border-left: 2px solid var(--hairline); display: grid; gap: 1rem; }
+.st-log { position: relative; }
+.st-log::before { content: ''; position: absolute; left: calc(-1rem - 6px); top: 0.45rem; width: 10px; height: 10px; border-radius: 50%; background: var(--surface, #fff); box-shadow: inset 0 0 0 2px var(--hairline); }
+.st-log--release::before { background: var(--accent); box-shadow: none; }
+.st-log article { display: grid; gap: 0.3rem; }
+.st-log__meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0; }
+.st-log__title { margin: 0; font-size: 1.02rem; color: var(--heading); overflow-wrap: anywhere; }
+.st-log .btn { justify-self: start; }
+.st-linked { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap, 1rem); grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.st-linked > li { display: grid; gap: 0.4rem; align-content: start; min-width: 0; }
+.st-linked .btn { justify-self: start; }
+.st-postlink { padding: 1rem; }
+.st-postlink p { margin: 0; }
+.st-members { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.st-members li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.st-invite { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm, 10px); background: var(--accent-soft); color: var(--heading); }
+
+/* EXIF 筛选 */
+.st-exbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
+.st-exf { flex: 1 1 9rem; min-width: 0; margin: 0; }
+.st-exf select { width: 100%; min-height: 44px; }
+.st-exgrid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap, 1rem); grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.st-exgrid > li { min-width: 0; }
+.st-exgrid > li > .ugc-card { grid-column: auto; height: 100%; }
+.st-exifline { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin: 0; }
+.st-exifline .icon { width: 1em; height: 1em; }
+
+/* 摄影专题（长页面） */
+.st-essay { grid-column: 1 / -1; display: grid; gap: clamp(1.25rem, 4vw, 2.5rem); min-width: 0; }
+.st-essay__head { display: grid; gap: 0; position: relative; }
+.st-essay__hero { width: 100%; justify-self: stretch; margin: 0; border-radius: var(--radius, 16px); overflow: hidden; background: var(--soft); max-height: 72vh; }
+.st-essay__hero img { width: 100%; height: 100%; max-height: 72vh; object-fit: cover; display: block; }
+.st-essay__htxt { display: grid; gap: 0.5rem; padding: clamp(1rem, 3vw, 1.75rem); }
+.st-essay__head.has-hero .st-essay__htxt { margin: -3rem clamp(0.5rem, 4vw, 3rem) 0; position: relative; width: auto; max-width: none; }
+.st-essay__htxt p { margin: 0; }
+.st-essay__title { margin: 0; font-size: clamp(1.6rem, 4.6vw, 2.8rem); line-height: 1.15; color: var(--heading); overflow-wrap: anywhere; }
+.st-essay__dek { font-size: clamp(1rem, 2.2vw, 1.2rem); overflow-wrap: anywhere; }
+.st-essay__tools { align-items: center; }
+.st-essay__body { display: grid; gap: clamp(1.5rem, 5vw, 3.5rem); }
+.st-essay__text { max-width: 42rem; margin: 0 auto; width: 100%; padding: 0 clamp(0.25rem, 2vw, 1rem); font-size: 1.08rem; overflow-wrap: anywhere; }
+.st-essay__work { width: 100%; justify-self: stretch; margin: 0; display: grid; gap: 0.6rem; }
+.st-essay__work img { width: 100%; height: auto; display: block; border-radius: var(--radius-sm, 10px); background: var(--soft); }
+.st-essay__work.is-multi { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.st-essay__work.is-multi figcaption { grid-column: 1 / -1; }
+.st-essay__work figcaption { display: grid; gap: 0.25rem; max-width: 42rem; margin: 0 auto; width: 100%; text-align: center; justify-items: center; padding: 0 0.5rem; overflow-wrap: anywhere; }
+.st-essay__empty { text-align: center; }
+.st-editor { display: grid; gap: 0.5rem; }
+.st-blocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.st-block { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: end; padding: 0.6rem; border-radius: var(--radius-sm, 10px); box-shadow: inset 0 0 0 1px var(--hairline); }
+.st-block--work { grid-template-columns: 72px 1fr auto; }
+.st-block--work img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; display: block; }
+.st-block .field { margin: 0; min-width: 0; }
+.st-addblock { align-items: end; }
+
+/* 数据中心 */
+.st-privacy { display: grid; gap: 0.35rem; border-left: 4px solid var(--accent); }
+.st-privacy p { margin: 0; }
+.st-range { margin: 0; }
+.st-big { font-size: 1.4rem; margin-left: 0.25rem; }
+.st-chart { margin: 0; display: grid; gap: 0.2rem; }
+.st-chart svg { width: 100%; height: 110px; display: block; fill: var(--accent); }
+.st-chart rect { fill: color-mix(in srgb, var(--accent) 75%, transparent); }
+.st-chart figcaption { display: flex; justify-content: space-between; }
+.st-cols { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.st-trends { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.st-trends .st-chart svg { height: 70px; }
+.st-top { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+.st-top li { overflow-wrap: anywhere; }
+.st-top li > span:last-child, .st-top li > .muted { float: right; margin-left: 0.5rem; }
+
+/* 作品页：共同作者 / 修订 */
+.st-work { display: grid; gap: 0.6rem; }
+.st-revs > summary { cursor: pointer; font-weight: 600; color: var(--heading); min-height: 44px; display: flex; align-items: center; gap: 0.35rem; }
+.st-revlist { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.6rem; }
+.st-revlist li { display: grid; gap: 0.2rem; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm, 10px); box-shadow: inset 0 0 0 1px var(--hairline); }
+.st-revlist p { margin: 0; overflow-wrap: anywhere; }
+.st-revlist .btn { justify-self: start; }
+.ugc-co a { color: inherit; }
+
+/* 「我的」 */
+.st-me { display: contents; }
+.st-invs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.st-invs p { margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  .st-essay__head.has-hero .st-essay__htxt { margin: -1.5rem 0.4rem 0; }
+  .st-block--work { grid-template-columns: 56px 1fr; }
+  .st-block--work img { width: 56px; height: 56px; }
+  .st-block--work > .st-row { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st *, .st-work * { transition: none !important; animation: none !important; }
+}

@@ -105,3 +105,10 @@
 .ugc-card__foot { flex-wrap: wrap; }
 .ugc-topicpick .soc-filters { flex-wrap: wrap; }
 
+
+/* L18 删除其他作者图片的确认对话框 */
+.ugc-impact { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.5rem; }
+.ugc-impact li { display: flex; gap: 0.6rem; align-items: center; }
+.ugc-impact img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; }
+.ugc-impact li > span { display: grid; }
+.ugc-co { display: block; }

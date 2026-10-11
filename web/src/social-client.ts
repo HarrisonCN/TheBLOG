@@ -158,6 +158,7 @@ export async function offerMerge(ctx: SocialCtx): Promise<void> {
 
 // ---------------------------------------------------------------- 挂载
 const DISCOVERY_VIEWS = new Set(['discover', 'topics', 'topic', 'events', 'event', 'collection']);
+const STUDIO_VIEWS = new Set(['projects', 'project', 'features', 'feature', 'mystats']);
 export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<void> {
   const box = root.querySelector<HTMLElement>('.js-social');
   if (!box) return;
@@ -167,12 +168,14 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     if (view === 'feed' || view === 'compose' || view === 'work') await (await import('./ugc-client')).mountUgc(box, view, ctx);
     // L17 发现 / 话题 / 活动 / 合集：再分一个包（只在这些页面下载）
     else if (view && DISCOVERY_VIEWS.has(view)) await (await import('./discovery-client')).mountDiscovery(box, view, ctx);
+    // L18 项目 / 摄影专题 / 数据中心：再分一个包
+    else if (view && STUDIO_VIEWS.has(view)) await (await import('./studio-client')).mountStudio(box, view, ctx);
     else if (view === 'user') await renderProfile(box, box.dataset.username ?? '', ctx);
     else if (view === 'notifications') await renderNotifications(box, ctx);
     else if (view === 'me') await renderMe(box, ctx);
   } catch (x) {
     const nf = x instanceof ApiError && x.status === 404;
-    const isWork = view === 'work' || view === 'compose' || (!!view && DISCOVERY_VIEWS.has(view));
+    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view)));
     box.innerHTML = `<div class="soc-gate tile tile--full">${icon(nf ? 'user' : 'close')}<h2>${nf ? (isWork ? '内容不存在' : '没有这个用户') : '加载失败'}</h2><p class="muted">${e(nf ? (isWork ? '可能已被删除，或者你没有权限查看。' : '可能是用户名写错了，或者对方不想被你看到。') : errMsg(x))}</p><a class="btn btn--soft" href="${url('/')}">回到首页</a></div>`;
   } finally {
     box.removeAttribute('aria-busy');
@@ -222,6 +225,8 @@ async function renderProfile(box: HTMLElement, username: string, ctx: SocialCtx)
   bindProfileActions(box, p, v, ctx);
   // L17：社区徽章 / 创作者认证 / 公开合集（按需加载，失败不影响主页）
   void import('./discovery-client').then((m) => m.profileExtras(box, p.username, v.self)).catch(() => undefined);
+  // L18：参与的项目（按需加载）+ 主页浏览计数（只记每日汇总）
+  void import('./studio-client').then((m) => m.profileStudio(box, p.username)).catch(() => undefined);
   box.querySelectorAll<HTMLButtonElement>('.js-list').forEach((b) =>
     b.addEventListener('click', async () => {
       const lb = box.querySelector<HTMLElement>('.js-listbox')!;
@@ -273,11 +278,11 @@ function bindProfileActions(box: HTMLElement, p: { username: string }, v: Viewer
 }
 
 // ---------------------------------------------------------------- 通知中心
-const FILTERS: [NotificationFilter, string][] = [['all', '全部'], ['unread', '未读'], ['follow', '关注'], ['reply', '回复'], ['mention', '提及'], ['reaction', '回应'], ['bookmark', '收藏'], ['new_work', '新作品'], ['topic_work', '话题'], ['event_result', '活动']];
+const FILTERS: [NotificationFilter, string][] = [['all', '全部'], ['unread', '未读'], ['follow', '关注'], ['reply', '回复'], ['mention', '提及'], ['reaction', '回应'], ['bookmark', '收藏'], ['new_work', '新作品'], ['topic_work', '话题'], ['event_result', '活动'], ['collab', '协作']];
 function noticeText(n: Notice): string {
   const who = n.actor ? `<a href="${userPath(n.actor.username)}"><b>${e(n.actor.nickname)}</b></a>` : '<b>一位访客</b>';
   const more = n.count > 1 ? `等 ${n.count} 人` : '';
-  const target = n.objectKind === 'work' ? `<a href="${url(`/w/${encodeURIComponent(n.objectRef)}/`)}">查看</a>` : n.objectKind === 'topic' ? `<a href="${url(`/t/${encodeURIComponent(n.objectRef)}/`)}">去看看</a>` : n.objectKind === 'event' ? `<a href="${url(`/events/${encodeURIComponent(n.objectRef)}/`)}">查看结果</a>` : n.objectKind === 'post' || n.objectKind === 'comment' ? `<a href="${postPath(n.objectRef.split('#')[0]!)}#comments">查看</a>` : '';
+  const target = n.objectKind === 'work' ? `<a href="${url(`/w/${encodeURIComponent(n.objectRef)}/`)}">查看</a>` : n.objectKind === 'topic' ? `<a href="${url(`/t/${encodeURIComponent(n.objectRef)}/`)}">去看看</a>` : n.objectKind === 'event' ? `<a href="${url(`/events/${encodeURIComponent(n.objectRef)}/`)}">查看结果</a>` : n.objectKind === 'project' ? `<a href="${/^\d+$/.test(n.objectRef) ? url('/me/') : url(`/p/${encodeURIComponent(n.objectRef)}/`)}">查看</a>` : n.objectKind === 'post' || n.objectKind === 'comment' ? `<a href="${postPath(n.objectRef.split('#')[0]!)}#comments">查看</a>` : '';
   switch (n.type) {
     case 'follow':
       return `${who} 关注了你`;
@@ -297,11 +302,13 @@ function noticeText(n: Notice): string {
       return `${e(n.excerpt || '你订阅的话题有新作品')}${n.count > 1 ? `（${n.count} 件）` : ''} ${target}`;
     case 'event_result':
       return `${e(n.excerpt || '你参加的活动公布了结果')} ${target}`;
+    case 'collab':
+      return `${who} ${e(n.excerpt || '发来了协作邀请')} ${target}`;
     default:
       return e(n.excerpt || '站内通知');
   }
 }
-const NOTICE_ICON: Record<string, string> = { follow: 'userPlus', reply: 'message', mention: 'send', bookmark: 'bookmark', system: 'bell', reaction: 'heart', new_work: 'image', moderation: 'flag', topic_work: 'tag', event_result: 'camera' };
+const NOTICE_ICON: Record<string, string> = { follow: 'userPlus', reply: 'message', mention: 'send', bookmark: 'bookmark', system: 'bell', reaction: 'heart', new_work: 'image', moderation: 'flag', topic_work: 'tag', event_result: 'camera', collab: 'users' };
 
 async function renderNotifications(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   if (!currentMember()) return void (box.innerHTML = gate('通知'));
@@ -410,6 +417,7 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   <fieldset><legend>邮件</legend>${chk('email', prefs.email, '同时发邮件提醒', '默认关闭；每小时最多 5 封')}</fieldset>
   <button class="btn btn--soft btn--sm" type="submit">保存通知设置</button></form></section>
 <div class="js-disc-me" hidden></div>
+<div class="js-studio-me" hidden></div>
 <section class="tile tile--half" aria-labelledby="soc-bl-h"><h2 class="soc-h" id="soc-bl-h">${icon('ban')}拉黑与静音</h2><div class="js-rel"><p class="muted">加载中…</p></div></section>
 <section class="tile tile--half soc-danger" aria-labelledby="soc-acc-h"><h2 class="soc-h" id="soc-acc-h">${icon('lock')}账号数据</h2>
   <p class="muted small">导出你的资料、关注、收藏、评论与通知（JSON）。</p><button class="btn btn--soft btn--sm js-export" type="button">${icon('download')}导出我的数据</button>
@@ -418,6 +426,8 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   bindMe(box, ctx);
   // L17：我的合集 / 订阅的话题 / 活动投稿（按需加载）
   void import('./discovery-client').then((m) => m.meExtras(box, ctx)).catch(() => undefined);
+  // L18：协作邀请、我的项目 / 摄影专题、数据中心入口
+  void import('./studio-client').then((m) => m.meStudio(box, ctx)).catch(() => undefined);
 }
 
 function bindMe(box: HTMLElement, ctx: SocialCtx): void {
