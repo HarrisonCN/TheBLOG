@@ -696,7 +696,7 @@ function bindPage(page: Page): void {
     );
   }
   // L15 社交页：内容在按需加载的 social-client 里渲染（社交代码不进首屏包）
-  if (page.route.name === 'user' || page.route.name === 'notifications' || page.route.name === 'me') {
+  if (['user', 'notifications', 'me', 'feed', 'compose', 'work'].includes(page.route.name)) {
     void import('./social-client').then((m) => m.mountSocial(root, { notify: (msg, t) => void notify(msg, t), navigate: (h) => void go(h) }));
   }
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));

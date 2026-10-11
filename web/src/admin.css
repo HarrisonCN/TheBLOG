@@ -299,3 +299,7 @@
 .adm-ol-hit img, .adm-ol-ph { flex: none; width: 48px; height: 72px; border-radius: 6px; object-fit: cover; background: var(--soft); display: grid; place-items: center; }
 .adm-ol-hit > span:not(.adm-ol-ph) { display: grid; flex: 1; min-width: 0; }
 .adm-preview .essay--single .essay__open { width: 100%; margin-inline: 0; }
+/* L16 社区审核 */
+.adm-ugc__img { display: block; max-width: min(100%, 320px); max-height: 220px; object-fit: cover; border-radius: 10px; margin-top: 0.5rem; }
+.adm-ugc__reports { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.3rem; }
+.adm-ugc-list { display: grid; gap: 0.75rem; }

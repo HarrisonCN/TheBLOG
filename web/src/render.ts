@@ -76,6 +76,9 @@ export type Route =
   | { name: 'user'; username: string }
   | { name: 'notifications' }
   | { name: 'me' }
+  | { name: 'feed' }
+  | { name: 'compose' }
+  | { name: 'work'; id: number }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -103,6 +106,8 @@ const STATIC: Record<string, Route['name']> = {
   '/map': 'map',
   '/notifications': 'notifications',
   '/me': 'me',
+  '/feed': 'feed',
+  '/compose': 'compose',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -129,6 +134,8 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'post', slug: m[1]! };
   m = /^\/gallery\/([a-z0-9-]+)$/.exec(p);
   if (m) return { name: 'album', slug: m[1]! };
+  m = /^\/w\/(\d{1,10})$/.exec(p);
+  if (m) return { name: 'work', id: Number(m[1]) };
   m = /^\/u\/([A-Za-z0-9_]{3,20})$/.exec(p);
   if (m) return { name: 'user', username: m[1]!.toLowerCase() };
   m = /^\/tags\/([^/]+)$/.exec(p);
@@ -166,6 +173,8 @@ export function routePath(r: Route): string {
       return `/gallery/${r.slug}/`;
     case 'user':
       return `/u/${r.username}/`;
+    case 'work':
+      return `/w/${r.id}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -357,9 +366,10 @@ export const NAV: NavItem[] = [
     label: '关于',
     icon: 'user',
     href: '/about/',
-    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox'],
+    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox', 'feed', 'work', 'compose'],
     children: [
       { label: '关于我', icon: 'user', href: '/about/' },
+      { label: '社区动态', icon: 'users', href: '/feed/' },
       { label: '此刻', icon: 'clock', href: '/now/' },
       { label: '时间线', icon: 'history', href: '/timeline/' },
       { label: '留言与便签', icon: 'message', href: '/guestbook/' },
@@ -1473,6 +1483,9 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'user':
     case 'notifications':
     case 'me':
+    case 'feed':
+    case 'compose':
+    case 'work':
       return socialPage(site, route);
     default:
       return notFoundPage(site);
@@ -1483,18 +1496,14 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
  */
-export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' }>): Page {
-  const head =
-    route.name === 'user'
-      ? { title: `@${route.username}`, sub: '好朋友的个人主页' }
-      : route.name === 'notifications'
-        ? { title: '通知', sub: '关注、回复、提及与收藏' }
-        : { title: '我的', sub: '个人主页、收藏与设置' };
+export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' }>): Page {
+  const HEADS = { notifications: ['通知', '关注、回复、提及、回应与收藏'], me: ['我的', '个人主页、收藏与设置'], feed: ['社区动态', '好朋友们的照片、影集、短动态和长文'], compose: ['发布', '分享照片、影集、短动态或长文'] } as const;
+  const head = route.name === 'user' ? { title: `@${route.username}`, sub: '好朋友的个人主页' } : route.name === 'work' ? { title: '作品', sub: '好朋友发布的内容' } : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
   return shell(site, route, {
     title: head.title,
     description: head.sub,
-    top: route.name === 'user' ? '' : pageHead(head.title, head.sub),
-    main: `<section class="bento social js-social" data-view="${route.name}"${route.name === 'user' ? ` data-username="${e(route.username)}"` : ''} aria-busy="true" aria-live="polite"><div class="social__loading"><span class="social__spin" aria-hidden="true"></span><span>加载中…</span></div></section>`,
+    top: route.name === 'user' || route.name === 'work' ? '' : pageHead(head.title, head.sub),
+    main: `<section class="bento social js-social" data-view="${route.name}"${route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' ? ` data-id="${route.id}"` : ''} aria-busy="true" aria-live="polite"><div class="social__loading"><span class="social__spin" aria-hidden="true"></span><span>加载中…</span></div></section>`,
     kind: 'page--social',
   });
 }
