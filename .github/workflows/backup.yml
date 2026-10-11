@@ -1,0 +1,88 @@
+name: Backup (D1 + R2 manifest)
+
+# L21：每天备份一次 D1（wrangler d1 export → gzip + sha256 + manifest）和 R2 图片桶的对象清单。
+#   - 没有 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID 时自动跳过（摘要写明 SKIPPED，什么都没备份）。
+#   - 设置了仓库变量 BACKUP_BUCKET（R2 桶名，例如 blog-backups）时上传到 d1/<时间>/，并按保留策略清理
+#     （默认每天 14 份 / 每周 8 份 / 每月 6 份，可用变量 BACKUP_KEEP_DAILY / _WEEKLY / _MONTHLY 修改）；
+#     没设置时备份只作为 Actions artifact 保存 14 天。
+#   - IMAGES_BUCKET（默认 blog-images）：生成对象清单，R2 没有对象版本，靠每天的清单对比找出被删 / 被改的图片。
+#   恢复：scripts/ops/restore.mjs（说明见 docs/ops.md）。
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Gate (backup only when Cloudflare credentials exist)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DB: ${{ vars.D1_DATABASE_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ] && [ -n "$DB" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Backup SKIPPED::未配置 CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID —— 没有备份任何东西（NOT backed up）。"
+            {
+              echo "### ⏭️ Backup: SKIPPED — nothing was backed up"
+              echo ""
+              echo "Missing secrets/vars: CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  backup:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fill in D1 database id
+        working-directory: worker
+        env:
+          DB: ${{ vars.D1_DATABASE_ID }}
+        run: sed -i "s/00000000-0000-0000-0000-000000000000/${DB}/" wrangler.jsonc
+      - name: Backup
+        env:
+          BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          ARGS="--remote --out backups --images-bucket ${{ vars.IMAGES_BUCKET || 'blog-images' }}"
+          if [ -n "$BUCKET" ]; then
+            ARGS="$ARGS --r2-bucket $BUCKET --prune --keep-daily ${{ vars.BACKUP_KEEP_DAILY || 14 }} --keep-weekly ${{ vars.BACKUP_KEEP_WEEKLY || 8 }} --keep-monthly ${{ vars.BACKUP_KEEP_MONTHLY || 6 }}"
+          fi
+          node scripts/ops/backup.mjs $ARGS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 14
+
+  skipped:
+    name: "Backup status: SKIPPED (no Cloudflare credentials, nothing backed up)"
+    needs: gate
+    if: needs.gate.outputs.enabled != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::notice title=Backup SKIPPED::Nothing was backed up; add CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID to enable."

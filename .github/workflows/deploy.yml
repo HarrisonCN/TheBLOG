@@ -5,6 +5,10 @@ name: Deploy to Cloudflare
 #   D1_DATABASE_ID   `wrangler d1 create blog` 输出的 ID
 #   BLOG_ORIGIN      博客地址，例如 https://blog.example.com（用于预渲染与 ALLOWED_ORIGINS）
 #   PAGES_PROJECT    Pages 项目名，例如 winston-blog
+#   WORKER_URL       （可选）Worker 的地址，默认 = BLOG_ORIGIN（Worker 路由挂在同一域名的 /api/* 上时不用设置）
+# L21：部署后 smoke 任务检查线上 Worker 的 /api/health、/api/version（version + commit = 本次提交）、D1 迁移级别，
+#      以及 Pages 的 /build.json（commit + bundleHash = 本次构建）和入口脚本字节；任何一项不符 → 工作流失败。
+#      回滚见 rollback.yml，备份见 backup.yml，说明见 docs/ops.md。
 on:
   workflow_dispatch:
   push:
@@ -72,9 +76,11 @@ jobs:
       - name: D1 migrations
         working-directory: worker
         run: npx wrangler d1 migrations apply blog --remote
-      - name: Deploy Worker
+      - name: Deploy Worker (version + commit baked in as vars; /api/version reports them)
         working-directory: worker
-        run: npx wrangler deploy
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          npx wrangler deploy --var "GIT_SHA:${GITHUB_SHA}" --var "APP_VERSION:${VER}" --message "v${VER} ${GITHUB_SHA::7}"
       - name: Build frontend (prerender from production API, strict)
         env:
           PRERENDER_STRICT: '1'
@@ -82,10 +88,39 @@ jobs:
           BLOG_SITE_URL: ${{ vars.BLOG_ORIGIN }}
         run: npm run build
       - name: Deploy Pages
-        run: npx wrangler pages deploy web/dist --project-name "${{ vars.PAGES_PROJECT || 'winston-blog' }}" --branch main
+        run: npx wrangler pages deploy web/dist --project-name "${{ vars.PAGES_PROJECT || 'winston-blog' }}" --branch main --commit-hash "${GITHUB_SHA}"
+      - name: Keep the exact build for the smoke job
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
       - name: Summary
         run: |
-          echo "### ✅ Cloudflare deploy: DEPLOYED (Worker + Pages)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ✅ Cloudflare deploy: DEPLOYED (Worker + Pages) — verified by the smoke job" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    name: Post-deploy smoke (health, version = commit, D1 migrations, Pages bundle hash)
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Smoke
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          node scripts/ops/smoke.mjs \
+            --api "${{ vars.WORKER_URL || vars.BLOG_ORIGIN }}" \
+            --site "${{ vars.BLOG_ORIGIN }}" \
+            --expect-commit "${GITHUB_SHA}" --expect-version "${VER}" --expect-migration auto \
+            --dist web/dist --tries 10
 
   skipped:
     name: "Deploy status: SKIPPED (no Cloudflare credentials, nothing deployed)"
