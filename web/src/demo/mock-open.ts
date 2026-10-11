@@ -549,7 +549,7 @@ export class MockOpen {
     const res = (result: unknown): R => ({ status: 200, body: { jsonrpc: '2.0', id, result } });
     if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') return { status: 200, body: { jsonrpc: '2.0', id, error: { code: -32600, message: 'Invalid Request' } } };
     const names = [...Object.keys(TOOL_SCOPES).filter((n) => !/guestbook|sticky/.test(n)), 'create_post', 'update_settings'];
-    if (msg.method === 'initialize') return res({ protocolVersion: '2025-11-25', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'winston-blog-demo', version: '1.20.0' }, instructions: `演示站 MCP，当前令牌权限：${SCOPE_LABEL[a.scope]}（${a.scope}）` });
+    if (msg.method === 'initialize') return res({ protocolVersion: '2025-11-25', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'winston-blog-demo', version: '1.21.0' }, instructions: `演示站 MCP，当前令牌权限：${SCOPE_LABEL[a.scope]}（${a.scope}）` });
     if (msg.method === 'ping') return res({});
     if (msg.method === 'tools/list') return res({ tools: names.filter((n) => scopeAllows(a.scope, toolScope(n))).map((n) => ({ name: n, scope: toolScope(n) })) });
     if (msg.method !== 'tools/call') return { status: 200, body: { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${msg.method}` } } };
