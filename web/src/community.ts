@@ -20,7 +20,8 @@ interface Ctx {
 const MEMBER_KEY = 'blog-member';
 export function currentMember(): { token: string; member: PublicMember } | null {
   try {
-    const raw = localStorage.getItem(MEMBER_KEY);
+    // 演示站：标签页可以临时切换成示例用户（sessionStorage，只影响当前标签页）；正式构建里 DEMO 为 false，这一支会被删掉
+    const raw = (DEMO && sessionStorage.getItem(MEMBER_KEY)) || localStorage.getItem(MEMBER_KEY);
     return raw ? (JSON.parse(raw) as { token: string; member: PublicMember }) : null;
   } catch {
     return null;
@@ -298,6 +299,7 @@ function bindJoin(root: HTMLElement, ctx: Ctx): void {
   if (me) showDone(me.member);
   root.querySelector('.js-logout')?.addEventListener('click', () => {
     localStorage.removeItem(MEMBER_KEY);
+    if (DEMO) sessionStorage.removeItem(MEMBER_KEY);
     document.dispatchEvent(new CustomEvent('blog:member'));
     form.hidden = false;
     otpBox.hidden = true;

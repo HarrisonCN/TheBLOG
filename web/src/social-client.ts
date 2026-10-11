@@ -104,6 +104,10 @@ export async function refreshUnread(): Promise<number> {
     return 0;
   }
   document.querySelectorAll<HTMLElement>('.js-notif-dot').forEach((d) => (d.hidden = n === 0));
+  // L19 私信小红点：只查一个计数接口，不下载私信界面代码
+  void request<{ total: number; requests: number }>('/api/social/dm/unread', { headers: auth() })
+    .then((u) => document.dispatchEvent(new CustomEvent('blog:dm-unread', { detail: u })))
+    .catch(() => undefined);
   document.querySelectorAll<HTMLElement>('.js-notif-count').forEach((d) => {
     d.hidden = n === 0;
     d.textContent = n > 99 ? '99+' : String(n);
@@ -156,9 +160,17 @@ export async function offerMerge(ctx: SocialCtx): Promise<void> {
   dlg.querySelector<HTMLElement>('.js-merge-yes')?.focus();
 }
 
+// L19：导航里的私信小红点（计数来自 refreshUnread / 私信页的同步）
+document.addEventListener('blog:dm-unread', (ev) => {
+  const u = (ev as CustomEvent<{ total: number; requests: number } | null>).detail;
+  const n = u ? u.total + u.requests : 0;
+  document.querySelectorAll<HTMLElement>('.js-dm-dot').forEach((d) => (d.hidden = n === 0));
+});
+
 // ---------------------------------------------------------------- 挂载
 const DISCOVERY_VIEWS = new Set(['discover', 'topics', 'topic', 'events', 'event', 'collection']);
 const STUDIO_VIEWS = new Set(['projects', 'project', 'features', 'feature', 'mystats']);
+const DM_VIEWS = new Set(['messages', 'msgrequests', 'msgsettings', 'conversation']);
 export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<void> {
   const box = root.querySelector<HTMLElement>('.js-social');
   if (!box) return;
@@ -170,12 +182,14 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     else if (view && DISCOVERY_VIEWS.has(view)) await (await import('./discovery-client')).mountDiscovery(box, view, ctx);
     // L18 项目 / 摄影专题 / 数据中心：再分一个包
     else if (view && STUDIO_VIEWS.has(view)) await (await import('./studio-client')).mountStudio(box, view, ctx);
+    // L19 私信 / 消息请求 / 设置 / 会话：再分一个包
+    else if (view && DM_VIEWS.has(view)) await (await import('./dm-client')).mountDm(box, view, ctx);
     else if (view === 'user') await renderProfile(box, box.dataset.username ?? '', ctx);
     else if (view === 'notifications') await renderNotifications(box, ctx);
     else if (view === 'me') await renderMe(box, ctx);
   } catch (x) {
     const nf = x instanceof ApiError && x.status === 404;
-    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view)));
+    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view)));
     box.innerHTML = `<div class="soc-gate tile tile--full">${icon(nf ? 'user' : 'close')}<h2>${nf ? (isWork ? '内容不存在' : '没有这个用户') : '加载失败'}</h2><p class="muted">${e(nf ? (isWork ? '可能已被删除，或者你没有权限查看。' : '可能是用户名写错了，或者对方不想被你看到。') : errMsg(x))}</p><a class="btn btn--soft" href="${url('/')}">回到首页</a></div>`;
   } finally {
     box.removeAttribute('aria-busy');
@@ -192,6 +206,7 @@ async function renderProfile(box: HTMLElement, username: string, ctx: SocialCtx)
     ? `<a class="btn btn--soft btn--sm" href="${url('/me/')}">${icon('edit')}编辑资料</a>`
     : v.loggedIn
       ? `${v.blocked ? '' : `<button class="btn btn--sm ${v.following ? 'btn--soft' : 'btn--primary'} js-follow" type="button" aria-pressed="${v.following}">${icon(v.following ? 'check' : 'userPlus')}<span>${v.following ? '已关注' : v.followedBy ? '回关' : '关注'}</span></button>`}
+         ${v.blocked ? '' : `<button class="btn btn--soft btn--sm js-dm" type="button">${icon('message')}<span>私信</span></button>`}
          <button class="btn btn--ghost btn--sm js-mute" type="button" aria-pressed="${v.muted}">${icon(v.muted ? 'volume' : 'volumeMute')}<span>${v.muted ? '取消静音' : '静音'}</span></button>
          <button class="btn btn--ghost btn--sm js-block" type="button" aria-pressed="${v.blocked}">${icon('ban')}<span>${v.blocked ? '解除拉黑' : '拉黑'}</span></button>`
       : `<a class="btn btn--primary btn--sm" href="${url('/join/')}">${icon('userPlus')}登录后关注</a>`;
@@ -262,6 +277,7 @@ function bindProfileActions(box: HTMLElement, p: { username: string }, v: Viewer
       void ctx.notify(errMsg(x), 'error');
     }
   });
+  box.querySelector<HTMLButtonElement>('.js-dm')?.addEventListener('click', () => void import('./dm-client').then((m) => m.startDm(p.username, ctx)));
   for (const [sel, kind, on, label] of [['.js-mute', 'mutes', !v.muted, v.muted ? '已取消静音' : '已静音：对方的动态和通知不再打扰你'], ['.js-block', 'blocks', !v.blocked, v.blocked ? '已解除拉黑' : '已拉黑：互相取消关注，对方看不到你的主页']] as const) {
     box.querySelector<HTMLButtonElement>(sel)?.addEventListener('click', async () => {
       if (kind === 'blocks' && on && !confirm(`确定拉黑 @${p.username}？会互相取消关注，对方将看不到你的主页、不能关注你。`)) return;
@@ -388,7 +404,7 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
     return `<div class="soc-linkrow"><label><span class="visually-hidden">链接 ${i + 1} 名称</span><input name="ll${i}" maxlength="24" placeholder="名称" value="${e(l?.label ?? '')}"></label><label><span class="visually-hidden">链接 ${i + 1} 地址</span><input name="lu${i}" type="url" maxlength="200" placeholder="https://…" value="${e(l?.url ?? '')}"></label></div>`;
   });
   const chk = (name: string, on: boolean, label: string, hint = '') => `<label class="soc-check"><input type="checkbox" name="${name}"${on ? ' checked' : ''}><span>${label}${hint ? `<small class="muted">${hint}</small>` : ''}</span></label>`;
-  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a></div></section>
+  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm" href="${url('/messages/')}">${icon('message')}私信</a><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a></div></section>
 <section class="tile tile--half soc-find" aria-labelledby="soc-find-h"><h2 class="soc-h" id="soc-find-h">${icon('search')}找人</h2><form class="js-find" role="search"><label for="soc-q" class="visually-hidden">按用户名或昵称搜索</label><div class="soc-find__row"><input id="soc-q" name="q" maxlength="40" placeholder="用户名或昵称" autocomplete="off"><button class="btn btn--primary btn--sm" type="submit">搜索</button></div></form><ul class="soc-users js-find-res" aria-live="polite"></ul></section>
 <section class="tile tile--half" aria-labelledby="soc-bm-h"><h2 class="soc-h" id="soc-bm-h">${icon('bookmark')}云端收藏</h2><p class="muted small">在任何设备登录都能看到。文章卡片上的书签按钮会自动同步。</p><ul class="soc-bms js-bms"><li class="muted">加载中…</li></ul><button class="btn btn--ghost btn--sm js-bm-more" type="button" hidden>加载更多</button></section>
 <section class="tile tile--full" aria-labelledby="soc-prof-h"><h2 class="soc-h" id="soc-prof-h">${icon('edit')}资料</h2>

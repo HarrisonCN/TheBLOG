@@ -772,6 +772,7 @@ usa-pagination { --usa-accent: var(--accent); --usa-pg-c: var(--accent); }
   .brand__name { font-size: 1.45rem; }
   .nav__bar { gap: 0.5rem; }
   .nav__tools { gap: 0.1rem; }
+  .nav__dm { display: none !important; }
   .nav__search { display: none; }
   .nav__btn--search { display: grid; }
   .home__side { grid-template-columns: minmax(0, 1fr); }
