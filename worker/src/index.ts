@@ -12,6 +12,7 @@ import { routeAdmin as communityAdmin, routePublic as communityPublic } from './
 import { routeReactions } from './reactions';
 import { routeAdminComments, routeComments } from './comments';
 import { routeSocial } from './social';
+import { routeAdminUgc } from './ugc';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -97,7 +98,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   // ---------- 社交（L15）：用户主页 / 关注 / 拉黑 / 收藏 / 通知；所有写方法都校验 Origin ----------
   if (path.startsWith('/api/social/')) {
     if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
-    const social = await routeSocial(req, env, path, url, () => readJson(req, 16 * 1024));
+    // 投稿正文（长文最多 2 万字 + 影集 30 张图的元数据）需要比社交接口更大的请求体上限
+    const social = await routeSocial(req, env, path, url, () => readJson(req, path.startsWith('/api/social/works') ? 128 * 1024 : 16 * 1024));
     if (social) return social;
     throw new HttpError(404, 'not_found', '接口不存在');
   }
@@ -130,8 +132,11 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   // ---------- 后台接口 ----------
   if (path.startsWith('/api/admin/')) {
     checkOrigin(req, env);
-    await requireAdmin(req, env);
+    const authCtx = await requireAdmin(req, env);
     const sub = path.slice('/api/admin'.length);
+    // L16 社区审核队列 / 操作 / 审核日志 / 社区规则
+    const ugcAdmin = await routeAdminUgc(req, env, sub, url, () => readJson(req, 16 * 1024), authCtx.kind === 'token' ? 'token' : 'admin');
+    if (ugcAdmin) return ugcAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });

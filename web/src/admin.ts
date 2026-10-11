@@ -36,7 +36,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -48,7 +48,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目'], ['playlist', 'music', '音乐歌单']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
-  { group: '社区', items: [['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
+  { group: '社区', items: [['ugc', 'flag', '社区审核'], ['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -181,6 +181,7 @@ async function go(next?: View): Promise<void> {
       case 'festivals': return await renderFestivals();
       case 'members': return await renderMembers();
       case 'comments': return await renderComments();
+      case 'ugc': return await renderUgc();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }
@@ -993,6 +994,63 @@ async function renderComments(): Promise<void> {
   );
 }
 
+// ============================================================ L16 社区审核（用户投稿 / 投稿评论 / 举报 / 封禁 / 审核日志 / 社区规则）
+interface UgcItem { kind: 'work' | 'comment' | 'user'; id: number; author: { id: number; username: string; nickname: string } | null; type: string; title: string; excerpt: string; cover: { url: string; alt: string } | null; workId: number | null; status: string; modState: string; deleted: boolean; reports: { id: number; reason: string; detail: string; createdAt: string }[]; createdAt: string }
+interface UgcLog { id: number; actor: string; action: string; targetKind: string; targetId: number; memberId: number | null; reportId: number | null; reason: string; createdAt: string }
+const UGC_TYPE: Record<string, string> = { short: '短动态', article: '长文', photo: '摄影作品', album: '影集', comment: '评论', user: '用户' };
+const UGC_REASON: Record<string, string> = { spam: '垃圾广告', abuse: '辱骂骚扰', nsfw: '不适宜内容', copyright: '侵犯版权', privacy: '泄露隐私', other: '其他' };
+const UGC_ACTION: Record<string, string> = { approve: '通过', hide: '隐藏', restore: '恢复', purge: '彻底删除', ban: '封禁', unban: '解封', dismiss: '驳回举报', auto_pending: '自动进入审核', rules: '修改规则' };
+let ugcView: 'pending' | 'reports' | 'hidden' | 'banned' | 'log' = 'pending';
+async function renderUgc(): Promise<void> {
+  const q = await optional(
+    adminFetch<{ items: UgcItem[]; counts: Record<string, number>; rules: { reviewFirstN: number; maxLinks: number } }>(`/api/admin/ugc/queue?view=${ugcView === 'log' ? 'pending' : ugcView}`),
+    { items: [], counts: { pending: 0, reports: 0, hidden: 0, banned: 0 }, rules: { reviewFirstN: 2, maxLinks: 3 } },
+  );
+  const log = ugcView === 'log' ? (await optional(adminFetch<{ actions: UgcLog[] }>('/api/admin/ugc/log?limit=50'), { actions: [] })).actions : [];
+  const seg = (v: typeof ugcView, l: string) => `<button type="button" class="adm-seg__b${ugcView === v ? ' is-on' : ''}" data-ugcv="${v}" aria-pressed="${ugcView === v}">${l}</button>`;
+  const btn = (it: UgcItem, action: string, label: string, cls = 'btn--soft', report?: number) =>
+    `<button class="btn ${cls} btn--sm" type="button" data-ugc="${action}" data-kind="${it.kind}" data-id="${it.kind === 'user' ? it.author?.id ?? it.id : it.id}"${report ? ` data-report="${report}"` : ''}>${label}</button>`;
+  const link = (it: UgcItem) => (it.workId ? `<a class="muted small" href="${e(SITE_HOME)}w/${it.workId}/" target="_blank" rel="noopener">查看作品 #${it.workId}</a>` : '');
+  const item = (it: UgcItem) => `<article class="adm-gb__item adm-ugc" data-kind="${it.kind}" data-id="${it.id}">
+<header><b>${e(it.author?.nickname ?? '已注销')}</b>${it.author ? `<span class="muted small">@${e(it.author.username)}</span>` : ''}<span class="chip">${e(UGC_TYPE[it.type] ?? it.type)}</span>${it.status === 'pending' ? '<span class="chip chip--pending">待审核</span>' : ''}${it.modState === 'hidden' ? '<span class="chip chip--hidden">已隐藏</span>' : ''}${it.deleted ? '<span class="chip">作者已删除</span>' : ''}${it.status === 'banned' ? '<span class="chip chip--alert">已封禁</span>' : ''}<span class="muted small">${e(fmtDate(it.createdAt))}</span>${link(it)}</header>
+${it.cover ? `<img class="adm-ugc__img" src="${e(rawUrl(it.cover.url))}" alt="${e(it.cover.alt)}" loading="lazy">` : ''}${it.title ? `<p><b>${e(it.title)}</b></p>` : ''}<p>${e(it.excerpt)}</p>
+${it.reports.length ? `<ul class="adm-ugc__reports" aria-label="举报">${it.reports.map((r) => `<li><span class="chip chip--alert">${e(UGC_REASON[r.reason] ?? r.reason)}</span>${r.detail ? ` ${e(r.detail)}` : ''} <span class="muted small">${e(fmtDate(r.createdAt))}</span></li>`).join('')}</ul>` : ''}
+<div class="adm-row">${
+    it.kind === 'user'
+      ? it.status === 'banned'
+        ? btn(it, 'unban', '解封', 'btn--sm')
+        : `${btn(it, 'ban', '封禁', 'btn--danger')}${it.reports.length ? btn(it, 'dismiss', '驳回举报') : ''}`
+      : `${it.status === 'pending' ? btn(it, 'approve', `${icon('check')}通过`, '') : ''}${it.modState === 'hidden' ? btn(it, 'restore', '恢复') : btn(it, 'hide', '隐藏', 'btn--soft', it.reports[0]?.id)}${it.reports.length ? btn(it, 'dismiss', '驳回举报', 'btn--ghost', it.reports[0]?.id) : ''}${it.author ? `<button class="btn btn--ghost btn--sm" type="button" data-ugc="ban" data-kind="user" data-id="${it.author.id}">封禁作者</button>` : ''}<button class="adm-icon-btn adm-icon-btn--danger" type="button" data-ugc="purge" data-kind="${it.kind}" data-id="${it.id}" aria-label="彻底删除 ${UGC_TYPE[it.type] ?? ''} #${it.id}">${icon('trash')}</button>`
+  }</div></article>`;
+  mount(
+    tile(
+      'full',
+      `${head('flag', '社区审核', `<div class="adm-seg" role="group" aria-label="审核队列">${seg('pending', `待审核 ${q.counts.pending ?? 0}`)}${seg('reports', `举报 ${q.counts.reports ?? 0}`)}${seg('hidden', `已隐藏 ${q.counts.hidden ?? 0}`)}${seg('banned', `已封禁 ${q.counts.banned ?? 0}`)}${seg('log', '审核日志')}</div>`)}
+<p class="muted small">用户投稿和投稿下的评论不沿用「好朋友评论直接公开」：新成员的前 ${q.rules.reviewFirstN} 条内容先进这里审核。「隐藏」可恢复；「彻底删除」不可撤销；作者自己删除的内容只做软删除。每个操作都会写入审核日志。</p>
+${
+  ugcView === 'log'
+    ? `<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">审核日志</caption><thead><tr><th scope="col">时间</th><th scope="col">操作者</th><th scope="col">操作</th><th scope="col">对象</th><th scope="col">原因</th></tr></thead><tbody>${log.map((a) => `<tr><td>${e(fmtDate(a.createdAt))}</td><td>${e(a.actor === 'system' ? '系统' : a.actor === 'token' ? 'API 令牌' : '站长')}</td><td>${e(UGC_ACTION[a.action] ?? a.action)}</td><td>${e(UGC_TYPE[a.targetKind] ?? a.targetKind)} #${a.targetId}${a.reportId ? `（举报 #${a.reportId}）` : ''}</td><td>${e(a.reason)}</td></tr>`).join('') || '<tr><td colspan="5">还没有记录</td></tr>'}</tbody></table></div>`
+    : `<div class="adm-gb adm-ugc-list">${q.items.map(item).join('') || '<p class="empty">这里是空的 🎉</p>'}</div>`
+}`,
+    ) +
+      tile(
+        'full',
+        `${head('settings', '社区规则')}<form class="adm-form adm-ugc-rules" data-form="ugc-rules"><div class="adm-grid2"><label class="field"><span>新成员前几条内容先审核</span><input name="reviewFirstN" type="number" min="0" max="50" value="${q.rules.reviewFirstN}" required></label><label class="field"><span>每条内容最多几个链接</span><input name="maxLinks" type="number" min="0" max="20" value="${q.rules.maxLinks}" required></label></div><p><button class="btn btn--sm" type="submit">保存规则</button></p></form>`,
+      ),
+  );
+  root.querySelector<HTMLFormElement>('[data-form="ugc-rules"]')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget as HTMLFormElement;
+    const num = (n: string) => Number((f.elements.namedItem(n) as HTMLInputElement).value);
+    try {
+      await put('/api/admin/ugc/rules', { reviewFirstN: num('reviewFirstN'), maxLinks: num('maxLinks') });
+      msg('规则已保存');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+}
+
 async function renderNotes(): Promise<void> {
   const { notes } = await optional(adminFetch<{ notes: StickyNote[] }>('/api/admin/notes'), { notes: [] });
   const sorted = notes.slice().sort((a, b) => Number(b.hidden) - Number(a.hidden) || b.reports - a.reports || b.id - a.id);
@@ -1100,6 +1158,30 @@ root.addEventListener('click', async (ev) => {
   }
   if (t.closest('#theme-toggle')) {
     toggleTheme();
+    return;
+  }
+  const ugcSeg = t.closest<HTMLElement>('[data-ugcv]');
+  if (ugcSeg) {
+    ugcView = ugcSeg.dataset.ugcv as typeof ugcView;
+    return void renderUgc();
+  }
+  const ugcBtn = t.closest<HTMLElement>('[data-ugc]');
+  if (ugcBtn) {
+    const action = ugcBtn.dataset.ugc!;
+    if (action === 'purge' && !confirm('彻底删除？内容、图片、评论和回应都会被删除，不能撤销。')) return;
+    let reason = '';
+    if (action === 'hide' || action === 'ban') {
+      const r = prompt(action === 'ban' ? '封禁原因（会记录在审核日志里）' : '隐藏原因（作者能看到）', action === 'ban' ? '多次违反社区规则' : '违反社区规则');
+      if (r === null) return;
+      reason = r.slice(0, 200);
+    }
+    try {
+      await put('/api/admin/ugc/actions', { targetKind: ugcBtn.dataset.kind, targetId: Number(ugcBtn.dataset.id), action, reason, reportId: ugcBtn.dataset.report ? Number(ugcBtn.dataset.report) : null }, 'POST');
+      await renderUgc();
+      msg(`已${UGC_ACTION[action] ?? '处理'}`);
+    } catch (err) {
+      msg(errText(err), true);
+    }
     return;
   }
   const cmSeg = t.closest<HTMLElement>('[data-cm]');

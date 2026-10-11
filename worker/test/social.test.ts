@@ -161,13 +161,14 @@ describe('L15 社交：发现 + 互相关注 + 通知', () => {
     expect(n.notifications[0].actor.username).toBe('carol_c');
     const men = await J(await call(env, '/api/social/notifications?filter=mention', { token: B.token }));
     expect(men.notifications.length).toBe(1);
-    // 公开主页「作品」列表包含公开评论
+    // L16 起主页「作品」列表是真正的用户投稿，不再是评论
     const p = await J(await call(env, '/api/social/users/bob_frames'));
-    expect(p.works.length).toBeGreaterThan(0);
+    expect(p.works.length).toBe(0);
+    expect(p.profile.counts.works).toBe(0);
   });
   it('通知偏好：默认邮件关；关闭 follow 后不再生成', async () => {
     const p = await J(await call(env, '/api/social/notifications/prefs', { token: C.token }));
-    expect(p.prefs).toEqual({ follow: true, reply: true, mention: true, bookmark: true, email: false });
+    expect(p.prefs).toEqual({ follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false });
     await put('/api/social/notifications/prefs', C.token, { follow: false });
     await call(env, '/api/social/follows/carol_c', { method: 'POST', token: A.token });
     const n = await J(await call(env, '/api/social/notifications?filter=follow', { token: C.token }));

@@ -182,7 +182,7 @@ if (API || DEMO) {
         count++;
         if (route.name === 'post') postPages++;
         if (route.name === 'home') listPages++;
-        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me' && route.name !== 'compose') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
       } catch (e) {
         failures.push(`${label}：${e.message}`);
         if (!STRICT) console.warn(`[prerender] ⚠ 跳过失败页 ${label}：${e.message}`);
@@ -191,7 +191,7 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me']) await emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose']) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
@@ -205,6 +205,24 @@ if (API || DEMO) {
     for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) await emit({ name: 'tag', tag: t.tag });
     for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) await emit({ name: 'category', category: c.category });
     for (const a of extra.gallery) await emit({ name: 'album', slug: a.slug });
+    // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
+    // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
+    try {
+      const authors = new Set();
+      let cursor = null;
+      for (let i = 0; i < 10; i++) {
+        const r = await get(`/api/social/works?tab=latest&limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        for (const w of r.works ?? []) {
+          await emit({ name: 'work', id: w.id });
+          if (/^[a-z0-9_]{3,20}$/.test(w.author?.username ?? '')) authors.add(w.author.username);
+        }
+        cursor = r.nextCursor;
+        if (!cursor) break;
+      }
+      for (const u of authors) await emit({ name: 'user', username: u });
+    } catch (e) {
+      console.warn(`[prerender] 跳过社区作品外壳：${e.message}`);
+    }
     // 文章页：小批量并发拉取正文
     const queue = [...list.posts];
     await Promise.all(Array.from({ length: 6 }, async () => {

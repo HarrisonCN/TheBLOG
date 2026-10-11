@@ -5,6 +5,7 @@
  */
 import type { Env } from './env';
 import { HttpError, json } from './http';
+import { profileWorks, routeUgc } from './ugc';
 import { getMember, ipKey, optionalMember, rateLimit, removeMember, requireMember, sendEmail, type Badge, type Member } from './community';
 import {
   aggregates,
@@ -25,6 +26,8 @@ import {
   type SocialCursor,
   type SocialLink,
   type Visibility,
+  EVENT_TYPES,
+  storedType,
 } from './social-core';
 
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -48,7 +51,7 @@ export interface PublicProfile {
 export interface ProfileSettings { visibility: Visibility; showFollows: boolean; discoverable: boolean }
 export interface Viewer { self: boolean; loggedIn: boolean; following: boolean; followedBy: boolean; blocked: boolean; muted: boolean }
 export interface UserCard { username: string; nickname: string; avatarUrl: string; bio: string }
-export interface PublicWork { kind: 'comment'; slug: string; excerpt: string; createdAt: string }
+export type { PublicWork } from './ugc';
 export interface Bookmark { id: number; kind: string; ref: string; title: string; createdAt: string }
 export interface NotificationItem {
   id: number;
@@ -62,7 +65,7 @@ export interface NotificationItem {
   createdAt: string;
   updatedAt: string;
 }
-export interface NotificationPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; email: boolean }
+export interface NotificationPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; email: boolean }
 
 interface ProfileRow { member_id: number; username: string; cover_url: string; links: string; visibility: Visibility; show_follows: number; discoverable: number }
 
@@ -100,7 +103,7 @@ async function profileByUsername(env: Env, username: string): Promise<ProfileRow
   return row;
 }
 
-async function relation(env: Env, a: number, b: number): Promise<{ following: boolean; followedBy: boolean; blocked: boolean; blockedBy: boolean; muted: boolean }> {
+export async function relation(env: Env, a: number, b: number): Promise<{ following: boolean; followedBy: boolean; blocked: boolean; blockedBy: boolean; muted: boolean }> {
   const [f, r] = await env.DB.batch<{ follower_id: number; following_id?: number; owner_id?: number; target_id?: number; kind?: string }>([
     env.DB.prepare('SELECT follower_id, following_id FROM user_follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)').bind(a, b, b, a),
     env.DB.prepare('SELECT owner_id, target_id, kind FROM user_relations WHERE (owner_id = ? AND target_id = ?) OR (owner_id = ? AND target_id = ?)').bind(a, b, b, a),
@@ -120,7 +123,8 @@ async function counts(env: Env, id: number): Promise<PublicProfile['counts']> {
   const [a, b, c] = await env.DB.batch<{ n: number }>([
     env.DB.prepare('SELECT COUNT(*) AS n FROM user_follows WHERE following_id = ?').bind(id),
     env.DB.prepare('SELECT COUNT(*) AS n FROM user_follows WHERE follower_id = ?').bind(id),
-    env.DB.prepare("SELECT COUNT(*) AS n FROM comments WHERE member_id = ? AND status = 'approved'").bind(id),
+    // L16：作品数 = 公开、已发布、未隐藏 / 删除的用户投稿（L15 时是已公开评论数）
+    env.DB.prepare("SELECT COUNT(*) AS n FROM user_posts WHERE author_id = ? AND status = 'published' AND mod_state = 'ok' AND deleted_at IS NULL AND visibility = 'public'").bind(id),
   ]);
   return { followers: a!.results[0]?.n ?? 0, following: b!.results[0]?.n ?? 0, works: c!.results[0]?.n ?? 0 };
 }
@@ -142,16 +146,10 @@ function toProfile(m: Member, p: ProfileRow, c: PublicProfile['counts']): Public
   };
 }
 
-async function card(env: Env, memberId: number): Promise<UserCard | null> {
+export async function card(env: Env, memberId: number): Promise<UserCard | null> {
   const r = await env.DB.prepare('SELECT m.name, m.avatar_url, m.bio, p.username FROM members m LEFT JOIN user_profiles p ON p.member_id = m.id WHERE m.id = ?').bind(memberId).first<{ name: string; avatar_url: string; bio: string; username: string | null }>();
   if (!r) return null;
   return { username: r.username ?? defaultUsername(memberId), nickname: r.name, avatarUrl: r.avatar_url, bio: r.bio };
-}
-
-/** 公开的作品列表（L15：会员已公开的评论；L16 起为用户投稿）。 */
-async function publicWorks(env: Env, memberId: number): Promise<PublicWork[]> {
-  const { results } = await env.DB.prepare("SELECT slug, content, created_at FROM comments WHERE member_id = ? AND status = 'approved' ORDER BY id DESC LIMIT 12").bind(memberId).all<{ slug: string; content: string; created_at: string }>();
-  return results.map((r) => ({ kind: 'comment', slug: r.slug, excerpt: r.content.slice(0, 120), createdAt: r.created_at }));
 }
 
 export async function getProfile(req: Request, env: Env, username: string) {
@@ -166,7 +164,7 @@ export async function getProfile(req: Request, env: Env, username: string) {
   if (access === 'restricted') {
     return { restricted: rel.blocked ? 'blocked' : p.visibility, profile: { username: p.username, nickname: m.name, avatarUrl: m.avatarUrl }, viewer: v };
   }
-  return { restricted: null, profile: toProfile(m, p, await counts(env, p.member_id)), works: await publicWorks(env, p.member_id), viewer: v };
+  return { restricted: null, profile: toProfile(m, p, await counts(env, p.member_id)), works: await profileWorks(env, p.member_id, viewer?.id ?? null, rel.following), viewer: v };
 }
 
 export async function getMe(req: Request, env: Env) {
@@ -266,7 +264,7 @@ export async function listRelations(req: Request, env: Env, kind: 'block' | 'mut
   return { users };
 }
 
-function pageArgs(url: URL): { limit: number; cursor: SocialCursor | null } {
+export function pageArgs(url: URL): { limit: number; cursor: SocialCursor | null } {
   const limit = clampLimit(url.searchParams.get('limit'));
   const cursor = decodeCursor(url.searchParams.get('cursor'));
   if (limit === 'bad') throw new HttpError(400, 'validation_error', '参数校验失败', {}, [{ path: 'limit', message: 'limit 必须是 1–50 的整数' }]);
@@ -360,18 +358,18 @@ export async function mergeBookmarks(req: Request, env: Env, input: unknown) {
 }
 
 // ============================================================ 通知
-const PREF_DEFAULT: NotificationPrefs = { follow: true, reply: true, mention: true, bookmark: true, email: false };
+const PREF_DEFAULT: NotificationPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false };
 async function prefsOf(env: Env, id: number): Promise<NotificationPrefs> {
   const r = await env.DB.prepare('SELECT * FROM notification_prefs WHERE member_id = ?').bind(id).first<Record<string, number>>();
   if (!r) return { ...PREF_DEFAULT };
-  return { follow: !!r.follow, reply: !!r.reply, mention: !!r.mention, bookmark: !!r.bookmark, email: !!r.email };
+  return { follow: !!r.follow, reply: !!r.reply, mention: !!r.mention, bookmark: !!r.bookmark, reaction: r.reaction === undefined ? true : !!r.reaction, new_work: r.new_work === undefined ? true : !!r.new_work, email: !!r.email };
 }
 
 /**
  * 生成通知（幂等 + 聚合 + 频率限制）。拉黑 / 静音了触发者、关掉该类型、给自己 → 不生成。
  * 失败不影响触发它的主操作（关注 / 评论照常成功）。
  */
-export async function notify(env: Env, n: { to: number; type: NotificationType; actorId?: number | null; objectKind?: string; objectRef?: string; thread?: string | number; excerpt?: string }): Promise<boolean> {
+export async function notify(env: Env, n: { to: number; type: NotificationType; actorId?: number | null; objectKind?: string; objectRef?: string; thread?: string | number; excerpt?: string; key?: string }): Promise<boolean> {
   try {
     if (n.actorId && n.actorId === n.to) return false;
     if (n.actorId) {
@@ -385,17 +383,18 @@ export async function notify(env: Env, n: { to: number; type: NotificationType; 
       }
     }
     const prefs = await prefsOf(env, n.to);
-    if (n.type !== 'system' && !prefs[n.type]) return false;
-    const key = notificationKey(n.type, n);
+    if (n.type !== 'system' && n.type !== 'moderation' && !prefs[n.type]) return false;
+    const key = n.key ?? notificationKey(n.type, n);
+    const st = storedType(n.type);
     const t = nowIso();
     const excerpt = (n.excerpt ?? '').slice(0, 140);
     const sql = aggregates(n.type)
-      ? `INSERT INTO notifications (member_id, type, actor_id, object_kind, object_ref, excerpt, count, dedupe_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+      ? `INSERT INTO notifications (member_id, type, actor_id, object_kind, object_ref, excerpt, count, dedupe_key, created_at, updated_at, event) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
          ON CONFLICT(member_id, dedupe_key) DO UPDATE SET
            count = CASE WHEN notifications.read_at IS NULL THEN notifications.count + 1 ELSE 1 END,
            actor_id = excluded.actor_id, excerpt = excluded.excerpt, read_at = NULL, updated_at = excluded.updated_at`
-      : `INSERT OR IGNORE INTO notifications (member_id, type, actor_id, object_kind, object_ref, excerpt, count, dedupe_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`;
-    const r = await env.DB.prepare(sql).bind(n.to, n.type, n.actorId ?? null, n.objectKind ?? '', n.objectRef ?? '', excerpt, key, t, t).run();
+      : `INSERT OR IGNORE INTO notifications (member_id, type, actor_id, object_kind, object_ref, excerpt, count, dedupe_key, created_at, updated_at, event) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`;
+    const r = await env.DB.prepare(sql).bind(n.to, st.type, n.actorId ?? null, n.objectKind ?? '', n.objectRef ?? '', excerpt, key, t, t, st.event).run();
     if (r.meta.changes && prefs.email) await emailNotice(env, n.to, n.type);
     return !!r.meta.changes;
   } catch (e) {
@@ -404,7 +403,7 @@ export async function notify(env: Env, n: { to: number; type: NotificationType; 
   }
 }
 
-const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知' };
+const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知', reaction: '有人回应了你的作品', new_work: '你关注的人发布了新作品', moderation: '你的内容有审核结果' };
 async function emailNotice(env: Env, to: number, type: NotificationType): Promise<void> {
   try {
     await rateLimit(env, 'notify-email', String(to), 5, 3600);
@@ -427,8 +426,11 @@ export async function listNotifications(req: Request, env: Env, url: URL) {
   const where = ['n.member_id = ?'];
   const args: unknown[] = [me.id];
   if (f === 'unread') where.push('n.read_at IS NULL');
-  else if (f !== 'all') {
-    where.push('n.type = ?');
+  else if (EVENT_TYPES.includes(f as NotificationType)) {
+    where.push('n.event = ?');
+    args.push(f);
+  } else if (f !== 'all') {
+    where.push("n.type = ? AND n.event = ''");
     args.push(f);
   }
   // 静音的人：不出现在列表里（拉黑的已在拉黑时清除）
@@ -440,11 +442,11 @@ export async function listNotifications(req: Request, env: Env, url: URL) {
   }
   const { results } = await env.DB.prepare(`SELECT n.* FROM notifications n WHERE ${where.join(' AND ')} ORDER BY n.id DESC LIMIT ?`)
     .bind(...args, limit + 1)
-    .all<{ id: number; type: NotificationType; actor_id: number | null; object_kind: string; object_ref: string; excerpt: string; count: number; read_at: string | null; created_at: string; updated_at: string }>();
+    .all<{ id: number; type: NotificationType; event: string; actor_id: number | null; object_kind: string; object_ref: string; excerpt: string; count: number; read_at: string | null; created_at: string; updated_at: string }>();
   const page = results.slice(0, limit);
   const items: NotificationItem[] = [];
   for (const r of page) {
-    items.push({ id: r.id, type: r.type, actor: r.actor_id ? await card(env, r.actor_id) : null, objectKind: r.object_kind, objectRef: r.object_ref, excerpt: r.excerpt, count: r.count, read: !!r.read_at, createdAt: r.created_at, updatedAt: r.updated_at });
+    items.push({ id: r.id, type: (r.event || r.type) as NotificationType, actor: r.actor_id ? await card(env, r.actor_id) : null, objectKind: r.object_kind, objectRef: r.object_ref, excerpt: r.excerpt, count: r.count, read: !!r.read_at, createdAt: r.created_at, updatedAt: r.updated_at });
   }
   const last = page.at(-1);
   return { notifications: items, unread: await unreadCount(env, me.id), nextCursor: results.length > limit && last ? encodeCursor({ t: last.created_at, id: last.id }) : null };
@@ -481,10 +483,10 @@ export async function setPrefs(req: Request, env: Env, input: unknown) {
     }
   }
   await env.DB.prepare(
-    `INSERT INTO notification_prefs (member_id, follow, reply, mention, bookmark, email, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(member_id) DO UPDATE SET follow = excluded.follow, reply = excluded.reply, mention = excluded.mention, bookmark = excluded.bookmark, email = excluded.email, updated_at = excluded.updated_at`,
+    `INSERT INTO notification_prefs (member_id, follow, reply, mention, bookmark, reaction, new_work, email, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(member_id) DO UPDATE SET follow = excluded.follow, reply = excluded.reply, mention = excluded.mention, bookmark = excluded.bookmark, reaction = excluded.reaction, new_work = excluded.new_work, email = excluded.email, updated_at = excluded.updated_at`,
   )
-    .bind(me.id, +cur.follow, +cur.reply, +cur.mention, +cur.bookmark, +cur.email, nowIso())
+    .bind(me.id, +cur.follow, +cur.reply, +cur.mention, +cur.bookmark, +cur.reaction, +cur.new_work, +cur.email, nowIso())
     .run();
   return { prefs: cur };
 }
@@ -519,7 +521,10 @@ export async function exportMe(req: Request, env: Env) {
     blocks: await all("SELECT p.username, r.kind, r.created_at FROM user_relations r LEFT JOIN user_profiles p ON p.member_id = r.target_id WHERE r.owner_id = ?"),
     bookmarks: await all('SELECT kind, ref, title, created_at FROM user_bookmarks WHERE member_id = ?'),
     comments: await all('SELECT slug, content, status, created_at FROM comments WHERE member_id = ?'),
-    notifications: await all('SELECT type, object_kind, object_ref, excerpt, count, read_at, created_at FROM notifications WHERE member_id = ?'),
+    notifications: await all("SELECT CASE WHEN event <> '' THEN event ELSE type END AS type, object_kind, object_ref, excerpt, count, read_at, created_at FROM notifications WHERE member_id = ?"),
+    works: await all('SELECT id, type, title, body, caption, notes, params, visibility, status, mod_state, published_at, deleted_at, created_at FROM user_posts WHERE author_id = ?'),
+    workMedia: await all('SELECT m.post_id, m.position, m.url, m.alt FROM user_post_media m JOIN user_posts p ON p.id = m.post_id WHERE p.author_id = ?'),
+    workComments: await all('SELECT post_id, body, status, deleted_at, created_at FROM user_post_comments WHERE author_id = ?'),
     notificationPrefs: await prefsOf(env, me.id),
   };
   return new Response(JSON.stringify(data, null, 2), {
@@ -542,6 +547,14 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
     env.DB.prepare('DELETE FROM notification_prefs WHERE member_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_profiles WHERE member_id = ?').bind(me.id),
     env.DB.prepare('UPDATE comments SET member_id = NULL WHERE member_id = ?').bind(me.id),
+    // L16：注销 = 硬删除本人的投稿（媒体 / 评论 / 回应随外键级联）与互动；审核日志保留（只记 id）
+    env.DB.prepare('DELETE FROM user_posts WHERE author_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM user_post_comments WHERE author_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM user_reactions WHERE member_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM user_post_bookmarks WHERE member_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM mentions WHERE author_id = ? OR mentioned_id = ?').bind(me.id, me.id),
+    env.DB.prepare('UPDATE reports SET reporter_id = NULL WHERE reporter_id = ?').bind(me.id),
+    env.DB.prepare('DELETE FROM member_standing WHERE member_id = ?').bind(me.id),
   ]);
   await removeMember(env, me.id);
   return { deleted: true };
@@ -556,6 +569,9 @@ export async function routeSocial(req: Request, env: Env, path: string, url: URL
   const sub = path.slice('/api/social'.length);
   let mt: RegExpExecArray | null;
   const ok = (data: unknown, status = 200) => json(data, { status, headers: NO_STORE });
+  // L16 用户投稿 / 动态流 / 评论 / 回应 / 举报 / 上传
+  const ugc = await routeUgc(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
+  if (ugc) return ugc;
   if (m === 'GET') {
     if ((mt = new RegExp(`^/users/${U}$`).exec(sub))) return ok(await getProfile(req, env, mt[1]!));
     if ((mt = new RegExp(`^/users/${U}/(followers|following)$`).exec(sub))) return ok(await listFollows(req, env, mt[1]!, mt[2] as 'followers' | 'following', url));

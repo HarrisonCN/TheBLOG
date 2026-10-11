@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.15.0", "milestone": "L15", "from": "11354ee", "title": "社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云端收藏、通知中心" },
+    { "version": "1.16.0", "milestone": "L16", "from": "90381a4", "date": "2026-10-11", "title": "用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注与最新动态流、评论 / 提及 / 回应、举报与审核队列" },
+    { "version": "1.15.0", "milestone": "L15", "sha": "90381a4", "from": "11354ee", "date": "2026-10-11", "title": "社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云端收藏、通知中心" },
     { "version": "1.14.1", "milestone": "L14 hardening", "sha": "11354ee", "from": "76d1cab", "date": "2026-10-11", "title": "工程加固：分页、严格预渲染、设计令牌、版本管理、Motionary 13.5" },
     { "version": "1.14.0", "milestone": "L14", "sha": "76d1cab", "from": "a884553", "date": "2026-10-11", "title": "影集 / 拍摄手记 / 书影音封面 / 引用卡片 / 正文嵌入块 (#11)" }
   ],
