@@ -84,7 +84,8 @@ jobs:
       - name: Deploy Pages
         run: npx wrangler pages deploy web/dist --project-name "${{ vars.PAGES_PROJECT || 'winston-blog' }}" --branch main
       - name: Summary
-        run: echo "### ✅ Cloudflare deploy: DEPLOYED (Worker + Pages)" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "### ✅ Cloudflare deploy: DEPLOYED (Worker + Pages)" >> "$GITHUB_STEP_SUMMARY"
 
   skipped:
     name: "Deploy status: SKIPPED (no Cloudflare credentials, nothing deployed)"
@@ -92,5 +93,6 @@ jobs:
     if: needs.gate.outputs.enabled != 'true'
     runs-on: ubuntu-latest
     steps:
-      - run: echo "::notice title=Cloudflare deploy SKIPPED::Nothing was deployed; add CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID to enable."
+      - run: |
+          echo "::notice title=Cloudflare deploy SKIPPED::Nothing was deployed; add CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID to enable."
 
