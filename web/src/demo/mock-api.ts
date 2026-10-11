@@ -17,6 +17,7 @@ import { isCommentAction, resolveParent, validateComment, type CommentStatus, ty
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
 import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-social';
 import { MockUgc, ugcSeed } from './mock-ugc';
+import { discoverySeed, MockDiscovery } from './mock-discovery';
 
 export interface KV {
   getItem(key: string): string | null;
@@ -190,8 +191,11 @@ export class DemoBackend {
       now: () => this.now(),
       profileWorks: (a, v, f) => this.ugc.profileWorks(a, v, f),
       publicWorkCount: (a) => this.ugc.publicWorkCount(a),
-      purgeAuthor: (id) => this.ugc.purgeAuthor(id),
-      exportWorks: (id) => this.ugc.exportWorks(id),
+      purgeAuthor: (id) => {
+        this.ugc.purgeAuthor(id);
+        this.disc.purge(id);
+      },
+      exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id) }),
     });
     this.ugc = new MockUgc({
       state: () => this.db().ugc ?? ugcSeed(this.base),
@@ -206,10 +210,28 @@ export class DemoBackend {
       memberFrom: (h) => this.memberFrom(h),
       optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
       now: () => this.now(),
+      disc: () => this.disc ?? null,
+    });
+    this.disc = new MockDiscovery({
+      state: () => this.db().discovery ?? discoverySeed(this.now()),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.discovery ??= discoverySeed(this.now());
+        mutate(db.discovery);
+        this.save(db);
+      },
+      ugc: this.ugc,
+      social: this.social,
+      posts: () => this.db().posts,
+      members: () => this.db().members,
+      memberFrom: (h) => this.memberFrom(h),
+      optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
+      now: () => this.now(),
     });
   }
   private social: MockSocial;
   private ugc: MockUgc;
+  private disc: MockDiscovery;
   private memberFromOrNull(h: Record<string, string>): Member | null {
     try {
       return this.memberFrom(h);
@@ -290,6 +312,9 @@ export class DemoBackend {
     if (path.startsWith('/api/social/')) {
       const u = this.ugc.route(m, path.slice('/api/social'.length), q, body, headers);
       if (u) return u;
+      // ---- L17 话题 / 发现 / 活动 / 合集 / 社区徽章 ----
+      const d = this.disc.route(m, path.slice('/api/social'.length), q, body, headers);
+      if (d) return d;
     }
     // ---- L15 社交（/api/social/*）----
     const soc = this.social.route(m, path, q, body, headers);
@@ -364,6 +389,8 @@ export class DemoBackend {
       const sub = path.slice('/api/admin'.length);
       const ugcAdmin = this.ugc.routeAdmin(m, sub, q, body);
       if (ugcAdmin) return ugcAdmin;
+      const discAdmin = this.disc.routeAdmin(m, sub, body);
+      if (discAdmin) return discAdmin;
       if (sub === '/posts' && m === 'GET') return ok(this.list(q, true));
       if (sub === '/posts' && m === 'POST') return ok(this.create(body), 201);
       let mt: RegExpExecArray | null = /^\/posts\/([^/]+)\/publish$/.exec(sub);

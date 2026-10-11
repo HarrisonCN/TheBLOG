@@ -168,7 +168,7 @@ describe('L15 社交：发现 + 互相关注 + 通知', () => {
   });
   it('通知偏好：默认邮件关；关闭 follow 后不再生成', async () => {
     const p = await J(await call(env, '/api/social/notifications/prefs', { token: C.token }));
-    expect(p.prefs).toEqual({ follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false });
+    expect(p.prefs).toEqual({ follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, topic_work: true, event_result: true, email: false });
     await put('/api/social/notifications/prefs', C.token, { follow: false });
     await call(env, '/api/social/follows/carol_c', { method: 'POST', token: A.token });
     const n = await J(await call(env, '/api/social/notifications?filter=follow', { token: C.token }));

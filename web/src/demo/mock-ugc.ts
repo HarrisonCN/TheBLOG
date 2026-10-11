@@ -136,6 +136,41 @@ export function ugcSeed(base = '/'): UgcState {
         body: '【演示数据】\n\n去年在二手群里收了一台老相机，快门声特别好听。\n\n## 为什么选它\n\n- 便宜\n- 手感好\n- 逼着自己慢下来\n\n下一篇写写怎么挑二手镜头。',
         publishedAt: '2026-10-09T02:00:00.000Z',
       }),
+      // L17 发现页 / 话题 / 活动的示例作品（虚构作者，示例图来自 Wikimedia Commons）
+      w({
+        id: 6,
+        authorId: 1,
+        type: 'photo',
+        title: '湖边的晨雾',
+        caption: '【演示数据】六点出门，雾刚好还没散。',
+        notes: `把曝光压低一档，保住天空的层次。\n\n${credit('montriond-lake')}`,
+        params: { camera: '示例手机', focal: '26mm', aperture: 'f/1.8', shutter: '1/250s', iso: '50' },
+        media: [ph('montriond-lake', '清晨湖面上的薄雾和远处的山林')],
+        publishedAt: '2026-10-09T23:00:00.000Z',
+      }),
+      w({
+        id: 7,
+        authorId: 2,
+        type: 'photo',
+        title: '港口夜色',
+        caption: '【演示数据】下班路上，港口的灯一盏盏亮起来。',
+        notes: `靠在栏杆上稳住手机，等 3 秒。\n\n${credit('harbour-night')}`,
+        params: { camera: '示例手机', focal: '24mm', aperture: 'f/1.9', shutter: '1/8s', iso: '800' },
+        media: [ph('harbour-night', '夜晚港口边亮着灯的高楼')],
+        publishedAt: '2026-10-10T12:00:00.000Z',
+      }),
+      w({
+        id: 8,
+        authorId: 1,
+        type: 'photo',
+        title: '向日葵田',
+        caption: '【演示数据】风一吹，整片田都在点头。',
+        notes: credit('sunflowers'),
+        params: { camera: '示例相机', focal: '50mm', aperture: 'f/4', shutter: '1/500s', iso: '100' },
+        media: [ph('sunflowers', '阳光下一大片盛开的向日葵')],
+        publishedAt: '2026-10-10T20:00:00.000Z',
+      }),
+      w({ id: 9, authorId: 2, type: 'short', body: '【演示数据】给博客的卡片加了一个按下去会回弹的动效，调了一晚上缓动曲线。', publishedAt: '2026-10-11T01:00:00.000Z' }),
     ],
     comments: [{ id: 5, postId: 2, authorId: 2, parentId: null, body: '【演示数据】这个橙色的云太好看了！', status: 'published', modState: 'ok', deletedAt: null, createdAt: '2026-10-07T15:00:00.000Z' }],
     reactions: [{ postId: 2, memberId: 2, kind: 'love', createdAt: '2026-10-07T15:01:00.000Z' }],
@@ -157,6 +192,17 @@ export interface UgcHost {
   memberFrom(headers: Record<string, string>): Member;
   optionalMember(headers: Record<string, string>): Member | null;
   now(): Date;
+  /** L17 话题 / 徽章 / 有帮助的评论（由 MockDiscovery 提供；构造时还没有，所以是取值函数） */
+  disc?(): DiscoveryHooks | null;
+}
+export interface DiscoveryHooks {
+  topicsOf(workId: number): { slug: string; name: string }[];
+  resolveTopics(input: unknown): number[] | undefined;
+  setTopics(workId: number, topicIds: number[]): void;
+  onPublished(w: DemoWork): void;
+  subscribedPostIds(memberId: number): Set<number>;
+  topicPostIds(slug: string): Set<number>;
+  helpfulAt(commentId: number): string | null;
 }
 
 const bad = (path: string, message: string) => new SocialError(400, 'validation_error', '参数校验失败', [{ path, message }]);
@@ -170,7 +216,7 @@ export class MockUgc {
   }
 
   // ------------------------------------------------------------ 规则 / 信誉
-  private standing(id: number) {
+  standing(id: number) {
     const s = this.h.state().standing[String(id)];
     return { approved: s?.approved ?? 0, reputation: s?.reputation ?? 0, banned: !!s?.bannedAt };
   }
@@ -179,7 +225,7 @@ export class MockUgc {
     cur.approved += Math.max(0, approved);
     cur.reputation += rep;
   }
-  private poster(headers: Record<string, string>): Member {
+  poster(headers: Record<string, string>): Member {
     const me = this.h.memberFrom(headers);
     if (this.standing(me.id).banned) throw new SocialError(403, 'banned', '你的账号已被限制发布与互动，如有疑问请联系站长');
     return me;
@@ -189,7 +235,7 @@ export class MockUgc {
   }
 
   // ------------------------------------------------------------ 权限
-  private access(w: DemoWork, viewerId: number | null): 'full' | 'own' | 'none' {
+  access(w: DemoWork, viewerId: number | null): 'full' | 'own' | 'none' {
     const rel = viewerId && viewerId !== w.authorId ? this.h.social.rel(viewerId, w.authorId) : null;
     return workAccess({
       authorId: w.authorId,
@@ -203,10 +249,10 @@ export class MockUgc {
       blockedEitherWay: !!rel && (rel.blocked || rel.blockedBy),
     });
   }
-  private visible(w: DemoWork): boolean {
+  visible(w: DemoWork): boolean {
     return w.status === 'published' && w.modState === 'ok' && !w.deletedAt && !this.standing(w.authorId).banned;
   }
-  private hiddenFor(viewerId: number | null): Set<number> {
+  hiddenFor(viewerId: number | null): Set<number> {
     if (!viewerId) return new Set();
     const st = this.h.social.socialState();
     const out = new Set<number>();
@@ -216,14 +262,20 @@ export class MockUgc {
     }
     return out;
   }
-  private work(id: number): DemoWork | undefined {
+  allWorks(): DemoWork[] {
+    return this.h.state().works;
+  }
+  allComments(): DemoWComment[] {
+    return this.h.state().comments;
+  }
+  work(id: number): DemoWork | undefined {
     return this.h.state().works.find((w) => w.id === id);
   }
   private card(id: number) {
     return this.h.social.card(id) ?? { username: 'unknown', nickname: '已注销用户', avatarUrl: '', bio: '' };
   }
 
-  private toWork(w: DemoWork, viewerId: number | null) {
+  toWork(w: DemoWork, viewerId: number | null) {
     const s = this.h.state();
     const reactions: Partial<Record<WorkReaction, number>> = {};
     for (const r of s.reactions) if (r.postId === w.id) reactions[r.kind] = (reactions[r.kind] ?? 0) + 1;
@@ -241,6 +293,7 @@ export class MockUgc {
       visibility: w.visibility,
       status: w.status,
       modState: w.modState,
+      topics: this.h.disc?.()?.topicsOf(w.id) ?? [],
       modReason: own ? w.modReason : '',
       publishedAt: w.publishedAt,
       editedAt: w.editedAt,
@@ -278,17 +331,22 @@ export class MockUgc {
     const fq = checkFeedQuery(q);
     if (!fq.ok) throw bad(fq.path, fq.error);
     const { tab, type } = fq.value;
+    const topic = q.get('topic');
+    if (topic !== null && !/^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/.test(topic)) throw bad('topic', 'topic 无效');
     const viewer = tab === 'following' ? this.h.memberFrom(headers) : this.h.optionalMember(headers);
     const vid = viewer?.id ?? null;
     const hidden = this.hiddenFor(vid);
     const st = this.h.social.socialState();
     const following = new Set(st.follows.filter((f) => f.follower === vid).map((f) => f.following));
+    // L17：订阅话题里的公开作品也进入「关注」流；?topic= 按话题筛选
+    const subscribed = vid ? (this.h.disc?.()?.subscribedPostIds(vid) ?? new Set<number>()) : new Set<number>();
+    const inTopic = topic ? (this.h.disc?.()?.topicPostIds(topic) ?? new Set<number>()) : null;
     const rows = this.h
       .state()
-      .works.filter((w) => this.visible(w) && !hidden.has(w.authorId) && (!type || w.type === type))
+      .works.filter((w) => this.visible(w) && !hidden.has(w.authorId) && (!type || w.type === type) && (!inTopic || inTopic.has(w.id)))
       .filter((w) =>
         tab === 'following'
-          ? (w.authorId === vid && w.visibility !== 'private') || (following.has(w.authorId) && w.visibility !== 'private')
+          ? (w.authorId === vid && w.visibility !== 'private') || (following.has(w.authorId) && w.visibility !== 'private') || (w.visibility === 'public' && subscribed.has(w.id))
           : w.visibility === 'public' || (w.visibility === 'followers' && w.authorId === vid),
       )
       .sort(this.byTime);
@@ -347,6 +405,7 @@ export class MockUgc {
         this.h.social.notify({ to: f.follower, type: 'new_work', actorId: w.authorId, objectKind: 'work', objectRef: String(w.id), excerpt: excerptOf(w), key: workNoticeKey('new_work', { workId: w.id }) });
     }
     this.mentionAll('work', w.id, w.authorId, `${w.body}\n${w.caption}\n${w.notes}`, w, workNoticeKey('mention', { workId: w.id }));
+    this.h.disc?.()?.onPublished(w);
   }
   private mentionAll(kind: 'work' | 'wcomment', sourceId: number, authorId: number, text: string, w: DemoWork, key: string): void {
     for (const u of extractMentions(text)) {
@@ -368,6 +427,7 @@ export class MockUgc {
     const c = checkWork(input, { allowDataUrl: true });
     if (!c.ok) throw bad(c.path, c.error);
     const v = c.value;
+    const topicIds = this.h.disc?.()?.resolveTopics(input);
     const { fp } = this.spam(me, v);
     const draft = (input as { draft?: unknown }).draft === true;
     const rules = this.h.state().rules;
@@ -380,6 +440,7 @@ export class MockUgc {
       if (status === 'published') this.bump(s, me.id, 1, 1);
       if (status === 'pending') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: `新会员前 ${rules.reviewFirstN} 条内容先审核` });
     });
+    if (topicIds) this.h.disc?.()?.setTopics(w.id, topicIds);
     if (status === 'published') this.afterPublish(w);
     return { work: this.toWork(this.work(w.id)!, me.id), status };
   }
@@ -399,6 +460,7 @@ export class MockUgc {
     if (!c.ok) throw bad(c.path, c.error);
     const v = c.value;
     if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+    const topicIds = this.h.disc?.()?.resolveTopics(input);
     const { fp } = this.spam(me, v, w.id);
     const status: WorkStatus = w.status === 'published' && needsReview(this.standing(me.id), this.h.state().rules) ? 'pending' : w.status;
     const t = this.iso();
@@ -407,6 +469,7 @@ export class MockUgc {
       Object.assign(x, v, { status, fingerprint: fp, editedAt: w.status === 'published' ? t : null, updatedAt: t });
       if (status === 'pending' && w.status === 'published') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: '新会员修改已发布内容，重新审核' });
     });
+    if (topicIds) this.h.disc?.()?.setTopics(w.id, topicIds);
     const fresh = this.work(w.id)!;
     if (fresh.status === 'published' && fresh.modState === 'ok') this.afterPublish(fresh);
     return { work: this.toWork(fresh, me.id), status };
@@ -466,7 +529,7 @@ export class MockUgc {
       .comments.filter((c) => c.postId === w.id && !c.deletedAt && c.modState === 'ok' && (c.status === 'published' || c.authorId === vid) && !hidden.has(c.authorId) && (c.authorId === vid || !this.standing(c.authorId).banned))
       .sort((a, b) => a.id - b.id);
     const { pg, nextCursor } = this.pageOf(rows, q, (c) => c.createdAt, false);
-    return { comments: pg.map((c) => ({ id: c.id, parentId: c.parentId, author: this.card(c.authorId), body: c.body, pending: c.status === 'pending', createdAt: c.createdAt, canDelete: vid === c.authorId || vid === w.authorId })), nextCursor };
+    return { comments: pg.map((c) => ({ id: c.id, parentId: c.parentId, author: this.card(c.authorId), body: c.body, pending: c.status === 'pending', createdAt: c.createdAt, canDelete: vid === c.authorId || vid === w.authorId, helpful: !!this.h.disc?.()?.helpfulAt(c.id), canMarkHelpful: vid === w.authorId && c.authorId !== vid && c.status === 'published' })), nextCursor };
   }
   addComment(headers: Record<string, string>, id: number, input: unknown) {
     const me = this.poster(headers);
@@ -496,7 +559,7 @@ export class MockUgc {
       if (review) this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'comment', targetId: row.id, memberId: me.id, reason: '新会员评论先审核' });
     });
     if (!review) this.afterComment(w, row, parentAuthor);
-    return { comment: { id: row.id, parentId, author: this.card(me.id), body: row.body, pending: review, createdAt: row.createdAt, canDelete: true }, status };
+    return { comment: { id: row.id, parentId, author: this.card(me.id), body: row.body, pending: review, createdAt: row.createdAt, canDelete: true, helpful: false, canMarkHelpful: false }, status };
   }
   private afterComment(w: DemoWork, c: DemoWComment, parentAuthor: number | null): void {
     if (c.authorId !== w.authorId) this.h.social.notify({ to: w.authorId, type: 'reply', actorId: c.authorId, objectKind: 'work', objectRef: String(w.id), excerpt: c.body, key: workNoticeKey('reply', { workId: w.id }) });

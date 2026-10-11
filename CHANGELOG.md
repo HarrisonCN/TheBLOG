@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.17.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.17.0) — 2026-10-11
+
+_L17 · 发现与活跃：话题与订阅、发现页、摄影活动（投稿 / 投票 / 精选）、合集、社区徽章_
+
+### 新功能 Features
+
+- **web:** L17 UI — discover page, topic pages + subscribe, photo events (entries/votes/picks), collections, community badges (lazy discovery-client), home entry, admin 发现与活动 (44a9a22)
+- **demo:** L17 mock parity — topics, discover, events, collections, community badges (mock-discovery.ts) + seed works/events (e382719)
+- **worker:** L17 discovery & engagement — topics + subscriptions, discover page, photo events with entries/votes/picks, collections, community badges (migration 0014) (076fc0a)
+
+### 修复 Fixes
+
+- **web:** work page drops old listeners on re-render (no duplicate actions after publish) (0a20828)
+- **web:** discovery views drop old listeners on re-render (no duplicate dialogs) (3433615)
+
+### 测试 Tests
+
+- **worker:** discovery test restores default review rules (shared D1; fixes CI order-dependent ugc failures) (5157490)
+
+### 杂项 Chores
+
+- **release:** 1.17.0 — L17 discovery & engagement (docs: migration 0014_discovery, backup/rollback) (953a167)
+- **release:** freeze 1.16.0 merge sha 5d37dae (404e51c)
+
 ## [1.16.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.16.0) — 2026-10-11
 
 _L16 · 用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注与最新动态流、评论 / 提及 / 回应、举报与审核队列_

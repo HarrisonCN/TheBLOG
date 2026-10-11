@@ -79,6 +79,12 @@ export type Route =
   | { name: 'feed' }
   | { name: 'compose' }
   | { name: 'work'; id: number }
+  | { name: 'discover' }
+  | { name: 'topics' }
+  | { name: 'topic'; slug: string }
+  | { name: 'events' }
+  | { name: 'event'; slug: string }
+  | { name: 'collection'; id: number }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -108,6 +114,9 @@ const STATIC: Record<string, Route['name']> = {
   '/me': 'me',
   '/feed': 'feed',
   '/compose': 'compose',
+  '/discover': 'discover',
+  '/t': 'topics',
+  '/events': 'events',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -136,6 +145,12 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'album', slug: m[1]! };
   m = /^\/w\/(\d{1,10})$/.exec(p);
   if (m) return { name: 'work', id: Number(m[1]) };
+  m = /^\/t\/([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)$/.exec(p);
+  if (m) return { name: 'topic', slug: m[1]! };
+  m = /^\/events\/([a-z0-9][a-z0-9-]{0,38}[a-z0-9])$/.exec(p);
+  if (m) return { name: 'event', slug: m[1]! };
+  m = /^\/c\/(\d{1,10})$/.exec(p);
+  if (m) return { name: 'collection', id: Number(m[1]) };
   m = /^\/u\/([A-Za-z0-9_]{3,20})$/.exec(p);
   if (m) return { name: 'user', username: m[1]!.toLowerCase() };
   m = /^\/tags\/([^/]+)$/.exec(p);
@@ -175,6 +190,14 @@ export function routePath(r: Route): string {
       return `/u/${r.username}/`;
     case 'work':
       return `/w/${r.id}/`;
+    case 'topics':
+      return '/t/';
+    case 'topic':
+      return `/t/${r.slug}/`;
+    case 'event':
+      return `/events/${r.slug}/`;
+    case 'collection':
+      return `/c/${r.id}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -366,10 +389,12 @@ export const NAV: NavItem[] = [
     label: '关于',
     icon: 'user',
     href: '/about/',
-    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox', 'feed', 'work', 'compose'],
+    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox', 'feed', 'work', 'compose', 'discover', 'topics', 'topic', 'events', 'event', 'collection'],
     children: [
       { label: '关于我', icon: 'user', href: '/about/' },
+      { label: '发现社区', icon: 'sparkles', href: '/discover/' },
       { label: '社区动态', icon: 'users', href: '/feed/' },
+      { label: '摄影活动', icon: 'camera', href: '/events/' },
       { label: '此刻', icon: 'clock', href: '/now/' },
       { label: '时间线', icon: 'history', href: '/timeline/' },
       { label: '留言与便签', icon: 'message', href: '/guestbook/' },
@@ -750,6 +775,15 @@ function sideCard(cls: string, body: string, label: string): string {
 }
 
 /** 订阅：邮箱 → 「成为好朋友」（邮箱验证码）；也给出 RSS / JSON Feed。纯静态，没有假的后端。 */
+/** L17 首页的发现入口：静态链接（不加载社交代码），不需要关注任何人就能逛到话题、作品、创作者和摄影活动。 */
+export function discoverCard(): string {
+  const topics: [string, string][] = [['photography', '摄影'], ['coding', '编程'], ['hardware', '硬件'], ['modeling', '建模'], ['design', '设计'], ['daily', '日常']];
+  return sideCard(
+    'disc-card',
+    `${secHead('sparkles', '社区发现', '', url('/discover/'))}<p class="muted small">不用先关注谁：从话题、精选创作者和摄影活动开始逛。</p><nav class="pills" aria-label="社区话题">${topics.map(([s, n]) => `<a class="pill" href="${url(`/t/${s}/`)}">${n}</a>`).join('')}<a class="pill" href="${url('/events/')}">${icon('camera')}摄影活动</a></nav>`,
+    '社区发现',
+  );
+}
 export function subscribeCard(): string {
   return sideCard(
     'sub-card',
@@ -834,6 +868,7 @@ export function homePage(site: SiteData, page = 1, x: Extra = {}): Page {
     ? [
         s.sections.about ? profileCard(site, 'full') : '',
         continueCard(),
+        discoverCard(),
         dailyPhotoCard(x.works ?? []),
         subscribeCard(),
         festivalTile(site.festivals),
@@ -1486,6 +1521,12 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'feed':
     case 'compose':
     case 'work':
+    case 'discover':
+    case 'topics':
+    case 'topic':
+    case 'events':
+    case 'event':
+    case 'collection':
       return socialPage(site, route);
     default:
       return notFoundPage(site);
@@ -1496,14 +1537,35 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
  */
-export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' }>): Page {
-  const HEADS = { notifications: ['通知', '关注、回复、提及、回应与收藏'], me: ['我的', '个人主页、收藏与设置'], feed: ['社区动态', '好朋友们的照片、影集、短动态和长文'], compose: ['发布', '分享照片、影集、短动态或长文'] } as const;
-  const head = route.name === 'user' ? { title: `@${route.username}`, sub: '好朋友的个人主页' } : route.name === 'work' ? { title: '作品', sub: '好朋友发布的内容' } : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
+export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' }>): Page {
+  const HEADS = {
+    notifications: ['通知', '关注、回复、提及、回应与收藏'],
+    me: ['我的', '个人主页、收藏与设置'],
+    feed: ['社区动态', '好朋友们的照片、影集、短动态和长文'],
+    compose: ['发布', '分享照片、影集、短动态或长文'],
+    discover: ['发现社区', '不用先关注谁：从话题、精选创作者和摄影活动开始逛'],
+    topics: ['话题', '摄影、编程、硬件、建模、设计和日常'],
+    events: ['摄影活动', '每日一图、每周主题与作品征集'],
+  } as const;
+  const head =
+    route.name === 'user'
+      ? { title: `@${route.username}`, sub: '好朋友的个人主页' }
+      : route.name === 'work'
+        ? { title: '作品', sub: '好朋友发布的内容' }
+        : route.name === 'topic'
+          ? { title: '话题', sub: '话题下的作品与文章' }
+          : route.name === 'event'
+            ? { title: '摄影活动', sub: '活动规则、投稿与精选' }
+            : route.name === 'collection'
+              ? { title: '合集', sub: '好朋友整理的作品与文章' }
+              : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
+  const attr = route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' || route.name === 'collection' ? ` data-id="${route.id}"` : route.name === 'topic' || route.name === 'event' ? ` data-slug="${e(route.slug)}"` : '';
+  const bare = route.name === 'user' || route.name === 'work' || route.name === 'topic' || route.name === 'event' || route.name === 'collection';
   return shell(site, route, {
     title: head.title,
     description: head.sub,
-    top: route.name === 'user' || route.name === 'work' ? '' : pageHead(head.title, head.sub),
-    main: `<section class="bento social js-social" data-view="${route.name}"${route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' ? ` data-id="${route.id}"` : ''} aria-busy="true" aria-live="polite"><div class="social__loading"><span class="social__spin" aria-hidden="true"></span><span>加载中…</span></div></section>`,
+    top: bare ? '' : pageHead(head.title, head.sub),
+    main: `<section class="bento social js-social" data-view="${route.name}"${attr} aria-busy="true" aria-live="polite"><div class="social__loading"><span class="social__spin" aria-hidden="true"></span><span>加载中…</span></div></section>`,
     kind: 'page--social',
   });
 }

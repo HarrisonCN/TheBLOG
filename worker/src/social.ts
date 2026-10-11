@@ -6,6 +6,7 @@
 import type { Env } from './env';
 import { HttpError, json } from './http';
 import { profileWorks, routeUgc } from './ugc';
+import { exportDiscovery, purgeDiscovery, routeDiscovery } from './discovery';
 import { getMember, ipKey, optionalMember, rateLimit, removeMember, requireMember, sendEmail, type Badge, type Member } from './community';
 import {
   aggregates,
@@ -65,7 +66,7 @@ export interface NotificationItem {
   createdAt: string;
   updatedAt: string;
 }
-export interface NotificationPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; email: boolean }
+export interface NotificationPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; topic_work: boolean; event_result: boolean; email: boolean }
 
 interface ProfileRow { member_id: number; username: string; cover_url: string; links: string; visibility: Visibility; show_follows: number; discoverable: number }
 
@@ -358,11 +359,11 @@ export async function mergeBookmarks(req: Request, env: Env, input: unknown) {
 }
 
 // ============================================================ 通知
-const PREF_DEFAULT: NotificationPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false };
+const PREF_DEFAULT: NotificationPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, topic_work: true, event_result: true, email: false };
 async function prefsOf(env: Env, id: number): Promise<NotificationPrefs> {
   const r = await env.DB.prepare('SELECT * FROM notification_prefs WHERE member_id = ?').bind(id).first<Record<string, number>>();
   if (!r) return { ...PREF_DEFAULT };
-  return { follow: !!r.follow, reply: !!r.reply, mention: !!r.mention, bookmark: !!r.bookmark, reaction: r.reaction === undefined ? true : !!r.reaction, new_work: r.new_work === undefined ? true : !!r.new_work, email: !!r.email };
+  return { follow: !!r.follow, reply: !!r.reply, mention: !!r.mention, bookmark: !!r.bookmark, reaction: r.reaction === undefined ? true : !!r.reaction, new_work: r.new_work === undefined ? true : !!r.new_work, topic_work: r.topic_work === undefined ? true : !!r.topic_work, event_result: r.event_result === undefined ? true : !!r.event_result, email: !!r.email };
 }
 
 /**
@@ -403,7 +404,7 @@ export async function notify(env: Env, n: { to: number; type: NotificationType; 
   }
 }
 
-const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知', reaction: '有人回应了你的作品', new_work: '你关注的人发布了新作品', moderation: '你的内容有审核结果' };
+const TYPE_LABEL: Record<NotificationType, string> = { follow: '有人关注了你', reply: '有人回复了你', mention: '有人提到了你', bookmark: '有人收藏了你的作品', system: '站内通知', reaction: '有人回应了你的作品', new_work: '你关注的人发布了新作品', moderation: '你的内容有审核结果', topic_work: '你订阅的话题有新作品', event_result: '你参加的活动公布了结果' };
 async function emailNotice(env: Env, to: number, type: NotificationType): Promise<void> {
   try {
     await rateLimit(env, 'notify-email', String(to), 5, 3600);
@@ -483,10 +484,10 @@ export async function setPrefs(req: Request, env: Env, input: unknown) {
     }
   }
   await env.DB.prepare(
-    `INSERT INTO notification_prefs (member_id, follow, reply, mention, bookmark, reaction, new_work, email, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(member_id) DO UPDATE SET follow = excluded.follow, reply = excluded.reply, mention = excluded.mention, bookmark = excluded.bookmark, reaction = excluded.reaction, new_work = excluded.new_work, email = excluded.email, updated_at = excluded.updated_at`,
+    `INSERT INTO notification_prefs (member_id, follow, reply, mention, bookmark, reaction, new_work, topic_work, event_result, email, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(member_id) DO UPDATE SET follow = excluded.follow, reply = excluded.reply, mention = excluded.mention, bookmark = excluded.bookmark, reaction = excluded.reaction, new_work = excluded.new_work, topic_work = excluded.topic_work, event_result = excluded.event_result, email = excluded.email, updated_at = excluded.updated_at`,
   )
-    .bind(me.id, +cur.follow, +cur.reply, +cur.mention, +cur.bookmark, +cur.reaction, +cur.new_work, +cur.email, nowIso())
+    .bind(me.id, +cur.follow, +cur.reply, +cur.mention, +cur.bookmark, +cur.reaction, +cur.new_work, +cur.topic_work, +cur.event_result, +cur.email, nowIso())
     .run();
   return { prefs: cur };
 }
@@ -526,6 +527,7 @@ export async function exportMe(req: Request, env: Env) {
     workMedia: await all('SELECT m.post_id, m.position, m.url, m.alt FROM user_post_media m JOIN user_posts p ON p.id = m.post_id WHERE p.author_id = ?'),
     workComments: await all('SELECT post_id, body, status, deleted_at, created_at FROM user_post_comments WHERE author_id = ?'),
     notificationPrefs: await prefsOf(env, me.id),
+    ...(await exportDiscovery(env, me.id)),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="theblog-${p.username}-export.json"`, ...NO_STORE },
@@ -555,6 +557,7 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
     env.DB.prepare('DELETE FROM mentions WHERE author_id = ? OR mentioned_id = ?').bind(me.id, me.id),
     env.DB.prepare('UPDATE reports SET reporter_id = NULL WHERE reporter_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM member_standing WHERE member_id = ?').bind(me.id),
+    ...purgeDiscovery(env, me.id),
   ]);
   await removeMember(env, me.id);
   return { deleted: true };
@@ -572,6 +575,9 @@ export async function routeSocial(req: Request, env: Env, path: string, url: URL
   // L16 用户投稿 / 动态流 / 评论 / 回应 / 举报 / 上传
   const ugc = await routeUgc(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
   if (ugc) return ugc;
+  // L17 话题 / 发现 / 活动 / 合集 / 社区徽章
+  const disc = await routeDiscovery(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
+  if (disc) return disc;
   if (m === 'GET') {
     if ((mt = new RegExp(`^/users/${U}$`).exec(sub))) return ok(await getProfile(req, env, mt[1]!));
     if ((mt = new RegExp(`^/users/${U}/(followers|following)$`).exec(sub))) return ok(await listFollows(req, env, mt[1]!, mt[2] as 'followers' | 'following', url));

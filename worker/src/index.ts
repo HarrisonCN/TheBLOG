@@ -13,6 +13,7 @@ import { routeReactions } from './reactions';
 import { routeAdminComments, routeComments } from './comments';
 import { routeSocial } from './social';
 import { routeAdminUgc } from './ugc';
+import { routeAdminDiscovery } from './discovery';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -137,6 +138,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     // L16 社区审核队列 / 操作 / 审核日志 / 社区规则
     const ugcAdmin = await routeAdminUgc(req, env, sub, url, () => readJson(req, 16 * 1024), authCtx.kind === 'token' ? 'token' : 'admin');
     if (ugcAdmin) return ugcAdmin;
+    // L17 话题 / 精选创作者 / 认证 / 摄影活动
+    const discAdmin = await routeAdminDiscovery(req, env, sub, () => readJson(req, 16 * 1024));
+    if (discAdmin) return discAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });

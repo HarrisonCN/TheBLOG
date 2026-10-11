@@ -16,7 +16,7 @@ import { icon } from './icons';
 import { defineUsed } from './usa';
 import { resultIconHtml } from './result-icon';
 import { installIconMotion } from './icon-motion';
-import { backdrop, essaySection, festivalText, memberBadge } from './render';
+import { backdrop, essaySection, festivalText, memberBadge, url } from './render';
 import { bindEssayEditor, essayEditorHtml, readPostMediaRaw } from './admin-essay';
 import { validateEssay } from './essay-core';
 import { searchBooks, type BookHit } from './openlibrary';
@@ -36,7 +36,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | 'discovery' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -48,7 +48,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目'], ['playlist', 'music', '音乐歌单']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
-  { group: '社区', items: [['ugc', 'flag', '社区审核'], ['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
+  { group: '社区', items: [['ugc', 'flag', '社区审核'], ['discovery', 'camera', '发现与活动'], ['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -182,6 +182,7 @@ async function go(next?: View): Promise<void> {
       case 'members': return await renderMembers();
       case 'comments': return await renderComments();
       case 'ugc': return await renderUgc();
+      case 'discovery': return await renderDiscoveryAdmin();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }
@@ -1049,6 +1050,121 @@ ${
       msg(errText(err), true);
     }
   });
+}
+
+// ============================================================ L17 发现与活动（话题 / 精选创作者 / 认证 / 摄影活动）
+interface DTopic { slug: string; name: string; intro: string; sort: number; tags: string[]; counts: { works: number; subscribers: number } }
+interface DEvent { slug: string; kind: 'daily' | 'weekly' | 'open'; title: string; phase: string; startsAt: string; endsAt: string; voting: boolean; voteEndsAt: string | null; resultsAt: string | null; counts: { entries: number; participants: number } }
+interface DCreator { username: string; nickname: string; note?: string; label?: string }
+const D_KIND: Record<string, string> = { daily: '每日一图', weekly: '每周主题', open: '作品征集' };
+const D_PHASE: Record<string, string> = { upcoming: '即将开始', open: '投稿中', voting: '投票中', ended: '已结束' };
+async function renderDiscoveryAdmin(): Promise<void> {
+  const [tp, cr, ev] = await Promise.all([
+    optional(adminFetch<{ topics: DTopic[] }>('/api/admin/discovery/topics'), { topics: [] }),
+    optional(adminFetch<{ featured: DCreator[]; verified: DCreator[] }>('/api/admin/discovery/creators'), { featured: [], verified: [] }),
+    optional(adminFetch<{ events: DEvent[] }>('/api/admin/discovery/events'), { events: [] }),
+  ]);
+  const local = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  };
+  const now = Date.now();
+  mount(
+    tile(
+      'full',
+      `${head('camera', `摄影活动（${ev.events.length}）`)}<p class="muted small">活动期内会员投稿自己的公开摄影作品；你来挑选精选。开启投票时每人一票、不能投自己、注册天数门槛和频率限制都在服务端执行。活动结束后「公布结果」会给参与者发通知并授予精选徽章（徽章不按票数发放）。</p>
+<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">摄影活动</caption><thead><tr><th scope="col">活动</th><th scope="col">类型</th><th scope="col">状态</th><th scope="col">时间</th><th scope="col">投稿</th><th scope="col">操作</th></tr></thead><tbody>${
+        ev.events
+          .map(
+            (x) => `<tr><td><a href="${e(`${location.origin}${url(`/events/${x.slug}/`)}`)}" target="_blank" rel="noopener">${e(x.title)}</a><br><span class="muted small">${e(x.slug)}</span></td><td>${D_KIND[x.kind]}${x.voting ? ' · 投票' : ''}</td><td>${D_PHASE[x.phase] ?? x.phase}${x.resultsAt ? ' · 已公布' : ''}</td><td class="small">${e(fmtDate(x.startsAt))} → ${e(fmtDate(x.endsAt))}</td><td>${x.counts.entries} / ${x.counts.participants} 人</td><td><div class="adm-row"><button class="btn btn--soft btn--sm" type="button" data-disc="entries" data-slug="${e(x.slug)}" aria-expanded="false">投稿与精选</button>${x.phase === 'ended' ? `<button class="btn btn--sm" type="button" data-disc="results" data-slug="${e(x.slug)}">${x.resultsAt ? '重新发送结果' : '公布结果'}</button>` : ''}</div></td></tr><tr class="js-disc-entries" data-for="${e(x.slug)}" hidden><td colspan="6"></td></tr>`,
+          )
+          .join('') || '<tr><td colspan="6">还没有活动</td></tr>'
+      }</tbody></table></div>
+<details class="adm-details"><summary>新建活动</summary><form class="adm-form" data-form="disc-event"><div class="adm-grid2">
+<label class="field"><span>slug（网址）</span><input name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" maxlength="40" placeholder="weekly-rain"></label>
+<label class="field"><span>类型</span><select name="kind"><option value="daily">每日一图（≤ 2 天）</option><option value="weekly" selected>每周主题（≤ 14 天）</option><option value="open">作品征集（≤ 120 天）</option></select></label>
+<label class="field"><span>标题</span><input name="title" required maxlength="60"></label>
+<label class="field"><span>话题</span><select name="topic"><option value="">（无）</option>${tp.topics.map((t) => `<option value="${e(t.slug)}">${e(t.name)}</option>`).join('')}</select></label>
+<label class="field"><span>开始</span><input name="startsAt" type="datetime-local" required value="${local(new Date(now).toISOString())}"></label>
+<label class="field"><span>投稿截止</span><input name="endsAt" type="datetime-local" required value="${local(new Date(now + 7 * 86_400_000).toISOString())}"></label>
+<label class="field"><span>每人最多投稿</span><input name="maxEntries" type="number" min="1" max="10" value="3"></label>
+<label class="field"><span>投票资格：注册满几天</span><input name="minAccountDays" type="number" min="0" max="365" value="7"></label>
+<label class="field adm-check"><input name="voting" type="checkbox"><span>开启投票（每人一票）</span></label>
+<label class="field"><span>投票截止（可选，不早于投稿截止）</span><input name="voteEndsAt" type="datetime-local"></label>
+<label class="field adm-check"><input name="hideTallies" type="checkbox" checked><span>结束前隐藏票数</span></label>
+</div><label class="field"><span>简介</span><textarea name="intro" rows="2" maxlength="500"></textarea></label><label class="field"><span>规则</span><textarea name="rules" rows="3" maxlength="2000"></textarea></label><p><button class="btn btn--sm" type="submit">创建活动</button></p></form></details>`,
+    ) +
+      tile(
+        'half',
+        `${head('star', '精选创作者 / 创作者认证')}<p class="muted small">精选出现在发现页（只显示资料公开且允许被发现的人）。认证与 DIY 徽章分开管理，用于核实过身份的创作者。</p>
+<ul class="adm-list">${cr.featured.map((c) => `<li><b>${e(c.nickname)}</b> <span class="muted small">@${e(c.username)}${c.note ? ` · ${e(c.note)}` : ''}</span> <button class="adm-icon-btn adm-icon-btn--danger" type="button" data-disc="unfeature" data-u="${e(c.username)}" aria-label="取消精选 @${e(c.username)}">${icon('trash')}</button></li>`).join('') || '<li class="muted">还没有精选创作者</li>'}</ul>
+<form class="adm-form" data-form="disc-feature"><div class="adm-grid2"><label class="field"><span>用户名</span><input name="username" required maxlength="20"></label><label class="field"><span>推荐语</span><input name="note" maxlength="80"></label></div><p><button class="btn btn--sm" type="submit">加入精选</button></p></form>
+<h3 class="small">已认证</h3><ul class="adm-list">${cr.verified.map((c) => `<li><b>${e(c.nickname)}</b> <span class="muted small">@${e(c.username)} · ${e(c.label ?? '')}</span> <button class="adm-icon-btn adm-icon-btn--danger" type="button" data-disc="unverify" data-u="${e(c.username)}" aria-label="取消认证 @${e(c.username)}">${icon('trash')}</button></li>`).join('') || '<li class="muted">还没有认证创作者</li>'}</ul>
+<form class="adm-form" data-form="disc-verify"><div class="adm-grid2"><label class="field"><span>用户名</span><input name="username" required maxlength="20"></label><label class="field"><span>认证说明</span><input name="label" required maxlength="30" placeholder="摄影师"></label></div><p><button class="btn btn--sm" type="submit">认证</button></p></form>`,
+      ) +
+      tile(
+        'half',
+        `${head('tag', `话题（${tp.topics.length}）`)}<p class="muted small">话题通过关联表连接作品（不是自由标签）。「标签映射」把站长文章已有的标签归入话题，文章会出现在话题页。</p>
+${tp.topics.map((t) => `<form class="adm-form adm-topic" data-form="disc-topic" data-slug="${e(t.slug)}"><p><b>#${e(t.name)}</b> <span class="muted small">${e(t.slug)} · ${t.counts.works} 件作品 · ${t.counts.subscribers} 人订阅</span></p><div class="adm-grid2"><label class="field"><span>名称</span><input name="name" required maxlength="20" value="${e(t.name)}"></label><label class="field"><span>排序</span><input name="sort" type="number" min="0" max="999" value="${t.sort}"></label></div><label class="field"><span>简介</span><input name="intro" maxlength="200" value="${e(t.intro)}"></label><label class="field"><span>标签映射（逗号分隔）</span><input name="tags" value="${e(t.tags.join('，'))}"></label><p><button class="btn btn--soft btn--sm" type="submit">保存</button></p></form>`).join('')}
+<form class="adm-form" data-form="disc-featwork"><h3 class="small">设为话题精选</h3><div class="adm-grid2"><label class="field"><span>话题</span><select name="topic">${tp.topics.map((t) => `<option value="${e(t.slug)}">${e(t.name)}</option>`).join('')}</select></label><label class="field"><span>作品 ID</span><input name="workId" type="number" min="1" required></label></div><label class="field adm-check"><input name="on" type="checkbox" checked><span>精选（取消勾选 = 取消精选）</span></label><p><button class="btn btn--sm" type="submit">保存</button></p></form>`,
+      ),
+  );
+  const val = (f: HTMLFormElement, n: string) => (f.elements.namedItem(n) as HTMLInputElement).value;
+  const chk = (f: HTMLFormElement, n: string) => (f.elements.namedItem(n) as HTMLInputElement).checked;
+  const iso = (v: string) => (v ? new Date(v).toISOString() : null);
+  const on = (sel: string, fn: (f: HTMLFormElement) => Promise<unknown>, ok: string) =>
+    root.querySelectorAll<HTMLFormElement>(sel).forEach((f) =>
+      f.addEventListener('submit', async (evt) => {
+        evt.preventDefault();
+        try {
+          await fn(f);
+          msg(ok);
+          await renderDiscoveryAdmin();
+        } catch (err) {
+          msg(errText(err), true);
+        }
+      }),
+    );
+  on('[data-form="disc-event"]', (f) => put('/api/admin/discovery/events', { slug: val(f, 'slug'), kind: val(f, 'kind'), title: val(f, 'title'), intro: val(f, 'intro'), rules: val(f, 'rules'), topic: val(f, 'topic') || null, startsAt: iso(val(f, 'startsAt')), endsAt: iso(val(f, 'endsAt')), voting: chk(f, 'voting'), voteEndsAt: iso(val(f, 'voteEndsAt')), hideTallies: chk(f, 'hideTallies'), minAccountDays: Number(val(f, 'minAccountDays')), maxEntries: Number(val(f, 'maxEntries')) }, 'POST'), '活动已创建');
+  on('[data-form="disc-feature"]', (f) => put('/api/admin/discovery/creators', { username: val(f, 'username'), note: val(f, 'note') }, 'POST'), '已加入精选');
+  on('[data-form="disc-verify"]', (f) => put('/api/admin/discovery/verifications', { username: val(f, 'username'), label: val(f, 'label') }, 'POST'), '已认证');
+  on('[data-form="disc-topic"]', (f) => put(`/api/admin/discovery/topics/${f.dataset.slug}`, { name: val(f, 'name'), intro: val(f, 'intro'), sort: Number(val(f, 'sort')), tags: val(f, 'tags').split(/[,，]/).map((x) => x.trim()).filter(Boolean) }), '话题已保存');
+  on('[data-form="disc-featwork"]', (f) => put(`/api/admin/discovery/topics/${val(f, 'topic')}/featured`, { workId: Number(val(f, 'workId')), on: chk(f, 'on') }, 'POST'), '精选已更新');
+  const onClick = async (evt: Event) => {
+    const b = (evt.target as HTMLElement).closest<HTMLButtonElement>('[data-disc]');
+    if (!b) return;
+    const slug = b.dataset.slug ?? '';
+    try {
+      if (b.dataset.disc === 'entries' || b.dataset.disc === 'pick') {
+        const row = root.querySelector<HTMLElement>(`.js-disc-entries[data-for="${CSS.escape(slug)}"]`)!;
+        if (b.dataset.disc === 'pick') await put(`/api/admin/discovery/events/${slug}/picks`, { entryId: Number(b.dataset.id), on: b.getAttribute('aria-pressed') !== 'true' }, 'POST');
+        else if (!row.hidden) {
+          row.hidden = true;
+          b.setAttribute('aria-expanded', 'false');
+          return;
+        }
+        const r = await adminFetch<{ entries: { id: number; note: string; picked: boolean; votes: number; work: { id: number; title: string; author: { nickname: string; username: string }; media: { url: string; alt: string }[] } | null }[] }>(`/api/admin/discovery/events/${slug}/entries`);
+        row.hidden = false;
+        root.querySelector(`[data-disc="entries"][data-slug="${CSS.escape(slug)}"]`)?.setAttribute('aria-expanded', 'true');
+        row.querySelector('td')!.innerHTML = r.entries.length
+          ? `<ul class="adm-list">${r.entries.map((x) => `<li>${x.work?.media[0] ? `<img class="adm-ugc__img" src="${e(rawUrl(x.work.media[0].url))}" alt="${e(x.work.media[0].alt)}" loading="lazy" width="80">` : ''}<b>#${x.id} ${e(x.work?.title || '无题')}</b> <span class="muted small">${e(x.work?.author.nickname ?? '')} · ${x.votes} 票${x.note ? ` · ${e(x.note)}` : ''}</span> <button class="btn btn--sm ${x.picked ? '' : 'btn--soft'}" type="button" data-disc="pick" data-slug="${e(slug)}" data-id="${x.id}" aria-pressed="${x.picked}">${x.picked ? '已精选' : '设为精选'}</button></li>`).join('')}</ul>`
+          : '<p class="muted">还没有投稿</p>';
+        if (b.dataset.disc === 'pick') msg('精选已更新');
+      } else if (b.dataset.disc === 'results') {
+        const r = await put<{ notified: number }>(`/api/admin/discovery/events/${slug}/results`, {}, 'POST');
+        msg(`结果已公布，通知了 ${r.notified} 位参与者`);
+        await renderDiscoveryAdmin();
+      } else if (b.dataset.disc === 'unfeature' || b.dataset.disc === 'unverify') {
+        await adminFetch(`/api/admin/discovery/${b.dataset.disc === 'unfeature' ? 'creators' : 'verifications'}/${encodeURIComponent(b.dataset.u!)}`, { method: 'DELETE' });
+        msg('已更新');
+        await renderDiscoveryAdmin();
+      }
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  };
+  // 每次渲染都是新的 section：监听挂在 section 上，不会重复绑定
+  root.querySelectorAll<HTMLElement>('section.adm-tile').forEach((sec) => sec.addEventListener('click', (evt) => void onClick(evt)));
 }
 
 async function renderNotes(): Promise<void> {
