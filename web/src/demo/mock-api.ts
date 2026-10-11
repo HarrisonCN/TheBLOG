@@ -5,7 +5,8 @@
  */
 import { stripMetadata } from '../exif';
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
-import { createSeed, demoPlaylist, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { createSeed, demoPlaylist, withFixturePosts, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { compareOrder, pageOf, parsePageQuery } from '../post-page-core';
 import { checkAudioUpload, validatePlaylist } from '../music-core';
 import { validatePostMedia } from '../essay-core';
 import { isReaction, REACTION_SET } from '../reactions-core';
@@ -158,7 +159,9 @@ export class DemoBackend {
   private cache: DemoDb | null = null;
   private audioStore: AudioStore;
 
-  constructor(opts: { storage?: KV; base?: string; now?: () => Date; audio?: AudioStore } = {}) {
+  private fixturePosts: number;
+  constructor(opts: { storage?: KV; base?: string; now?: () => Date; audio?: AudioStore; fixturePosts?: number } = {}) {
+    this.fixturePosts = Math.max(0, Math.min(Number(opts.fixturePosts ?? 0) || 0, 2000));
     this.audioStore = opts.audio ?? memoryAudioStore();
     this.storage = opts.storage ?? memoryKV();
     this.base = opts.base ?? '/';
@@ -184,7 +187,7 @@ export class DemoBackend {
     } catch {
       db = null;
     }
-    this.cache = db ?? createSeed(this.base);
+    this.cache = db ?? withFixturePosts(createSeed(this.base), this.fixturePosts);
     return this.cache;
   }
 
@@ -236,6 +239,7 @@ export class DemoBackend {
     if (m === 'GET') {
       if (path === '/api/health') return ok({ ok: true, demo: true });
       if (path === '/api/posts') return ok(this.list(q, false));
+      if (path === '/api/posts/index') return ok(this.postIndex());
       const mt = /^\/api\/posts\/([^/]+)$/.exec(path);
       if (mt) return ok(this.find(decodeURIComponent(mt[1]!), false));
       if (path === '/api/tags') return ok({ tags: this.tags() });
@@ -362,18 +366,33 @@ export class DemoBackend {
     throw new MockError(404, 'not_found', '接口不存在');
   }
 
-  private list(q: URLSearchParams, admin: boolean): { posts: PostSummary[]; total: number } {
+  private list(q: URLSearchParams, admin: boolean): { posts: PostSummary[]; total: number; nextCursor: string | null } {
     const tag = q.get('tag')?.trim();
     const category = q.get('category')?.trim();
     const status = admin ? (q.get('status') ?? 'all') : 'published';
-    const limit = Math.min(Math.max(Number(q.get('limit') ?? 20) || 20, 1), 100);
-    const offset = Math.max(Number(q.get('offset') ?? 0) || 0, 0);
+    // 与 Worker 相同：limit 严格 1..100，cursor 必须能解码，否则 400
+    const pq = parsePageQuery(q.get('limit'), q.get('cursor'));
+    if (!pq.ok) throw new MockError(400, 'validation_error', '参数校验失败', [{ path: pq.field, message: pq.message }]);
     const all = this.db()
       .posts.filter((p) => (status === 'all' ? true : p.status === status))
       .filter((p) => (tag ? p.tags.includes(tag) : true))
       .filter((p) => (category ? p.category === category : true))
-      .sort(byOrder);
-    return { posts: all.slice(offset, offset + limit).map(summary), total: all.length };
+      .sort(compareOrder);
+    if (pq.cursor) {
+      const { items, nextCursor } = pageOf(all, pq.limit, pq.cursor);
+      return { posts: items.map(summary), total: all.length, nextCursor };
+    }
+    const offset = Math.max(Number(q.get('offset') ?? 0) || 0, 0);
+    const { items, nextCursor } = pageOf(all.slice(offset), pq.limit, null);
+    return { posts: items.map(summary), total: all.length, nextCursor };
+  }
+
+  /** 文章摘要索引（全部已发布文章，不含正文）；version 随内容变化 */
+  private postIndex(): { posts: PostSummary[]; total: number; version: string } {
+    const posts = this.db().posts.filter((p) => p.status === 'published').sort(compareOrder).map(summary);
+    let h = 0;
+    for (const p of posts) for (const ch of `${p.id}|${p.updatedAt}|${p.title};`) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0;
+    return { posts, total: posts.length, version: `pi-${posts.length}-${(h >>> 0).toString(16)}` };
   }
 
   // ---- 文章表情回应（与 Worker 相同的形状；演示站的「访客」只有本机） ----

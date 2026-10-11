@@ -1,7 +1,7 @@
 {
   "name": "winston-blog",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.14.1",
   "description": "Winston 的个人博客：Cloudflare Pages + Worker (D1/R2) + MCP",
   "license": "MIT",
   "type": "module",
@@ -14,6 +14,8 @@
     "build:demo": "npm run build:demo -w web",
     "dev:api": "npm run dev -w worker",
     "dev:web": "npm run dev -w web",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "changelog": "node scripts/changelog.mjs --write",
+    "version:check": "node scripts/changelog.mjs --check"
   }
 }

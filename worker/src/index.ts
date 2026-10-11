@@ -4,7 +4,9 @@ import { allowedOrigins, checkOrigin, handleLogin, handleLogout, readSession, re
 import { handleMcp } from './mcp';
 import { serveImage, uploadFromRequest } from './images';
 import { serveAudio, uploadAudioFromRequest } from './audio';
-import { CONTENT_KEYS, listQuerySchema, type ContentKey } from './schema';
+import { CONTENT_KEYS, listQuerySchema, type ContentKey, type ListQuery } from './schema';
+import { parsePageQuery, type PageCursor } from './post-page-core';
+import type { z } from 'zod';
 import * as svc from './service';
 import { routeAdmin as communityAdmin, routePublic as communityPublic } from './community';
 import { routeReactions } from './reactions';
@@ -12,6 +14,18 @@ import { routeAdminComments, routeComments } from './comments';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
+// 摘要索引：浏览器 / CDN 短缓存，过期后带 If-None-Match 重新验证（304 不重传）
+const INDEX_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300' };
+
+/** 分页参数：limit / cursor 严格校验（越界 → 400），其余字段走 zod。 */
+function pageParams(url: URL, schema: z.ZodType<ListQuery>): { cursor: PageCursor | null; q: ListQuery } {
+  const sp = url.searchParams;
+  const pq = parsePageQuery(sp.get('limit'), sp.get('cursor'));
+  if (!pq.ok) throw new HttpError(400, 'validation_error', '参数校验失败', {}, [{ path: pq.field, message: pq.message }]);
+  const rest = Object.fromEntries([...sp].filter(([k]) => k !== 'cursor' && k !== 'limit'));
+  const q = svc.validate(schema, rest);
+  return { cursor: pq.cursor, q: { ...q, limit: pq.limit } };
+}
 
 function corsHeaders(req: Request, env: Env, path: string): Record<string, string> {
   const origin = req.headers.get('origin');
@@ -53,8 +67,15 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (m === 'GET' || m === 'HEAD') {
     if (path === '/api/health') return json({ ok: true }, { headers: NO_STORE });
     if (path === '/api/posts') {
-      const q = svc.validate(listQuerySchema.omit({ status: true }), Object.fromEntries(url.searchParams));
-      return json(await svc.listPosts(env, q), { headers: PUBLIC_CACHE });
+      const { cursor, q } = pageParams(url, listQuerySchema.omit({ status: true }));
+      return json(await svc.listPosts(env, { ...q, cursor }), { headers: PUBLIC_CACHE });
+    }
+    if (path === '/api/posts/index') {
+      const idx = await svc.postIndex(env);
+      const etag = `"${idx.version}"`;
+      const headers = { ...INDEX_CACHE, etag };
+      if ((req.headers.get('if-none-match') ?? '').split(',').some((t) => t.trim().replace(/^W\//, '') === etag)) return new Response(null, { status: 304, headers });
+      return new Response(m === 'HEAD' ? null : idx.body, { headers: { ...headers, 'content-type': 'application/json; charset=utf-8' } });
     }
     if ((match = /^\/api\/posts\/([^/]+)$/.exec(path))) {
       return json(await svc.getPost(env, decodeURIComponent(match[1]!)), { headers: PUBLIC_CACHE });
@@ -104,8 +125,8 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     await requireAdmin(req, env);
     const sub = path.slice('/api/admin'.length);
     if (sub === '/posts' && m === 'GET') {
-      const q = svc.validate(listQuerySchema, Object.fromEntries(url.searchParams));
-      return json(await svc.listPosts(env, { ...q, includeDrafts: true }), { headers: NO_STORE });
+      const { cursor, q } = pageParams(url, listQuerySchema);
+      return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
     }
     if (sub === '/posts' && m === 'POST') return json(await svc.createPost(env, await readJson(req)), { status: 201, headers: NO_STORE });
     if ((match = /^\/posts\/([^/]+)\/publish$/.exec(sub)) && m === 'POST') {

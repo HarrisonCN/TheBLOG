@@ -23,13 +23,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Versions agree (package.json ×3, lockfile, CHANGELOG, README badges)
+        run: npm run version:check
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests (worker on local D1/R2 via wrangler, web)
         run: npm test
-      - name: Build demo (GitHub Pages, in-browser mock API)
+      - name: Build demo (GitHub Pages, in-browser mock API, strict prerender)
+        env:
+          PRERENDER_STRICT: '1'
         run: npm run build:demo
-      - name: Build frontend (no API → shell fallback)
+      - name: Build frontend (no API → lenient shell fallback, local-dev path)
+        env:
+          PRERENDER_STRICT: '0'
         run: npm run build
       - name: E2E (wrangler dev + MCP SDK client + prerender)
         run: npm run e2e

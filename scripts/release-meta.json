@@ -1,0 +1,20 @@
+{
+  "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
+  "releases": [
+    { "version": "1.14.1", "milestone": "L14 hardening", "from": "76d1cab", "title": "工程加固：分页、严格预渲染、设计令牌、版本管理、Motionary 13.5" },
+    { "version": "1.14.0", "milestone": "L14", "sha": "76d1cab", "from": "a884553", "date": "2026-10-11", "title": "影集 / 拍摄手记 / 书影音封面 / 引用卡片 / 正文嵌入块 (#11)" }
+  ],
+  "history": [
+    { "date": "2026-10-11", "sha": "a884553", "pr": 10, "title": "音乐小部件：Openverse + Internet Archive 完整 CC 曲目、iTunes 试听" },
+    { "date": "2026-10-10", "sha": "2b99cd7", "pr": 9, "title": "l12 功能 + 上传照片读取 EXIF" },
+    { "date": "2026-10-10", "sha": "7135977", "pr": 8, "title": "动效 / UI 升级：描边图标、结果图标、转场遮罩、分页、菜单图标变形、便签 DIY" },
+    { "date": "2026-10-10", "sha": "20d222f", "pr": 7, "title": "修复 + 功能：⌘K 面板、代码复制、表情回应、继续阅读、分享海报、PWA / 离线、SEO" },
+    { "date": "2026-10-10", "sha": "9e3ea05", "pr": 6, "title": "按设计稿的浅色改版" },
+    { "date": "2026-10-10", "sha": "2b60f8b", "pr": 5, "title": "更多栏目：此刻 / 作品集 / 器材 / 书影音 / 时间线 / 更新日志 / 开源 / 数据 / 搜索 / 订阅" },
+    { "date": "2026-10-09", "sha": "b412f34", "pr": 4, "title": "后台 bento 修复" },
+    { "date": "2026-10-09", "sha": "7e8fe2d", "pr": 3, "title": "bento 后台 + 社区模块 + 节日 SVG 图标" },
+    { "date": "2026-10-09", "sha": "e7418a6", "pr": 2, "title": "bento 改版：前台 + 后台 + 全部组件" },
+    { "date": "2026-10-09", "sha": "fe4475f", "pr": 1, "title": "改版第一阶段：Butterfly 风格前台 + Motionary 组件" },
+    { "date": "2026-10-09", "sha": "6bc7263", "title": "首个版本：Worker（D1/R2 API、后台登录、MCP）、静态前端、预渲染、GitHub Pages 演示、CI" }
+  ]
+}

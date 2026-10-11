@@ -8,7 +8,11 @@ export default defineConfig(({ mode }) => {
   const demo = mode === 'demo';
   return {
     base: demo ? (process.env.BLOG_BASE ?? '/TheBLOG/') : '/',
-    define: { 'import.meta.env.VITE_DEMO': JSON.stringify(demo ? '1' : process.env.VITE_DEMO ?? '0') },
+    define: {
+      'import.meta.env.VITE_DEMO': JSON.stringify(demo ? '1' : process.env.VITE_DEMO ?? '0'),
+      // 测试 / E2E 构建：演示数据后追加 n 篇夹具文章（正式演示站不设置 = 0）
+      'import.meta.env.VITE_DEMO_FIXTURE_POSTS': JSON.stringify(demo ? String(Number(process.env.DEMO_FIXTURE_POSTS ?? 0) || 0) : '0'),
+    },
     // 正式构建：把演示客户端换成空替身，演示代码与演示密码不会出现在产物里
     resolve: demo ? {} : { alias: [{ find: /^\.\/demo\/client$/, replacement: resolve(import.meta.dirname, 'src/demo/disabled.ts') }] },
     build: {

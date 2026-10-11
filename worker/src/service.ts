@@ -21,6 +21,7 @@ import {
 } from './schema';
 import type { z } from 'zod';
 import { validateEssay, validatePostMedia, validateShotNote, type Essay, type PostKind, type ShotNote } from './essay-core';
+import { encodeCursor, cursorOf, type PageCursor } from './post-page-core';
 
 export interface PostRow {
   id: number;
@@ -141,7 +142,10 @@ const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, s
 const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, series, kind, NULL AS essay, NULL AS notes, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
 const ORDER = 'ORDER BY pinned DESC, COALESCE(published_at, created_at) DESC, id DESC';
 
-export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boolean }): Promise<{ posts: PostSummary[]; total: number }> {
+export async function listPosts(
+  env: Env,
+  q: ListQuery & { includeDrafts?: boolean; cursor?: PageCursor | null },
+): Promise<{ posts: PostSummary[]; total: number; nextCursor: string | null }> {
   const where: string[] = [];
   const binds: unknown[] = [];
   const status = q.includeDrafts ? (q.status ?? 'all') : 'published';
@@ -158,15 +162,51 @@ export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boole
     binds.push(q.category);
   }
   const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  // 游标（keyset）：严格排在上一页最后一篇之后，顺序 = ORDER 的三元组 (pinned, t, id)
+  const page = [...where];
+  const pageBinds = [...binds];
+  if (q.cursor) {
+    const c = q.cursor;
+    page.push('(pinned < ? OR (pinned = ? AND (COALESCE(published_at, created_at) < ? OR (COALESCE(published_at, created_at) = ? AND id < ?))))');
+    pageBinds.push(c.p, c.p, c.t, c.t, c.i);
+  }
+  const pw = page.length ? `WHERE ${page.join(' AND ')}` : '';
   const limit = q.limit ?? 20;
-  const offset = q.offset ?? 0;
+  const offset = q.cursor ? 0 : (q.offset ?? 0);
   const [rows, count] = await env.DB.batch([
-    env.DB.prepare(`SELECT ${SUMMARY_COLS} FROM posts ${w} ${ORDER} LIMIT ? OFFSET ?`).bind(...binds, limit, offset),
+    env.DB.prepare(`SELECT ${SUMMARY_COLS} FROM posts ${pw} ${ORDER} LIMIT ? OFFSET ?`).bind(...pageBinds, limit + 1, offset),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM posts ${w}`).bind(...binds),
   ]);
-  const posts = ((rows!.results ?? []) as PostRow[]).map((r) => toSummary(rowToPost(r)));
+  const all = ((rows!.results ?? []) as PostRow[]).map((r) => toSummary(rowToPost(r)));
+  const posts = all.slice(0, limit);
   const total = Number((count!.results?.[0] as { n: number } | undefined)?.n ?? 0);
-  return { posts, total };
+  const nextCursor = all.length > limit ? encodeCursor(cursorOf(posts[posts.length - 1]!)) : null;
+  return { posts, total, nextCursor };
+}
+
+// ---- 文章摘要索引：列表、归档、地图、系列、相关文章、搜索回退共用（全部已发布文章，不含正文） ----
+// 版本号由数据库算出（篇数 / 最新修改时间 / id 之和 / 最大 id），任何创建、修改、删除、发布状态变化都会改变它，
+// 所以多个 isolate 之间也一致；isolate 内按版本缓存序列化结果，写操作时顺手清掉。
+let indexCache: { version: string; body: string } | null = null;
+export function invalidatePostIndex(): void {
+  indexCache = null;
+}
+
+export async function postIndexVersion(env: Env): Promise<string> {
+  const r = await env.DB.prepare("SELECT COUNT(*) AS n, COALESCE(MAX(updated_at), '') AS u, COALESCE(SUM(id), 0) AS s, COALESCE(MAX(id), 0) AS m FROM posts WHERE status = 'published'").first<{ n: number; u: string; s: number; m: number }>();
+  const raw = `${r?.n ?? 0}|${r?.u ?? ''}|${r?.s ?? 0}|${r?.m ?? 0}`;
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)));
+  return `pi-${[...digest.slice(0, 9)].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** 返回序列化好的索引 JSON 与版本号（ETag 用）。 */
+export async function postIndex(env: Env): Promise<{ version: string; body: string }> {
+  const version = await postIndexVersion(env);
+  if (indexCache?.version === version) return indexCache;
+  const { results } = await env.DB.prepare(`SELECT ${SUMMARY_COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow>();
+  const posts = (results ?? []).map((r) => toSummary(rowToPost(r)));
+  indexCache = { version, body: JSON.stringify({ posts, total: posts.length, version }) };
+  return indexCache;
 }
 
 export async function getPost(env: Env, slug: string, opts: { includeDrafts?: boolean } = {}): Promise<Post> {
@@ -192,7 +232,7 @@ export async function listCategories(env: Env): Promise<{ category: string; coun
 
 /** 站内搜索索引：已发布文章的标题、摘要、标签、分类与正文纯文本（截断）。 */
 export async function searchIndex(env: Env): Promise<{ slug: string; title: string; summary: string; tags: string[]; category: string | null; text: string }[]> {
-  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER} LIMIT 500`).all<PostRow>();
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow>();
   return (results ?? []).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, tags: parseTags(r.tags), category: r.category || null, text: plainText(r.content_md).slice(0, 3000) }));
 }
 
@@ -226,6 +266,7 @@ export async function createPost(env: Env, input: unknown): Promise<Post> {
   )
     .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.series || null, media.kind, media.essay ? JSON.stringify(media.essay) : null, media.notes ? JSON.stringify(media.notes) : null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
     .first<PostRow>();
+  invalidatePostIndex();
   return rowToPost(row!);
 }
 
@@ -267,12 +308,14 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
       current.id,
     )
     .first<PostRow>();
+  invalidatePostIndex();
   return rowToPost(row!);
 }
 
 export async function deletePost(env: Env, slug: string): Promise<{ deleted: true; slug: string }> {
   const current = await getPost(env, slug, { includeDrafts: true });
   await env.DB.prepare('DELETE FROM posts WHERE id = ?').bind(current.id).run();
+  invalidatePostIndex();
   return { deleted: true, slug: current.slug };
 }
 
@@ -284,6 +327,7 @@ export async function setPublished(env: Env, slug: string, published = true): Pr
   )
     .bind(published ? 'published' : 'draft', published ? (current.publishedAt ?? ts) : current.publishedAt, ts, current.id)
     .first<PostRow>();
+  invalidatePostIndex();
   return rowToPost(row!);
 }
 

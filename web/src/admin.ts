@@ -1,7 +1,9 @@
+import './styles/tokens.css';
 /**
  * 后台管理（/admin）—— 与前台同一套便当网格 / 玻璃瓷砖风格。
  * 密码登录 → 短期 httpOnly 会话 Cookie；写操作带 X-CSRF-Token（只在内存里，刷新后从 /api/auth/session 重新获取）。
  */
+import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import './styles.css';
 import './admin.css';
 import './motion-ui.css';
@@ -197,10 +199,15 @@ async function optional<T>(p: Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+/** 后台：全部文章（含草稿）的摘要，按游标逐页拉取，不再有 100 篇上限 */
+function adminPostsAll(): Promise<{ posts: PostSummary[]; total: number }> {
+  return walkPages((cursor) => adminFetch<{ posts: PostSummary[]; total: number; nextCursor?: string | null }>(`/api/admin/posts?status=all&limit=${PAGE_LIMIT_MAX}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`));
+}
+
 // ============================================================ 仪表盘
 async function renderDash(): Promise<void> {
   const [posts, gb, notes, members, inbox] = await Promise.all([
-    adminFetch<{ posts: PostSummary[]; total: number }>('/api/admin/posts?status=all&limit=100'),
+    adminPostsAll(),
     adminFetch<{ entries: GuestbookEntry[] }>('/api/admin/guestbook?status=pending'),
     optional(adminFetch<{ notes: StickyNote[] }>('/api/admin/notes'), { notes: [] }),
     optional(adminFetch<{ members: Member[] }>('/api/admin/members'), { members: [] }),
@@ -241,7 +248,7 @@ async function renderDash(): Promise<void> {
 // ============================================================ 文章
 let postsCache: PostSummary[] = [];
 async function renderPosts(): Promise<void> {
-  const { posts } = await adminFetch<{ posts: PostSummary[] }>('/api/admin/posts?status=all&limit=100');
+  const { posts } = await adminPostsAll();
   postsCache = posts;
   const cats = [...new Set(posts.map((p) => p.category).filter(Boolean) as string[])].sort();
   const opt = (v: string, cur: string, label: string) => `<option value="${e(v)}"${v === cur ? ' selected' : ''}>${e(label)}</option>`;
@@ -470,7 +477,7 @@ async function renderEditor(): Promise<void> {
 
 // ============================================================ 分类
 async function renderCategories(): Promise<void> {
-  const { posts } = await adminFetch<{ posts: PostSummary[] }>('/api/admin/posts?status=all&limit=100');
+  const { posts } = await adminPostsAll();
   postsCache = posts;
   const counts = new Map<string, { all: number; pub: number }>();
   for (const p of posts) {
