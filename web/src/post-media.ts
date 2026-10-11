@@ -42,7 +42,7 @@ function ensureDialog(): HTMLDialogElement {
 export function bindLightbox(root: ParentNode): void {
   const prose = root.querySelector<HTMLElement>('.post .prose');
   if (!prose) return;
-  const imgs = [...prose.querySelectorAll<HTMLImageElement>('img')];
+  const imgs = [...prose.querySelectorAll<HTMLImageElement>('img:not(.compare__img)')];
   if (!imgs.length) return;
   imgs.forEach((im, i) => {
     if (im.dataset.lb) return;

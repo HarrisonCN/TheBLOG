@@ -574,5 +574,9 @@ export function createPlayer(tab: HTMLButtonElement): MusicPlayerHandle {
     close,
     toggle: () => (open ? close(true) : openPanel(true)),
     isOpen: () => open,
+    addAndPlay: (t: Track) => {
+      if (!open) openPanel(false);
+      add(t, true);
+    },
   };
 }

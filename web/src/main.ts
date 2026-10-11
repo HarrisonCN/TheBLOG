@@ -5,6 +5,7 @@ import './fixes.css';
 import './motion-ui.css';
 import './l12.css';
 import './music-tab.css';
+import './l14.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -673,6 +674,12 @@ function bindPage(page: Page): void {
   bindReadingSettings(root);
   bindSpeech(root);
   bindPhotoMap(root);
+  // l14：影集、对比滑块、音频块、地图标记、引用卡片 —— 页面上有这些块时才加载交互代码
+  if (root.querySelector('[data-compare], [data-audio], [data-map], [data-quote], [data-essay]')) {
+    void import('./embeds-client').then((m) =>
+      m.bindEmbeds(root, { notify: (msg, t) => void notify(msg, t), reducedMotion: prefersReducedMotion, siteTitle: site.settings.siteTitle, pageUrl: () => location.href }),
+    );
+  }
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
 
