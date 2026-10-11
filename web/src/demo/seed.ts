@@ -11,6 +11,7 @@ import type { PlaylistItem } from '../music-core';
 import { createSectionSeed } from './sections-seed';
 import type { Album, Favorite, Friend, Post, Profile, Settings } from '../types';
 import credits from '../../demo-assets/photos/credits.json';
+import type { EssayExif, EssayPhoto, ShotNote } from '../essay-core';
 import type { Festival, Project, Member, StickyNote, GuestbookItem } from './community-types';
 
 export interface DemoDb {
@@ -518,6 +519,8 @@ ${credit('baltic-view')}`,
 （待补充）`,
     },
 
+    // ---------------------------------------------------------------- l14 示例：影集 + 正文嵌入块（明确标注为示例，不是 Winston 的作品）
+    ...demoEssays(photo),
   ];
   return {
     version: 2,
@@ -650,5 +653,159 @@ export function demoPlaylist(): PlaylistItem[] {
     { id: 'swing-low', title: 'Swing Low', artist: 'Cocolixe', src: f('03-NS050-Cocolixe_Swing-Low.mp3'), duration: 200, ...lic },
     { id: 'the-light-between', title: 'The Light Between', artist: 'Tardiss', src: f('04-NS050-Tardiss_The-Light-Between.mp3'), duration: 183, ...lic },
     { id: 'clouds-in-the-shape-of-clouds', title: 'Clouds in the Shape of Clouds', artist: 'Ross Baker', src: f('11-NS050-Ross-Baker_Clouds-in-the-Shape-of-Clouds.mp3'), duration: 186, ...lic },
+  ];
+}
+
+/**
+ * l14 示例内容：三组影集（单列 / 双联 / 网格）+ 一篇「正文嵌入块一览」。
+ * 照片全部来自 Wikimedia Commons（CC0 / 公有领域 / CC BY / CC BY-SA，逐张署名，见 credits.json）；EXIF 与拍摄手记是示意，不是原作者的真实参数。
+ */
+export function demoEssays(photo: (key: string) => string): Omit<Post, 'id'>[] {
+  const credit = (key: string) => {
+    const c = PHOTO_CREDITS[key];
+    return c ? `${c.author} · ${c.license} · Wikimedia Commons` : '';
+  };
+  const ph = (key: string, caption: string, exif: Partial<EssayExif>, notes?: Partial<ShotNote>): EssayPhoto => {
+    const c = PHOTO_CREDITS[key];
+    return {
+      src: photo(key), alt: caption, caption, credit: credit(key), width: c?.width ?? 0, height: c?.height ?? 0,
+      exif: { camera: '', lens: '', focal: '', aperture: '', shutter: '', iso: '', date: '', ...exif },
+      notes: notes ? { place: '', light: '', gear: '', settings: '', thought: '', ...notes } : null,
+    };
+  };
+  const base = { pinned: false, wordCount: 0, status: 'published' as const, series: null };
+  const note = '> 示例影集：照片来自 Wikimedia Commons（每张下方有署名），EXIF 和拍摄手记是为了演示而写的示意参数。换成自己的照片时，在后台把「署名」留空即可。';
+  const t = (iso: string) => new Date(iso).toISOString();
+  const track = 'https://archive.org/download/NS050/11-NS050-Ross-Baker_Clouds-in-the-Shape-of-Clouds.mp3';
+  return [
+    {
+      ...base, kind: 'essay', slug: 'demo-essay-seaside', title: '示例影集：海边的一天', category: '摄影', tags: ['影集', '示例', '海边'],
+      summary: '从清晨的港口到夜里的天际线，单列全幅排版；每张照片下面有图注、EXIF 条和可以展开的拍摄手记。手机上可以进入故事模式左右滑。',
+      coverUrl: photo('harbour-castle'),
+      publishedAt: t('2026-09-07T09:00:00+08:00'), createdAt: t('2026-09-07T08:00:00+08:00'), updatedAt: t('2026-09-07T09:00:00+08:00'),
+      contentMd: `${note}\n\n海边的一天，按时间顺序排。单列版式适合「讲一个故事」：一张接一张往下看，图注就是旁白。`,
+      notes: { place: '地中海沿岸（示例）', light: '晴，清晨到入夜', gear: '手机主摄 + 长焦（示意）', settings: '全程自动白平衡，夜景开夜景模式', thought: '同一个地方拍一整天，光线自己会讲故事。' },
+      essay: {
+        layout: 'single',
+        photos: [
+          ph('harbour-castle', '清晨的港口，城堡还在阴影里', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1/500s', iso: '50', date: '2026-07-12 07:40' }, { place: '港口（示例）', light: '清晨顺光', thought: '先拍全景交代环境。' }),
+          ph('beach-parasols', '中午，遮阳伞排成了图案', { camera: '示例手机', focal: '77mm', aperture: 'f/2.8', shutter: '1/1000s', iso: '50', date: '2026-07-12 12:10' }, { light: '正午顶光', gear: '3× 长焦', thought: '顶光不好看人，但很适合拍图案。' }),
+          ph('field-bindweed', '海边草地上的旋花', { camera: '示例手机', focal: '26mm', aperture: 'f/1.8', shutter: '1/320s', iso: '64', date: '2026-07-12 16:30' }, { light: '侧逆光', settings: '点测光在花瓣上，-0.7 EV' }),
+          ph('harbour-night', '入夜，港湾的灯一盏盏亮起来', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1s', iso: '400', date: '2026-07-12 20:05' }, { place: '海湾（示例）', light: '蓝调时刻', settings: '靠在栏杆上，夜景模式 1 秒' }),
+        ],
+      },
+    },
+    {
+      ...base, kind: 'essay', slug: 'demo-essay-flowers', title: '示例影集：花的双联画', category: '摄影', tags: ['影集', '示例', '花'],
+      summary: '双联版式：两张一组并排，看颜色和形状的呼应。小屏上自动变成上下排。',
+      coverUrl: photo('poppies-korea'),
+      publishedAt: t('2026-09-06T09:00:00+08:00'), createdAt: t('2026-09-06T08:00:00+08:00'), updatedAt: t('2026-09-06T09:00:00+08:00'),
+      contentMd: `${note}\n\n双联（diptych）把两张照片放在一起看：一张远一张近，或者一冷一暖。`,
+      notes: null,
+      essay: {
+        layout: 'diptych',
+        photos: [
+          ph('poppies-korea', '一片红', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1/800s', iso: '50' }),
+          ph('poppy-edge', '一朵红', { camera: '示例手机', focal: '77mm', aperture: 'f/2.8', shutter: '1/640s', iso: '64' }, { thought: '和左边那张配对：先给整体，再给细节。' }),
+          ph('sunflowers', '向日葵，暖', { camera: '示例手机', focal: '26mm', aperture: 'f/1.8', shutter: '1/1000s', iso: '50' }),
+          ph('iris', '鸢尾，冷', { camera: '示例手机', focal: '50mm', aperture: 'f/2', shutter: '1/250s', iso: '100' }, { light: '阴天散射光' }),
+        ],
+      },
+    },
+    {
+      ...base, kind: 'essay', slug: 'demo-essay-mountains', title: '示例影集：山与湖的网格', category: '摄影', tags: ['影集', '示例', '风光'],
+      summary: '网格版式：一屏看完一组照片，点任意一张放大或进入故事模式。',
+      coverUrl: photo('himalayas'),
+      publishedAt: t('2026-09-05T09:00:00+08:00'), createdAt: t('2026-09-05T08:00:00+08:00'), updatedAt: t('2026-09-05T09:00:00+08:00'),
+      contentMd: `${note}\n\n网格适合一组主题相同、彼此独立的照片。`,
+      notes: null,
+      essay: {
+        layout: 'grid',
+        photos: [
+          ph('himalayas', '雪山', { focal: '70mm', aperture: 'f/8', shutter: '1/500s', iso: '100' }),
+          ph('montriond-lake', '山间的湖', { focal: '24mm', aperture: 'f/8', shutter: '1/250s', iso: '100' }),
+          ph('panixersee', '高山湖', { focal: '16mm', aperture: 'f/11', shutter: '1/200s', iso: '100' }),
+          ph('snina-winter', '冬天的山谷', { focal: '35mm', aperture: 'f/5.6', shutter: '1/400s', iso: '200' }),
+          ph('forest-road', '林间小路', { focal: '35mm', aperture: 'f/4', shutter: '1/125s', iso: '400' }),
+          ph('hero-lake', '湖边日出', { focal: '24mm', aperture: 'f/11', shutter: '1/60s', iso: '100' }),
+        ],
+      },
+    },
+    {
+      ...base, kind: 'post', slug: 'demo-embeds', title: '示例：正文嵌入块一览', category: '技术', tags: ['写作', '示例', 'Markdown'],
+      summary: '提示框、折叠块、调色前后对比滑块、交给音乐播放器的音频、粗略地图标记、可以生成图片的引用卡片、拍摄手记——都用一行 ::: 写出来。',
+      coverUrl: photo('harbour-castle'),
+      publishedAt: t('2026-09-04T09:00:00+08:00'), createdAt: t('2026-09-04T08:00:00+08:00'), updatedAt: t('2026-09-04T09:00:00+08:00'),
+      notes: null,
+      contentMd: `> 示例文章：演示每一种嵌入块的写法和效果。图片来自 Wikimedia Commons（CC0），音频来自 Internet Archive（CC BY-NC-SA 4.0）。
+
+## 提示框
+
+:::tip 拍夜景的小技巧
+手机靠在栏杆或墙上，比任何防抖都稳。
+:::
+
+:::warn 注意
+发布前确认照片里没有别人的车牌和门牌号。
+:::
+
+:::note
+备注框适合放补充说明，不打断正文。
+:::
+
+## 折叠块
+
+:::details 展开看：我的导出设置
+- 长边 2560 px，sRGB
+- 质量 82，去掉全部 EXIF（博客上传时也会自动去掉）
+:::
+
+## 调色前后
+
+拖动中间的把手（或用键盘左右键）对比：
+
+:::compare 降低对比度的“原片”与调色后的成片
+![调色前：灰、平](${photo('harbour-castle-flat')} "调色前")
+![调色后：通透](${photo('harbour-castle')} "调色后")
+:::
+
+## 音频
+
+点「播放」交给左下角的音乐播放器，不会自动播放：
+
+:::audio
+src: ${track}
+title: Clouds in the Shape of Clouds
+artist: Ross Baker
+credit: Internet Archive · CC BY-NC-SA 4.0
+link: https://archive.org/details/NS050
+:::
+
+## 地图标记
+
+只保存约 11 km 精度的坐标：
+
+:::map 桂林 · 漓江
+25.27, 110.29
+:::
+
+## 引用卡片
+
+:::quote 王维《终南别业》 | https://zh.wikisource.org/wiki/%E7%B5%82%E5%8D%97%E5%88%A5%E6%A5%AD
+行到水穷处，坐看云起时。
+:::
+
+## 拍摄手记
+
+:::notes 这张港口照片（示意）
+地点: 港口（示例）
+光线: 清晨顺光
+器材: 手机主摄
+参数: f/1.8 · 1/500s · ISO 50
+想法: 城堡在阴影里，等太阳再高一点就会亮起来。
+:::
+
+图片署名：Jebulon / Wikimedia Commons / CC0（“调色前”是为了演示而降低了对比度和饱和度的版本）。`,
+    },
   ];
 }

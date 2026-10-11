@@ -1,4 +1,5 @@
 import type { SectionKey, SectionMap } from './sections';
+import type { Essay, PostKind, ShotNote } from './essay-core';
 export interface PostSummary {
   id: number;
   slug: string;
@@ -9,6 +10,8 @@ export interface PostSummary {
   category: string | null;
   /** 系列连载名（null / 缺省 = 不属于系列）；旧接口没有这个字段 */
   series?: string | null;
+  /** post 普通文章 / essay 影集；旧接口没有这个字段（按 post 处理） */
+  kind?: PostKind;
   pinned: boolean;
   /** 正文字数（近似） */
   wordCount: number;
@@ -19,6 +22,10 @@ export interface PostSummary {
 }
 export interface Post extends PostSummary {
   contentMd: string;
+  /** 影集（kind = essay 时） */
+  essay?: Essay | null;
+  /** 文章级拍摄手记 */
+  notes?: ShotNote | null;
 }
 export type SocialIcon = 'github' | 'bilibili' | 'weibo' | 'zhihu' | 'instagram' | 'x' | 'youtube' | 'email' | 'rss' | 'link' | 'wechat' | 'xiaohongshu';
 export interface SocialLink {
