@@ -2,6 +2,20 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.18.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.18.0) — 2026-10-11
+
+_L18 · 摄影与创作工具：摄影专题、EXIF 筛选（含手机）、项目页与开发日志、共同作者与修订历史、创作者数据中心_
+
+### 新功能 Features
+
+- **web:** lazy studio UI — /f/ photo essays + EXIF browser (phone/camera, focal, aperture, ISO), /projects/ + /p/:slug/, co-author and revision panels, media-impact confirm, /me/stats/ with privacy note; prerender shells (930efea)
+- **web:** demo mock parity for L18 studio (same rules, fictional seed: project, photo essay, co-authored album) (436704a)
+- **worker:** L18 studio — EXIF index + filters, co-authors with roles/invitations, revision history with restore, multi-author media removal guard, projects with dev logs/releases/links/members, photo essays, private aggregated daily creator stats (migration 0015_studio, additive) (d23a983)
+
+### 杂项 Chores
+
+- **release:** 1.18.0 — L18 photography & creator studio (docs: migration 0015_studio, backup/rollback) (819eafb)
+
 ## [1.17.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.17.0) — 2026-10-11
 
 _L17 · 发现与活跃：话题与订阅、发现页、摄影活动（投稿 / 投票 / 精选）、合集、社区徽章_
