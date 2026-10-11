@@ -73,6 +73,9 @@ export type Route =
   | { name: 'search' }
   | { name: 'subscribe' }
   | { name: 'map' }
+  | { name: 'user'; username: string }
+  | { name: 'notifications' }
+  | { name: 'me' }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -98,6 +101,8 @@ const STATIC: Record<string, Route['name']> = {
   '/search': 'search',
   '/subscribe': 'subscribe',
   '/map': 'map',
+  '/notifications': 'notifications',
+  '/me': 'me',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -124,6 +129,8 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'post', slug: m[1]! };
   m = /^\/gallery\/([a-z0-9-]+)$/.exec(p);
   if (m) return { name: 'album', slug: m[1]! };
+  m = /^\/u\/([A-Za-z0-9_]{3,20})$/.exec(p);
+  if (m) return { name: 'user', username: m[1]!.toLowerCase() };
   m = /^\/tags\/([^/]+)$/.exec(p);
   if (m) {
     const t = decode(m[1]!);
@@ -141,6 +148,7 @@ export const postPath = (slug: string) => `${BASE}/posts/${slug}/`;
 export const tagPath = (tag: string) => `${BASE}/tags/${encodeURIComponent(tag)}/`;
 export const categoryPath = (c: string) => `${BASE}/categories/${encodeURIComponent(c)}/`;
 export const albumPath = (slug: string) => `${BASE}/gallery/${slug}/`;
+export const userPath = (username: string) => `${BASE}/u/${encodeURIComponent(username)}/`;
 export const pagePath = (n: number) => (n <= 1 ? `${BASE}/` : `${BASE}/page/${n}/`);
 
 /** 路由 → 站内路径（不含前缀），用于导航高亮、预渲染输出目录。 */
@@ -156,6 +164,8 @@ export function routePath(r: Route): string {
       return `/categories/${encodeURIComponent(r.category)}/`;
     case 'album':
       return `/gallery/${r.slug}/`;
+    case 'user':
+      return `/u/${r.username}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -390,6 +400,7 @@ export function navbar(site: SiteData, route: Route): string {
       <button class="nav__search js-search" type="button" aria-label="搜索（Ctrl K）">${icon('search')}<span class="nav__search-text">搜索文章、主题或关键词…</span><kbd class="nav__kbd">⌘K</kbd></button>
       <button class="nav__btn nav__btn--search js-search" type="button" aria-label="搜索">${icon('search')}</button>
       <button class="nav__btn js-theme" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
+      <a class="nav__btn nav__bell js-notif-link" href="${url('/notifications/')}" aria-label="通知" title="通知" hidden>${icon('bell')}<span class="nav__dot js-notif-dot" hidden></span></a>
       <a class="nav__btn nav__me js-me" href="${url('/join/')}" aria-label="好朋友登录 / 注册" title="好朋友登录 / 注册">${icon('user')}</a>
       <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('menu')}</usa-icon-morph></button>
     </div>
@@ -409,6 +420,7 @@ export function drawer(site: SiteData): string {
   <aside class="drawer__panel" aria-label="菜单">
     <div class="drawer__head">${avatarImg(site.profile, 'drawer__avatar')}<div><strong>${e(site.profile.name)}</strong>${counts(site)}</div><button class="nav__btn drawer__close js-drawer-close" type="button" aria-label="关闭菜单" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('close')}</usa-icon-morph></button></div>
     <button class="drawer__search js-search" type="button">${icon('search')}<span>搜索文章、主题或关键词…</span></button>
+    <nav class="drawer__mine" aria-label="我的"><a class="drawer__link" href="${url('/notifications/')}">${icon('bell')}<span>通知</span><span class="drawer__count js-notif-count" hidden></span></a><a class="drawer__link js-me-link" href="${url('/me/')}">${icon('user')}<span>我的</span></a></nav>
     <nav class="drawer__nav">${groups}</nav>
   </aside>
 </div>`;
@@ -1458,9 +1470,33 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return subscribePage(site);
     case 'map':
       return mapPage(site, x.works ?? []);
+    case 'user':
+    case 'notifications':
+    case 'me':
+      return socialPage(site, route);
     default:
       return notFoundPage(site);
   }
+}
+
+/**
+ * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
+ * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
+ */
+export function socialPage(site: SiteData, route: Extract<Route, { name: 'user' | 'notifications' | 'me' }>): Page {
+  const head =
+    route.name === 'user'
+      ? { title: `@${route.username}`, sub: '好朋友的个人主页' }
+      : route.name === 'notifications'
+        ? { title: '通知', sub: '关注、回复、提及与收藏' }
+        : { title: '我的', sub: '个人主页、收藏与设置' };
+  return shell(site, route, {
+    title: head.title,
+    description: head.sub,
+    top: route.name === 'user' ? '' : pageHead(head.title, head.sub),
+    main: `<section class="bento social js-social" data-view="${route.name}"${route.name === 'user' ? ` data-username="${e(route.username)}"` : ''} aria-busy="true" aria-live="polite"><div class="social__loading"><span class="social__spin" aria-hidden="true"></span><span>加载中…</span></div></section>`,
+    kind: 'page--social',
+  });
 }
 
 /** 页面区域，放在 <usa-route-transition> 里。 */

@@ -15,6 +15,7 @@ import { isDefaultStyle, validateNoteStyle } from '../note-style';
 import { legacyDesign, normalizeBadgeDesign, validateBadgeDesign } from '../badge-design';
 import { isCommentAction, resolveParent, validateComment, type CommentStatus, type PostComment } from '../comment-core';
 import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from './community-types';
+import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-social';
 
 export interface KV {
   getItem(key: string): string | null;
@@ -166,6 +167,35 @@ export class DemoBackend {
     this.storage = opts.storage ?? memoryKV();
     this.base = opts.base ?? '/';
     this.now = opts.now ?? (() => new Date());
+    this.social = new MockSocial({
+      members: () => this.db().members,
+      state: () => this.db().social ?? socialSeed(),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.social ??= socialSeed();
+        mutate(db.social, db.members);
+        this.save(db);
+      },
+      memberFrom: (h) => this.memberFrom(h),
+      optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
+      removeMember: (id) => void this.removeMember(id),
+      approvedCommentsBy: (id) => {
+        const st = this.db().social ?? socialSeed();
+        return (this.db().comments ?? [])
+          .filter((c) => c.status === 'approved' && st.commentAuthors[String(c.id)] === id)
+          .sort((a, b) => b.id - a.id)
+          .map((c) => ({ slug: c.slug, content: c.content, createdAt: c.createdAt }));
+      },
+      now: () => this.now(),
+    });
+  }
+  private social: MockSocial;
+  private memberFromOrNull(h: Record<string, string>): Member | null {
+    try {
+      return this.memberFrom(h);
+    } catch {
+      return null;
+    }
   }
 
   /** 读取本地数据；不存在或损坏时回到种子数据。 */
@@ -224,6 +254,7 @@ export class DemoBackend {
     try {
       return await this.route(method.toUpperCase(), rawPath, body, headers);
     } catch (e) {
+      if (e instanceof SocialError) return { status: e.status, body: { error: { code: e.code, message: e.message, ...(e.details ? { details: e.details } : {}) } } };
       if (e instanceof MockError) return { status: e.status, body: { error: { code: e.code, message: e.message, ...(e.details ? { details: e.details } : {}) } } };
       return { status: 500, body: { error: { code: 'internal', message: (e as Error).message || '内部错误' } } };
     }
@@ -234,6 +265,10 @@ export class DemoBackend {
     const path = u.pathname.replace(/\/+$/, '') || '/';
     const q = u.searchParams;
     const ok = (b: unknown, status = 200): MockResponse => ({ status, body: b });
+
+    // ---- L15 社交（/api/social/*）----
+    const soc = this.social.route(m, path, q, body, headers);
+    if (soc) return soc;
 
     // ---- 公开接口 ----
     if (m === 'GET') {
@@ -1087,6 +1122,7 @@ export class DemoBackend {
     const c: PostComment = { id: Math.max(0, ...db.comments.map((x) => x.id)) + 1, slug, parentId, replyTo, name: member ? member.name : v.value.name, content: v.value.content, member: !!member, status, createdAt: this.now().toISOString() };
     db.comments.push(c);
     this.save(db);
+    if (status === 'approved') this.social.onComment({ id: c.id, slug, parentId, content: c.content, memberId: member?.id ?? null });
     return { comment: c, status };
   }
 
@@ -1105,8 +1141,10 @@ export class DemoBackend {
     const c = db.comments.find((x) => x.id === id);
     if (!c) throw new MockError(404, 'not_found', '评论不存在');
     if (action === 'delete') db.comments = db.comments.filter((x) => x.id !== id && x.parentId !== id);
-    else c.status = action === 'approve' ? 'approved' : 'hidden';
+    const wasApproved = c.status === 'approved';
+    if (action !== 'delete') c.status = action === 'approve' ? 'approved' : 'hidden';
     this.save(db);
+    if (action === 'approve' && !wasApproved) this.social.onComment({ id: c.id, slug: c.slug, parentId: c.parentId, content: c.content, memberId: null });
     return { id, action };
   }
 
