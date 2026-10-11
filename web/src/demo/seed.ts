@@ -47,6 +47,8 @@ export interface DemoDb {
   comments?: import('../comment-core').PostComment[];
   /** L15 社交（用户名 / 关注 / 收藏 / 通知）；旧的本地数据没有这个字段时用种子补齐 */
   social?: import('./mock-social').SocialState;
+  /** L16 用户投稿 / 评论 / 回应 / 举报 / 审核日志；旧的本地数据没有这个字段时用种子补齐 */
+  ugc?: import('./mock-ugc').UgcState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

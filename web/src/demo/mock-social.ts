@@ -24,7 +24,7 @@ import type { Member } from './community-types';
 
 export interface DemoProfile { memberId: number; username: string; coverUrl: string; links: SocialLink[]; visibility: Visibility; showFollows: boolean; discoverable: boolean }
 export interface DemoNotification { id: number; memberId: number; type: NotificationType; actorId: number | null; objectKind: string; objectRef: string; excerpt: string; count: number; key: string; readAt: string | null; createdAt: string; updatedAt: string }
-export interface DemoPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; email: boolean }
+export interface DemoPrefs { follow: boolean; reply: boolean; mention: boolean; bookmark: boolean; reaction: boolean; new_work: boolean; email: boolean }
 export interface SocialState {
   profiles: DemoProfile[];
   follows: { follower: number; following: number; createdAt: string }[];
@@ -69,17 +69,22 @@ export interface SocialHost {
   optionalMember(headers: Record<string, string>): Member | null;
   removeMember(id: number): void;
   approvedCommentsBy(memberId: number): { slug: string; content: string; createdAt: string }[];
+  /** L16：主页作品列表 / 作品数 / 注销时清除投稿（由 MockUgc 提供） */
+  profileWorks?(authorId: number, viewerId: number | null, following: boolean): unknown[];
+  publicWorkCount?(authorId: number): number;
+  purgeAuthor?(memberId: number): void;
+  exportWorks?(memberId: number): unknown;
   now(): Date;
 }
 
-const PREF_DEFAULT: DemoPrefs = { follow: true, reply: true, mention: true, bookmark: true, email: false };
+const PREF_DEFAULT: DemoPrefs = { follow: true, reply: true, mention: true, bookmark: true, reaction: true, new_work: true, email: false };
 const bad = (path: string, message: string) => new SocialError(400, 'validation_error', '参数校验失败', [{ path, message }]);
 
 export class MockSocial {
   private hits = new Map<string, number[]>();
   constructor(private h: SocialHost) {}
 
-  private limit(bucket: string, max: number, windowMs: number, message = '操作太频繁，请稍后再试'): void {
+  limit(bucket: string, max: number, windowMs: number, message = '操作太频繁，请稍后再试'): void {
     const now = this.h.now().getTime();
     const arr = (this.hits.get(bucket) ?? []).filter((t) => now - t < windowMs);
     arr.push(now);
@@ -87,6 +92,10 @@ export class MockSocial {
     if (arr.length > max) throw new SocialError(429, 'rate_limited', message);
   }
   private iso = () => this.h.now().toISOString();
+  /** 只读：给 MockUgc 判断关注 / 拉黑 / 静音 */
+  socialState(): SocialState {
+    return this.h.state();
+  }
 
   // ------------------------------------------------------------ 资料
   profileOf(memberId: number): DemoProfile {
@@ -98,7 +107,7 @@ export class MockSocial {
     this.h.commit((s) => s.profiles.push(fresh));
     return fresh;
   }
-  private byUsername(username: string): DemoProfile {
+  byUsername(username: string): DemoProfile {
     const u = username.toLowerCase();
     let p = this.h.state().profiles.find((x) => x.username === u);
     if (!p) {
@@ -114,7 +123,7 @@ export class MockSocial {
     if (!m) throw new SocialError(404, 'not_found', '没有这个用户');
     return m;
   }
-  private rel(a: number, b: number) {
+  rel(a: number, b: number) {
     const s = this.h.state();
     return {
       following: s.follows.some((f) => f.follower === a && f.following === b),
@@ -126,9 +135,9 @@ export class MockSocial {
   }
   private counts(id: number) {
     const s = this.h.state();
-    return { followers: s.follows.filter((f) => f.following === id).length, following: s.follows.filter((f) => f.follower === id).length, works: this.h.approvedCommentsBy(id).length };
+    return { followers: s.follows.filter((f) => f.following === id).length, following: s.follows.filter((f) => f.follower === id).length, works: this.h.publicWorkCount?.(id) ?? 0 };
   }
-  private card(id: number) {
+  card(id: number) {
     const m = this.h.members().find((x) => x.id === id);
     if (!m) return null;
     return { username: this.profileOf(id).username, nickname: m.name, avatarUrl: m.avatarUrl, bio: m.bio };
@@ -147,7 +156,8 @@ export class MockSocial {
     const m = this.member(p.memberId);
     const v = { self: isSelf, loggedIn: !!viewer, following: r.following, followedBy: r.followedBy, blocked: r.blocked, muted: r.muted };
     if (access === 'restricted') return { restricted: r.blocked ? 'blocked' : p.visibility, profile: { username: p.username, nickname: m.name, avatarUrl: m.avatarUrl }, viewer: v };
-    const works = this.h.approvedCommentsBy(p.memberId).slice(0, 12).map((c) => ({ kind: 'comment', slug: c.slug, excerpt: c.content.slice(0, 120), createdAt: c.createdAt }));
+    // L16：作品列表是真正的用户投稿（不再是评论）
+    const works = this.h.profileWorks?.(p.memberId, viewer?.id ?? null, r.following) ?? [];
     return { restricted: null, profile: this.toProfile(m, p), works, viewer: v };
   }
 
@@ -225,7 +235,7 @@ export class MockSocial {
     const me = this.h.memberFrom(headers);
     return { users: this.h.state().relations.filter((r) => r.owner === me.id && r.kind === kind).reverse().map((r) => this.card(r.target)).filter(Boolean) };
   }
-  private page(q: URLSearchParams) {
+  page(q: URLSearchParams) {
     const limit = clampLimit(q.get('limit'));
     const cursor = decodeCursor(q.get('cursor'));
     if (limit === 'bad') throw bad('limit', 'limit 必须是 1–50 的整数');
@@ -309,7 +319,7 @@ export class MockSocial {
   private prefs(id: number): DemoPrefs {
     return { ...PREF_DEFAULT, ...(this.h.state().prefs[String(id)] ?? {}) };
   }
-  notify(n: { to: number; type: NotificationType; actorId?: number | null; objectKind?: string; objectRef?: string; thread?: string | number; excerpt?: string }): boolean {
+  notify(n: { to: number; type: NotificationType; actorId?: number | null; objectKind?: string; objectRef?: string; thread?: string | number; excerpt?: string; key?: string }): boolean {
     if (n.actorId && n.actorId === n.to) return false;
     const st = this.h.state();
     if (n.actorId && st.relations.some((r) => r.owner === n.to && r.target === n.actorId)) return false;
@@ -320,8 +330,8 @@ export class MockSocial {
         return false;
       }
     }
-    if (n.type !== 'system' && !this.prefs(n.to)[n.type]) return false;
-    const key = notificationKey(n.type, n);
+    if (n.type !== 'system' && n.type !== 'moderation' && !this.prefs(n.to)[n.type]) return false;
+    const key = n.key ?? notificationKey(n.type, n);
     const t = this.iso();
     let changed = false;
     this.h.commit((s) => {
@@ -423,6 +433,7 @@ export class MockSocial {
       comments: this.h.approvedCommentsBy(me.id),
       notifications: s.notifications.filter((n) => n.memberId === me.id).map(({ type, objectKind, objectRef, excerpt, count, readAt, createdAt }) => ({ type, object_kind: objectKind, object_ref: objectRef, excerpt, count, read_at: readAt, created_at: createdAt })),
       notificationPrefs: this.prefs(me.id),
+      ...((this.h.exportWorks?.(me.id) as object) ?? {}),
     };
   }
   deleteMe(headers: Record<string, string>, input: unknown) {
@@ -439,6 +450,7 @@ export class MockSocial {
       s.profiles = s.profiles.filter((x) => x.memberId !== me.id);
       for (const k of Object.keys(s.commentAuthors)) if (s.commentAuthors[k] === me.id) delete s.commentAuthors[k];
     });
+    this.h.purgeAuthor?.(me.id);
     this.h.removeMember(me.id);
     return { deleted: true };
   }
