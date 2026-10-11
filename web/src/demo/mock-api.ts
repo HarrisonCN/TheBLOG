@@ -20,6 +20,7 @@ import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
+import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
 import type { DmEvent } from '../dm-core';
 
 export interface KV {
@@ -269,6 +270,39 @@ export class DemoBackend {
       isAdmin: () => this.isAuthenticated(),
       now: () => this.now(),
     });
+    this.open = new MockOpen({
+      state: () => this.db().open ?? openSeed(this.now(), this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.open ??= openSeed(this.now(), this.base);
+        mutate(db.open);
+        this.save(db);
+      },
+      social: this.social,
+      ugc: this.ugc,
+      members: () => this.db().members,
+      posts: () => this.db().posts,
+      topics: () => {
+        const d = this.db().discovery ?? discoverySeed(this.now());
+        return d.topics.map((t) => ({ id: t.id, slug: t.slug, name: t.name, intro: t.intro, tags: d.topicTags.filter((x) => x.topicId === t.id).map((x) => x.tag) }));
+      },
+      topicWorkIds: (id) => new Set((this.db().discovery ?? discoverySeed(this.now())).postTopics.filter((x) => x.topicId === id).map((x) => x.postId)),
+      projects: () => {
+        const st = this.db().studio ?? studioSeed(this.now());
+        return st.projects.map((p) => ({ ...p, logs: st.logs.filter((l) => l.projectId === p.id) }));
+      },
+      settings: () => this.db().settings,
+      ownerName: () => this.db().profile.name,
+      memberFrom: (h) => this.memberFrom(h),
+      isAdmin: () => this.isAuthenticated(),
+      base: this.base,
+      now: () => this.now(),
+    });
+  }
+  private open: MockOpen;
+  /** 构建期（prerender）：生成静态订阅源 */
+  openFeeds(): MockOpen {
+    return this.open;
   }
   private social: MockSocial;
   private dm: MockDm;
@@ -373,8 +407,17 @@ export class DemoBackend {
     const q = u.searchParams;
     const ok = (b: unknown, status = 200): MockResponse => ({ status, body: b });
 
+    // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
+    if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
+      const o = this.open.routePublic(m, path, q, body, headers);
+      if (o) return o;
+      throw new MockError(404, 'not_found', '接口不存在');
+    }
     // ---- L16 用户投稿（/api/social/works…、uploads、reports）----
     if (path.startsWith('/api/social/')) {
+      // ---- L20 订阅 / MCP 令牌 / AI 建议 / 项目 GitHub 卡片 ----
+      const os = this.open.routeSocial(m, path.slice('/api/social'.length), q, body, headers);
+      if (os) return os;
       const u = this.ugc.route(m, path.slice('/api/social'.length), q, body, headers);
       if (u) return u;
       // ---- L17 话题 / 发现 / 活动 / 合集 / 社区徽章 ----
@@ -459,7 +502,14 @@ export class DemoBackend {
       if (m !== 'GET' && headers['x-csrf-token'] !== c) throw new MockError(403, 'csrf', 'CSRF 校验失败');
       const sub = path.slice('/api/admin'.length);
       const ugcAdmin = this.ugc.routeAdmin(m, sub, q, body);
-      if (ugcAdmin) return ugcAdmin;
+      if (ugcAdmin) {
+        // L20：待审核的 Webmention 也算进审核队列
+        const b = ugcAdmin.body as { counts?: Record<string, number> } | null;
+        if (b?.counts) b.counts.webmentions = this.open.pendingCount();
+        return ugcAdmin;
+      }
+      const openAdmin = this.open.routeAdmin(m, sub, q, body);
+      if (openAdmin) return openAdmin;
       const discAdmin = this.disc.routeAdmin(m, sub, body);
       if (discAdmin) return discAdmin;
       const studioAdmin = this.studio.routeAdmin(m, sub);
@@ -1071,6 +1121,12 @@ export class DemoBackend {
   }
 
   private memberFrom(headers: Record<string, string>): Member {
+    // L20 MCP 作者工具：MockOpen 内部创建的代理身份对象
+    const acting = MCP_ACTING.get(headers);
+    if (acting !== undefined) {
+      const am = this.db().members.find((x) => x.id === acting);
+      if (am) return am;
+    }
     const token = (headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     const id = this.sessions()[token];
     const m = id ? this.db().members.find((x) => x.id === id) : undefined;

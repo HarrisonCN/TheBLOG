@@ -54,6 +54,8 @@ export interface DemoDb {
   studio?: import('./mock-studio').StudioState;
   /** L19 私信 / 消息请求 / 活动聊天室 */
   dm?: import('./mock-dm').DmState;
+  /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */
+  open?: import('./mock-open').OpenState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

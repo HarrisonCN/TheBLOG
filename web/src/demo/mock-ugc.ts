@@ -36,6 +36,7 @@ import {
 import { SocialError, type MockSocial } from './mock-social';
 import type { Member } from './community-types';
 import { PHOTO_CREDITS } from './seed';
+import { checkAiPublish } from '../open-core';
 
 export interface DemoWork {
   id: number;
@@ -58,6 +59,8 @@ export interface DemoWork {
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** L20：采用过 AI 建议 */
+  aiAssisted?: boolean;
 }
 export interface DemoWComment { id: number; postId: number; authorId: number; parentId: number | null; body: string; status: 'pending' | 'published'; modState: ModState; deletedAt: string | null; createdAt: string }
 export interface UgcState {
@@ -336,6 +339,7 @@ export class MockUgc {
       },
       mine: { reactions: s.reactions.filter((r) => r.postId === w.id && r.memberId === viewerId).map((r) => r.kind), bookmarked: s.bookmarks.some((b) => b.postId === w.id && b.memberId === viewerId), canEdit: co.can.edit, role: co.role, can: co.can },
       coauthors: co.coauthors,
+      aiAssisted: !!w.aiAssisted,
     };
   }
   private pageOf<T extends { id: number }>(rows: T[], q: URLSearchParams, key: (r: T) => string, desc = true) {
@@ -462,12 +466,14 @@ export class MockUgc {
     const topicIds = this.h.disc?.()?.resolveTopics(input);
     const { fp } = this.spam(me, v);
     const draft = (input as { draft?: unknown }).draft === true;
+    const ai = checkAiPublish(input, !draft);
+    if (!ai.ok) throw new SocialError(400, 'ai_unconfirmed', ai.error);
     const rules = this.h.state().rules;
     const status: WorkStatus = draft ? 'draft' : needsReview(this.standing(me.id), rules) ? 'pending' : 'published';
     const t = this.iso();
     let w!: DemoWork;
     this.h.commit((s) => {
-      w = { id: this.next(s), authorId: me.id, ...v, status, modState: 'ok', modReason: '', fingerprint: fp, publishedAt: status === 'published' ? t : null, editedAt: null, deletedAt: null, createdAt: t, updatedAt: t };
+      w = { id: this.next(s), authorId: me.id, ...v, status, modState: 'ok', modReason: '', fingerprint: fp, publishedAt: status === 'published' ? t : null, editedAt: null, deletedAt: null, createdAt: t, updatedAt: t, ...(ai.value ? { aiAssisted: true } : {}) };
       s.works.push(w);
       if (status === 'published') this.bump(s, me.id, 1, 1);
       if (status === 'pending') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: `新会员前 ${rules.reviewFirstN} 条内容先审核` });
@@ -503,6 +509,8 @@ export class MockUgc {
     if (!c.ok) throw bad(c.path, c.error);
     const v = c.value;
     if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+    const ai = checkAiPublish(input, w.status !== 'draft');
+    if (!ai.ok) throw new SocialError(400, 'ai_unconfirmed', ai.error);
     if (role.role !== 'owner') v.visibility = w.visibility;
     const uploaders = st ? st.guardMedia(w, me.id, v.media, (input as { confirmMediaRemoval?: unknown }).confirmMediaRemoval === true) : v.media.map(() => null);
     st?.ensureBase(w);
@@ -512,7 +520,7 @@ export class MockUgc {
     const t = this.iso();
     this.h.commit((s) => {
       const x = s.works.find((y) => y.id === w.id)!;
-      Object.assign(x, v, { media: v.media.map((m, i) => ({ ...m, uploadedBy: uploaders[i] ?? null })), status, fingerprint: fp, editedAt: w.status === 'published' ? t : null, updatedAt: t });
+      Object.assign(x, v, { media: v.media.map((m, i) => ({ ...m, uploadedBy: uploaders[i] ?? null })), status, fingerprint: fp, editedAt: w.status === 'published' ? t : null, updatedAt: t }, ai.value ? { aiAssisted: true } : {});
       if (status === 'pending' && w.status === 'published') this.log(s, { actor: 'system', action: 'auto_pending', targetKind: 'work', targetId: w.id, memberId: me.id, reason: '新会员修改已发布内容，重新审核' });
     });
     if (topicIds) this.h.disc?.()?.setTopics(w.id, topicIds);
@@ -521,9 +529,10 @@ export class MockUgc {
     if (fresh.status === 'published' && fresh.modState === 'ok') this.afterPublish(fresh);
     return { work: this.toWork(fresh, me.id), status };
   }
-  publishWork(headers: Record<string, string>, id: number) {
+  publishWork(headers: Record<string, string>, id: number, input: unknown = {}) {
     const { me, w } = this.own(headers, id);
     if (w.status !== 'draft') throw new SocialError(409, 'not_draft', '只有草稿可以发布');
+    if (w.aiAssisted && (input as { aiConfirmed?: unknown } | null)?.aiConfirmed !== true) throw new SocialError(400, 'ai_unconfirmed', '这篇草稿采用了 AI 建议：发布前请确认你已检查过 AI 生成的部分');
     const rules = this.h.state().rules;
     const status: WorkStatus = needsReview(this.standing(me.id), rules) ? 'pending' : 'published';
     const t = this.iso();
@@ -918,7 +927,7 @@ export class MockUgc {
       if (m === 'PUT' || m === 'PATCH') return ok(this.updateWork(headers, Number(mt[1]), body));
       if (m === 'DELETE') return ok(this.deleteWork(headers, Number(mt[1])));
     }
-    if ((mt = new RegExp(`^/works/${ID}/publish$`).exec(sub)) && m === 'POST') return ok(this.publishWork(headers, Number(mt[1])));
+    if ((mt = new RegExp(`^/works/${ID}/publish$`).exec(sub)) && m === 'POST') return ok(this.publishWork(headers, Number(mt[1]), body ?? {}));
     if ((mt = new RegExp(`^/works/${ID}/comments$`).exec(sub)) && m === 'POST') return ok(this.addComment(headers, Number(mt[1]), body), 201);
     if ((mt = new RegExp(`^/works/comments/${ID}$`).exec(sub)) && m === 'DELETE') return ok(this.deleteComment(headers, Number(mt[1])));
     if ((mt = new RegExp(`^/works/${ID}/reactions$`).exec(sub)) && m === 'POST') return ok(this.react(headers, Number(mt[1]), (body as { kind?: unknown } | null)?.kind, true));
