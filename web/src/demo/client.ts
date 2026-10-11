@@ -2,7 +2,7 @@
  * 演示模式的浏览器端适配：把 api.ts 的 request() 转给本地的 DemoBackend。
  * 只在 VITE_DEMO=1 的构建里被（动态）引入，正式构建不会打包这部分代码。
  */
-import { DemoBackend, memoryKV, type KV, type MockResponse } from './mock-api';
+import { DemoBackend, memoryAudioStore, memoryKV, type AudioStore, type KV, type MockResponse } from './mock-api';
 import { DEMO_PASSWORD } from './seed';
 import './demo.css';
 
@@ -19,7 +19,45 @@ function browserStorage(): KV {
   }
 }
 
-export const backend = new DemoBackend({ storage: browserStorage(), base: import.meta.env.BASE_URL });
+/** 站长上传的音频放在 IndexedDB（localStorage 放不下）；不可用时退回内存（刷新后丢失）。 */
+function idbAudioStore(): AudioStore {
+  if (typeof indexedDB === 'undefined') return memoryAudioStore();
+  const fallback = memoryAudioStore();
+  let dbp: Promise<IDBDatabase> | null = null;
+  const open = () =>
+    (dbp ??= new Promise<IDBDatabase>((resolve, reject) => {
+      const r = indexedDB.open('blog-demo-audio', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('audio');
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    }));
+  const tx = async <T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
+    const db = await open();
+    return new Promise<T>((resolve, reject) => {
+      const req = fn(db.transaction('audio', mode).objectStore('audio'));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  };
+  return {
+    put: (k, b) => tx('readwrite', (s) => s.put(b, k)).then(() => undefined).catch(() => fallback.put(k, b)),
+    get: (k) => tx<Blob | undefined>('readonly', (s) => s.get(k) as IDBRequest<Blob | undefined>).then((b) => b ?? fallback.get(k)).catch(() => fallback.get(k)),
+  };
+}
+
+export const backend = new DemoBackend({ storage: browserStorage(), base: import.meta.env.BASE_URL, audio: idbAudioStore() });
+
+const audioUrls = new Map<string, string>();
+/** 演示站上传的 /api/audio/… → blob: 地址（找不到返回 null）。 */
+export async function demoAudioUrl(path: string): Promise<string | null> {
+  const hit = audioUrls.get(path);
+  if (hit) return hit;
+  const blob = await backend.audioBlob(path);
+  if (!blob) return null;
+  const u = URL.createObjectURL(blob);
+  audioUrls.set(path, u);
+  return u;
+}
 
 const RASTER = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'];
 const KEEP_AS_IS_BYTES = 350_000;
@@ -64,6 +102,10 @@ export async function demoHandle(path: string, init: RequestInit = {}): Promise<
   } else if (init.body instanceof FormData) {
     const file = init.body.get('file');
     if (!(file instanceof File)) return { status: 400, body: { error: { code: 'no_file', message: '缺少 file 字段' } } };
+    if (path === '/api/admin/audio') {
+      body = { bytes: new Uint8Array(await file.arrayBuffer()), type: file.type, name: file.name };
+      return backend.handle(method, path, body, headers);
+    }
     if (path.startsWith('/api/members/')) {
       // 好朋友上传 / 语音：小文件存成 data URL，大文件只记录元数据
       const dataUrl = file.size <= 300_000 ? await readAsDataUrl(file).catch(() => undefined) : undefined;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validatePlaylist, type PlaylistItem } from './music-core';
 
 const SAFE_URL = /^(https?:\/\/[^\s<>"']+|\/[^\s<>"']*)$/i;
 const LINK_URL = /^(https?:\/\/[^\s<>"']+|mailto:[^\s<>"']+|\/[^\s<>"']*)$/i;
@@ -201,13 +202,22 @@ export const sectionSchemas = {
   repos: z.array(repoSchema).max(40),
 } as const;
 
-export const CONTENT_KEYS = ['friends', 'gallery', 'favorites', ...SECTION_KEYS] as const;
+/** 站长歌单：严格规则在 music-core.ts（与 web 共用一份），这里把它的问题转成 zod issue（路径 items.N.field）。 */
+export const playlistSchema: z.ZodType<PlaylistItem[]> = z
+  .unknown()
+  .superRefine((v, ctx) => {
+    for (const i of validatePlaylist(v).issues) ctx.addIssue({ code: 'custom', message: i.message, path: i.path.split('.') });
+  })
+  .transform((v) => validatePlaylist(v).items);
+
+export const CONTENT_KEYS = ['friends', 'gallery', 'favorites', ...SECTION_KEYS, 'playlist'] as const;
 export type ContentKey = (typeof CONTENT_KEYS)[number];
 export const contentSchemas = {
   friends: z.array(friendSchema).max(100),
   gallery: z.array(albumSchema).max(50).refine((a) => new Set(a.map((x) => x.slug)).size === a.length, '相册 slug 不能重复'),
   favorites: z.array(favoriteSchema).max(200),
   ...sectionSchemas,
+  playlist: playlistSchema,
 } as const;
 export type Friend = z.infer<typeof friendSchema>;
 export type Album = z.infer<typeof albumSchema>;

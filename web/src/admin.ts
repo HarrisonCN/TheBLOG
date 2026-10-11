@@ -21,6 +21,7 @@ import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, P
 import { normalizeSettings } from './types';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
 import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
+import { AUDIO_ACCEPT, MAX_AUDIO_BYTES, type PlaylistItem } from './music-core';
 import { coarseLabel, GEO_LABEL, gpsForSave, PhotoError, preparePhoto, type PreparedPhoto } from './photo-upload';
 
 /** 博客首页（部署前缀） */
@@ -28,7 +29,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -38,7 +39,7 @@ let postFilter = { q: '', status: 'all', category: '' };
 const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '概览', items: [['dash', 'dashboard', '仪表盘']] },
   { group: '内容', items: [['posts', 'file', '文章'], ['editor', 'edit', '写文章'], ['categories', 'folder', '分类']] },
-  { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目']] },
+  { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目'], ['playlist', 'music', '音乐歌单']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
   { group: '社区', items: [['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
 ];
@@ -167,6 +168,7 @@ async function go(next?: View): Promise<void> {
       case 'profile': return await renderProfile();
       case 'friends': case 'favorites': case 'gallery': return await renderContent(view);
       case 'projects': return await renderProjects();
+      case 'playlist': return await renderPlaylist();
       case 'guestbook': return await renderGuestbook();
       case 'notes': return await renderNotes();
       case 'festivals': return await renderFestivals();
@@ -782,6 +784,72 @@ async function renderProjects(): Promise<void> {
   listEditor<Project & Record<string, unknown>>({
     id: 'list', items: items as never, blank: { name: '', title: '', version: '', author: 'Winston', engine: '', downloads: 0, url: 'https://', description: '' }, title: (x) => `${x.title}${x.version ? ` v${x.version}` : ''}`, save: (list) => put('/api/admin/projects', { items: list }),
     fields: [{ key: 'title', label: '名称' }, { key: 'name', label: '标识' }, { key: 'version', label: '版本' }, { key: 'url', label: '链接' }, { key: 'author', label: '作者' }, { key: 'engine', label: '依赖版本' }, { key: 'downloads', label: '下载数', type: 'number' }, { key: 'description', label: '介绍', wide: true }],
+  });
+}
+
+/** 音乐歌单：访客左下角播放器里的「本站歌单」。整首曲目：填 https 音频链接，或上传音频（≤20 MB，只收音频）。 */
+async function renderPlaylist(): Promise<void> {
+  const { items } = await optional(adminFetch<{ items: PlaylistItem[] }>('/api/admin/content/playlist'), { items: [] });
+  const blank: PlaylistItem = { id: '', title: '', artist: '', album: '', src: 'https://', cover: '', duration: 0, license: '', licenseUrl: '', link: '' };
+  mount(
+    tile('full', `${head('upload', '上传音频', `<label class="btn btn--sm">${icon('upload')}选择音频<input type="file" id="pl-audio" accept="${AUDIO_ACCEPT}" hidden></label>`)}<p class="muted small">MP3 / M4A / OGG / FLAC / WAV / WebM，不超过 ${MAX_AUDIO_BYTES / 1024 / 1024} MB；按文件头检查类型，只收音频。上传后自动加到歌单末尾，补上标题和署名再保存。</p>`) +
+      listTile('list', 'music', `音乐歌单（${items.length}）`, '只放你有权公开播放的音乐：自己的作品、CC / 公有领域曲目（写清许可证和出处链接），或获得授权的音频。音频、封面、出处链接都必须是 https://；时长单位是秒（可留 0）。'),
+  );
+  const list = listEditor<PlaylistItem & Record<string, unknown>>({
+    id: 'list',
+    items: items as never,
+    blank: blank as never,
+    title: (x) => `${x.title}${x.artist ? ` · ${x.artist}` : ''}`,
+    preview: (x) => (x.cover ? `<img src="${e(rawUrl(x.cover))}" alt="" loading="lazy">` : icon('music')),
+    save: (l) => put('/api/admin/content/playlist', { items: l }),
+    fields: [
+      { key: 'title', label: '标题' },
+      { key: 'artist', label: '艺人' },
+      { key: 'id', label: 'id（小写字母-数字）' },
+      { key: 'duration', label: '时长（秒）', type: 'number' },
+      { key: 'src', label: '音频地址（https:// 或上传）', wide: true },
+      { key: 'album', label: '专辑' },
+      { key: 'cover', label: '封面 URL' },
+      { key: 'license', label: '许可证', placeholder: 'CC BY 4.0' },
+      { key: 'licenseUrl', label: '许可证链接' },
+      { key: 'link', label: '出处链接', wide: true },
+    ],
+  });
+  const input = root.querySelector<HTMLInputElement>('#pl-audio');
+  input?.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > MAX_AUDIO_BYTES) return msg(`音频不能超过 ${MAX_AUDIO_BYTES / 1024 / 1024} MB`, true);
+    msg('上传音频中…');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await adminFetch<{ url: string }>('/api/admin/audio', { method: 'POST', body: fd });
+      const duration = await audioDuration(file);
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim().slice(0, 80) || '新曲目';
+      const id = `t-${Date.now().toString(36)}`;
+      await list.add({ ...blank, id, title, src: res.url, duration } as never);
+      msg('已上传并加入歌单');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+}
+/** 读取本地音频时长（秒，取整）；读不出返回 0。 */
+function audioDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const a = document.createElement('audio');
+    const u = URL.createObjectURL(file);
+    const done = (v: number) => {
+      URL.revokeObjectURL(u);
+      resolve(Number.isFinite(v) && v > 0 && v <= 36000 ? Math.round(v) : 0);
+    };
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => done(a.duration);
+    a.onerror = () => done(0);
+    setTimeout(() => done(0), 4000);
+    a.src = u;
   });
 }
 

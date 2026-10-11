@@ -1,0 +1,41 @@
+/* 左下角音乐抽屉把手（主包）。面板样式在 music.css（懒加载）。 */
+.mtab {
+  position: fixed; left: 0; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 86;
+  display: grid; place-items: center; width: 40px; height: 44px; padding: 0 2px 0 0;
+  border: 1px solid var(--hairline); border-left: 0; border-radius: 0 14px 14px 0;
+  background: var(--tile); color: var(--heading); box-shadow: var(--shadow-hover); cursor: pointer; font-size: 1.12rem;
+  transition: width 0.25s var(--ease), color 0.2s, background-color 0.2s;
+}
+.mtab:hover, .mtab:focus-visible { width: 46px; color: var(--accent); }
+.mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mtab__ic { grid-area: 1 / 1; display: grid; place-items: center; transition: opacity 0.2s, transform 0.3s var(--ease); }
+.mtab__ic--x { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+.mtab.is-open .mtab__ic--note { opacity: 0; transform: rotate(90deg) scale(0.6); }
+.mtab.is-open .mtab__ic--x { opacity: 1; transform: none; }
+.mtab.is-loading .mtab__ic--note { animation: mtab-pulse 0.9s ease-in-out infinite; }
+/* 正在播放（面板收起时也看得到）：右上角三根小跳动条 */
+.mtab__eq { position: absolute; top: 5px; right: 5px; display: none; align-items: flex-end; gap: 1.5px; height: 9px; }
+.mtab__eq i { width: 2px; height: 100%; border-radius: 1px; background: var(--accent); transform-origin: bottom; animation: mtab-eq 0.9s ease-in-out infinite; }
+.mtab__eq i:nth-child(2) { animation-delay: -0.3s; }
+.mtab__eq i:nth-child(3) { animation-delay: -0.6s; }
+.mtab.is-playing .mtab__eq { display: inline-flex; }
+@keyframes mtab-eq { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@keyframes mtab-pulse { 50% { opacity: 0.45; } }
+/* 演示横幅、灯箱打开时不需要把手（灯箱是 top layer，本来就在上面） */
+body.drawer-open .mtab { visibility: hidden; }
+@media (max-width: 560px) {
+  /* 手机：更窄的把手（≥ 24px 触控目标），不压到文章卡片内的控件（例如朗读按钮） */
+  .mtab { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 30px; border-radius: 0 12px 12px 0; font-size: 1rem; }
+  .mtab:hover, .mtab:focus-visible { width: 34px; }
+  .mtab__eq { top: 4px; right: 3px; }
+  /* 「继续阅读」胶囊居中显示：给左侧把手和右侧回到顶部按钮留出位置 */
+  .resume-pill { max-width: calc(100vw - 124px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mtab, .mtab__ic { transition: none; }
+  .mtab__eq i, .mtab.is-loading .mtab__ic--note { animation: none; }
+  .mtab__eq i:nth-child(1) { transform: scaleY(0.5); }
+  .mtab__eq i:nth-child(3) { transform: scaleY(0.7); }
+}
+html[data-motion="off"] .mtab, html[data-motion="off"] .mtab__ic { transition: none; }
+html[data-motion="off"] .mtab__eq i, html[data-motion="off"] .mtab.is-loading .mtab__ic--note { animation: none; }

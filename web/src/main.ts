@@ -4,6 +4,7 @@ import './features.css';
 import './fixes.css';
 import './motion-ui.css';
 import './l12.css';
+import './music-tab.css';
 import { api, ApiError, DEMO } from './api';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
@@ -26,6 +27,7 @@ import { bindHomePage, installHomeClient, paintBookmarks, paintMember } from './
 import { createPalette, paletteHtml, shortcutLabel } from './palette';
 import { bindComments } from './comments-client';
 import { bindFootnotes, bindLightbox, bindPhotoMap } from './post-media';
+import { installMusicTab, musicTabHtml } from './music-tab';
 import { applyReadingSettings, bindReadingSettings, bindSpeech, loadReadingSettings, stopSpeech } from './reading-tools';
 import { bindReactions, installPostDelegation, enhanceCode, enhanceHeadings, paintContinue, trackReading } from './post-client';
 
@@ -565,12 +567,14 @@ function mountChrome(refresh = false): void {
   document.body.insertAdjacentHTML(
     'beforeend',
     `<button class="to-top js-to-top" type="button" aria-label="回到顶部" hidden>${icon('arrowUp')}</button>
+${musicTabHtml()}
 ${paletteHtml()}
 <div class="ctxmenu" id="ctxmenu" hidden role="menu"></div>
 <usa-toaster label="通知" position="bottom-right" max="2"></usa-toaster>`,
   );
   document.querySelector('.js-to-top')!.addEventListener('click', () => scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' }));
   palette.mount();
+  installMusicTab();
   void defineUsed(document.body);
   installHomeClient({ notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
 }

@@ -5,7 +5,8 @@
  */
 import { stripMetadata } from '../exif';
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
-import { createSeed, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { createSeed, demoPlaylist, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
+import { checkAudioUpload, validatePlaylist } from '../music-core';
 import { isReaction, REACTION_SET } from '../reactions-core';
 import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
 import { isDefaultStyle, validateNoteStyle } from '../note-style';
@@ -22,6 +23,16 @@ export interface KV {
 export const DB_KEY = 'blog-demo:db:v2';
 export const MEMBER_SESSIONS_KEY = 'blog-demo:members';
 export const SESSION_KEY = 'blog-demo:session';
+
+/** 站长上传的音频（演示站：浏览器里的 IndexedDB；测试：内存）。 */
+export interface AudioStore {
+  put(key: string, blob: Blob): Promise<void>;
+  get(key: string): Promise<Blob | null>;
+}
+export function memoryAudioStore(): AudioStore {
+  const m = new Map<string, Blob>();
+  return { put: async (k, b) => void m.set(k, b), get: async (k) => m.get(k) ?? null };
+}
 
 export interface MockResponse {
   status: number;
@@ -132,7 +143,7 @@ function summary(p: Post): PostSummary {
   return rest;
 }
 
-const CONTENT_KEYS: ContentKey[] = ['friends', 'gallery', 'favorites', ...SECTION_KEYS];
+const CONTENT_KEYS: ContentKey[] = ['friends', 'gallery', 'favorites', ...SECTION_KEYS, 'playlist'];
 const isContentKey = (k: string): k is ContentKey => (CONTENT_KEYS as string[]).includes(k);
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 const NOTE_COLORS = ['yellow', 'pink', 'blue', 'green'] as const;
@@ -143,8 +154,10 @@ export class DemoBackend {
   private base: string;
   private now: () => Date;
   private cache: DemoDb | null = null;
+  private audioStore: AudioStore;
 
-  constructor(opts: { storage?: KV; base?: string; now?: () => Date } = {}) {
+  constructor(opts: { storage?: KV; base?: string; now?: () => Date; audio?: AudioStore } = {}) {
+    this.audioStore = opts.audio ?? memoryAudioStore();
     this.storage = opts.storage ?? memoryKV();
     this.base = opts.base ?? '/';
     this.now = opts.now ?? (() => new Date());
@@ -162,6 +175,7 @@ export class DemoBackend {
           // 旧版本地数据没有新栏目：用种子数据补齐
           const seed = SECTION_KEYS.some((k) => !Array.isArray(parsed[k])) ? createSeed(this.base) : null;
           if (seed) for (const k of SECTION_KEYS) if (!Array.isArray(parsed[k])) (parsed as unknown as Record<string, unknown>)[k] = seed[k];
+          if (!Array.isArray(parsed.playlist)) parsed.playlist = demoPlaylist();
           db = parsed;
         }
       }
@@ -226,7 +240,7 @@ export class DemoBackend {
       if (path === '/api/categories') return ok({ categories: this.categories() });
       if (path === '/api/search-index') return ok({ posts: this.searchIndex() });
       const mc = /^\/api\/content\/([a-z]+)$/.exec(path);
-      if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] });
+      if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] ?? [] });
       const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
       if (mr) return ok(this.reactions(decodeURIComponent(mr[1]!)));
       const mcm = /^\/api\/posts\/([a-z0-9-]{1,80})\/comments$/.exec(path);
@@ -302,10 +316,11 @@ export class DemoBackend {
         if (m === 'PATCH' || m === 'PUT') return ok(this.updateSettings(body));
       }
       if (sub === '/images' && m === 'POST') return ok(this.image(body), 201);
+      if (sub === '/audio' && m === 'POST') return ok(await this.audio(body), 201);
       mt = /^\/content\/([a-z]+)$/.exec(sub);
       if (mt && isContentKey(mt[1]!)) {
         const key = mt[1] as ContentKey;
-        if (m === 'GET') return ok({ items: this.db()[key] });
+        if (m === 'GET') return ok({ items: this.db()[key] ?? [] });
         if (m === 'PUT') return ok({ items: this.setContent(key, (body as { items?: unknown } | null)?.items) });
       }
       if (sub === '/guestbook' && m === 'GET') {
@@ -647,8 +662,38 @@ export class DemoBackend {
       .map((p) => ({ slug: p.slug, title: p.title, summary: p.summary, tags: p.tags, category: p.category, text: plain(p.contentMd).slice(0, 3000) }));
   }
 
+  /** 与 Worker 的 /api/admin/audio 相同：嗅探文件头、只收音频、≤ 20 MB，返回 /api/audio/YYYY/MM/uuid.ext。 */
+  private async audio(input: unknown): Promise<{ key: string; url: string; contentType: string; size: number }> {
+    const o = (input ?? {}) as { bytes?: unknown; type?: unknown };
+    if (!(o.bytes instanceof Uint8Array)) throw new MockError(400, 'missing_file', '缺少 file 字段');
+    const c = checkAudioUpload(o.bytes, typeof o.type === 'string' ? o.type : '');
+    if (!c.ok) throw new MockError(c.status, c.code, c.message);
+    const d = this.now();
+    const key = `audio/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}.${c.ext}`;
+    try {
+      await this.audioStore.put(key, new Blob([o.bytes as BlobPart], { type: c.type }));
+    } catch {
+      throw new MockError(507, 'storage_full', '浏览器本地存储空间不足，无法保存音频');
+    }
+    return { key, url: `/api/${key}`, contentType: c.type, size: o.bytes.byteLength };
+  }
+
+  /** 取回演示站上传的音频（播放器把它变成 blob: 地址）。 */
+  async audioBlob(url: string): Promise<Blob | null> {
+    const m = /^\/api\/(audio\/\d{4}\/\d{2}\/[0-9a-f-]{36}\.[a-z0-9]{2,4})$/.exec(url);
+    return m ? this.audioStore.get(m[1]!) : null;
+  }
+
   private setContent(key: ContentKey, items: unknown): unknown[] {
     if (!Array.isArray(items)) throw new MockError(400, 'validation_error', 'items 必须是数组');
+    if (key === 'playlist') {
+      const r = validatePlaylist(items);
+      check(r.issues);
+      const db = structuredClone(this.db());
+      db.playlist = r.items;
+      this.save(db);
+      return r.items;
+    }
     if (isSectionKey(key)) {
       const r = validateSection(key, items);
       check(r.issues);
