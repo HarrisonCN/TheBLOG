@@ -705,7 +705,7 @@ function bindPage(page: Page): void {
 /** L15：登录态变化 → 刷新导航里的通知铃 / 未读数、询问合并本机收藏；未登录时不下载社交代码。 */
 function syncSocialChrome(offer: boolean): void {
   if (!currentMember()) {
-    document.querySelectorAll<HTMLElement>('.js-notif-link').forEach((l) => (l.hidden = true));
+    document.querySelectorAll<HTMLElement>('.js-notif-link, .js-dm-link').forEach((l) => (l.hidden = true));
     document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => (a.href = url('/join/')));
     return;
   }

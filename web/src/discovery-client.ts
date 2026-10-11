@@ -254,11 +254,15 @@ async function renderEvent(box: HTMLElement, slug: string, ctx: UgcCtx): Promise
     ${ev.phase === 'open' || !member ? submitPanel : ''}
     ${demoNote()}
   </header>
+  <section class="tile tile--full dm-room-host js-room" aria-labelledby="room-h" hidden></section>
   <section class="disc-sec" aria-labelledby="ev-gal-h"><h2 class="soc-h disc-sec__h" id="ev-gal-h">${icon('image')}投稿作品 <span class="muted small">${entries.length}</span></h2>
     <p class="visually-hidden js-live" role="status" aria-live="polite"></p>
     ${entries.length ? `<ul class="disc-entries">${entries.map(entryHtml).join('')}</ul>` : empty(ev.phase === 'upcoming' ? '活动还没开始。' : '还没有投稿。', 'camera')}
   </section>
 </div>`;
+  // L19 活动聊天室：登录后按需加载私信代码（没有开启聊天室时保持隐藏）
+  const roomHost = box.querySelector<HTMLElement>('.js-room');
+  if (member && roomHost) void import('./dm-client').then((m) => m.mountRoom(roomHost, slug, ctx)).catch(() => undefined);
   const rerender = async (focusSel?: string) => {
     await renderEvent(box, slug, ctx);
     if (focusSel) box.querySelector<HTMLElement>(focusSel)?.focus();

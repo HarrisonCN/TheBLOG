@@ -15,6 +15,8 @@ import { routeSocial } from './social';
 import { routeAdminUgc } from './ugc';
 import { routeAdminDiscovery } from './discovery';
 import { routeAdminStudio } from './studio';
+import { routeAdminDm } from './dm';
+export { DmHub } from './dm-hub';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -144,6 +146,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     if (discAdmin) return discAdmin;
     const studioAdmin = await routeAdminStudio(req, env, sub);
     if (studioAdmin) return studioAdmin;
+    // L19 活动聊天室配置 / 私信举报快照
+    const dmAdmin = await routeAdminDm(req, env, sub, () => readJson(req, 8 * 1024));
+    if (dmAdmin) return dmAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
@@ -207,6 +212,8 @@ export default {
     } catch (e) {
       res = errorResponse(e);
     }
+    // WebSocket 升级（L19 私信实时层）：101 响应原样返回，不能重新包装（会丢掉 webSocket）
+    if (res.status === 101) return res;
     res = withSecurityHeaders(res);
     for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
     return res;

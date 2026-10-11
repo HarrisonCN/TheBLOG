@@ -26,6 +26,8 @@ export async function setupEnv(overrides: Partial<Env> = {}): Promise<Env> {
     COOKIE_SECURE: 'true',
     ALLOWED_ORIGINS: 'http://localhost:5173',
     SESSION_TTL_SECONDS: '3600',
+    // getPlatformProxy 不运行主脚本里的 Durable Object 类：默认不绑定（= 轮询模式），dm.test.ts 注入假 hub，dm-ws.test.ts 用 Miniflare 跑真的 DO
+    DM_HUB: undefined,
     ...overrides,
   } as Env;
 }

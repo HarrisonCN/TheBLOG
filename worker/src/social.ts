@@ -8,6 +8,7 @@ import { HttpError, json } from './http';
 import { profileWorks, routeUgc } from './ugc';
 import { exportDiscovery, purgeDiscovery, routeDiscovery } from './discovery';
 import { exportStudio, purgeStudio, routeStudio } from './studio';
+import { exportDm, purgeDm, routeDm } from './dm';
 import { getMember, ipKey, optionalMember, rateLimit, removeMember, requireMember, sendEmail, type Badge, type Member } from './community';
 import {
   aggregates,
@@ -530,6 +531,7 @@ export async function exportMe(req: Request, env: Env) {
     notificationPrefs: await prefsOf(env, me.id),
     ...(await exportDiscovery(env, me.id)),
     ...(await exportStudio(env, me.id)),
+    ...(await exportDm(env, me.id)),
   };
   return new Response(JSON.stringify(data, null, 2), {
     headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="theblog-${p.username}-export.json"`, ...NO_STORE },
@@ -553,6 +555,7 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
     env.DB.prepare('UPDATE comments SET member_id = NULL WHERE member_id = ?').bind(me.id),
     // L16：注销 = 硬删除本人的投稿（媒体 / 评论 / 回应随外键级联）与互动；审核日志保留（只记 id）
     ...purgeStudio(env, me.id),
+    ...purgeDm(env, me.id),
     env.DB.prepare('DELETE FROM user_posts WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_post_comments WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_reactions WHERE member_id = ?').bind(me.id),
@@ -584,6 +587,9 @@ export async function routeSocial(req: Request, env: Env, path: string, url: URL
   // L18 EXIF 筛选 / 共同作者 / 修订 / 项目 / 摄影专题 / 数据中心
   const studio = await routeStudio(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
   if (studio) return studio;
+  // L19 私信 / 消息请求 / 实时 / 活动聊天室
+  const dm = await routeDm(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
+  if (dm) return dm;
   if (m === 'GET') {
     if ((mt = new RegExp(`^/users/${U}$`).exec(sub))) return ok(await getProfile(req, env, mt[1]!));
     if ((mt = new RegExp(`^/users/${U}/(followers|following)$`).exec(sub))) return ok(await listFollows(req, env, mt[1]!, mt[2] as 'followers' | 'following', url));

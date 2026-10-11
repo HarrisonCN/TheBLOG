@@ -347,19 +347,31 @@ export async function presence(req: Request, env: Env, input: unknown) {
   await rateLimit(env, 'presence', v.sid, 30, 600);
   const me = await optionalMember(req, env);
   const now = nowSec();
+  // L19：关闭了「显示在线状态」的好朋友在「谁在看」里显示为访客；member_id 只用于私信在线状态（另有可见性规则）
+  const hidden = me ? !!(await env.DB.prepare('SELECT 1 AS x FROM dm_settings WHERE member_id = ? AND show_presence = 0').bind(me.id).first().catch(() => null)) : false;
+  const shown = me && !hidden ? me : null;
   await env.DB.batch([
     env.DB.prepare('DELETE FROM presence WHERE seen_at < ?').bind(now - PRESENCE_WINDOW * 2),
     env.DB.prepare(
-      `INSERT INTO presence (sid, name, avatar, member, page, seen_at) VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(sid) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, member = excluded.member, page = excluded.page, seen_at = excluded.seen_at`,
-    ).bind(v.sid, me?.name ?? '访客', me?.avatarUrl ?? '', me ? 1 : 0, v.page, now),
+      `INSERT INTO presence (sid, name, avatar, member, page, seen_at, member_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(sid) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, member = excluded.member, page = excluded.page, seen_at = excluded.seen_at, member_id = excluded.member_id`,
+    ).bind(v.sid, shown?.name ?? '访客', shown?.avatarUrl ?? '', shown ? 1 : 0, v.page, now, me?.id ?? null),
   ]);
-  const { results } = await env.DB.prepare('SELECT sid, name, avatar, member, page FROM presence WHERE seen_at >= ? ORDER BY member DESC, seen_at DESC LIMIT 20')
+  const { results } = await env.DB.prepare('SELECT sid, name, avatar, member, page, member_id FROM presence WHERE seen_at >= ? ORDER BY member DESC, seen_at DESC LIMIT 20')
     .bind(now - PRESENCE_WINDOW)
-    .all<{ sid: string; name: string; avatar: string; member: number; page: string }>();
+    .all<{ sid: string; name: string; avatar: string; member: number; page: string; member_id: number | null }>();
   const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM presence WHERE seen_at >= ?').bind(now - PRESENCE_WINDOW).first<{ n: number }>();
+  // 互相拉黑的人彼此显示为访客
+  const blocked = new Set<number>();
+  if (me) {
+    const rs = (await env.DB.prepare("SELECT owner_id, target_id FROM user_relations WHERE kind = 'block' AND (owner_id = ? OR target_id = ?)").bind(me.id, me.id).all<{ owner_id: number; target_id: number }>()).results;
+    for (const r of rs) blocked.add(r.owner_id === me.id ? r.target_id : r.owner_id);
+  }
   // 别人的 sid 不外泄：只回传自己的
-  const viewers = results.map((r, i) => ({ sid: r.sid === v.sid ? r.sid : `v${i}`, name: r.name, avatar: r.avatar, member: !!r.member, page: r.page }));
+  const viewers = results.map((r, i) => {
+    const anon = r.member_id != null && blocked.has(r.member_id);
+    return { sid: r.sid === v.sid ? r.sid : `v${i}`, name: anon ? '访客' : r.name, avatar: anon ? '' : r.avatar, member: anon ? false : !!r.member, page: r.page };
+  });
   return { viewers, total: total?.n ?? viewers.length };
 }
 

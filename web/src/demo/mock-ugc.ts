@@ -693,6 +693,22 @@ export class MockUgc {
     return { reported: true, duplicate: dup };
   }
 
+  /** L19：私信 / 聊天室消息举报 → 按发送者写进同一个审核队列（同一人再次举报同一发送者：重新打开并更新说明）。返回举报 id。 */
+  fileUserReport(reporterId: number, targetId: number, reason: string, detail: string): number {
+    let id = 0;
+    this.h.commit((s) => {
+      const ex = s.reports.find((r) => r.reporterId === reporterId && r.targetKind === 'user' && r.targetId === targetId);
+      if (ex) {
+        Object.assign(ex, { reason: reason as ReportReason, detail, status: 'open', resolvedAt: null });
+        id = ex.id;
+      } else {
+        id = this.next(s);
+        s.reports.push({ id, reporterId, targetKind: 'user', targetId, reason: reason as ReportReason, detail, status: 'open', createdAt: this.iso(), resolvedAt: null });
+      }
+    });
+    return id;
+  }
+
   // ------------------------------------------------------------ 后台
   private authorRef(id: number) {
     const c = this.h.social.card(id);

@@ -90,6 +90,10 @@ export type Route =
   | { name: 'features' }
   | { name: 'feature'; slug: string }
   | { name: 'mystats' }
+  | { name: 'messages' }
+  | { name: 'msgrequests' }
+  | { name: 'msgsettings' }
+  | { name: 'conversation'; id: number }
   | { name: 'notfound' };
 
 const STATIC: Record<string, Route['name']> = {
@@ -125,6 +129,9 @@ const STATIC: Record<string, Route['name']> = {
   '/projects': 'projects',
   '/f': 'features',
   '/me/stats': 'mystats',
+  '/messages': 'messages',
+  '/messages/requests': 'msgrequests',
+  '/messages/settings': 'msgsettings',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -153,6 +160,8 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'album', slug: m[1]! };
   m = /^\/w\/(\d{1,10})$/.exec(p);
   if (m) return { name: 'work', id: Number(m[1]) };
+  m = /^\/messages\/c\/(\d{1,12})$/.exec(p);
+  if (m) return { name: 'conversation', id: Number(m[1]) };
   m = /^\/t\/([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)$/.exec(p);
   if (m) return { name: 'topic', slug: m[1]! };
   m = /^\/events\/([a-z0-9][a-z0-9-]{0,38}[a-z0-9])$/.exec(p);
@@ -218,6 +227,14 @@ export function routePath(r: Route): string {
       return `/f/${r.slug}/`;
     case 'mystats':
       return '/me/stats/';
+    case 'messages':
+      return '/messages/';
+    case 'msgrequests':
+      return '/messages/requests/';
+    case 'msgsettings':
+      return '/messages/settings/';
+    case 'conversation':
+      return `/messages/c/${r.id}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -458,6 +475,7 @@ export function navbar(site: SiteData, route: Route): string {
       <button class="nav__btn nav__btn--search js-search" type="button" aria-label="搜索">${icon('search')}</button>
       <button class="nav__btn js-theme" type="button" aria-label="切换深色 / 浅色模式" title="切换深色 / 浅色">${icon('moon', 'only-light')}${icon('sun', 'only-dark')}</button>
       <a class="nav__btn nav__bell js-notif-link" href="${url('/notifications/')}" aria-label="通知" title="通知" hidden>${icon('bell')}<span class="nav__dot js-notif-dot" hidden></span></a>
+      <a class="nav__btn nav__bell nav__dm js-dm-link" href="${url('/messages/')}" aria-label="私信" title="私信" hidden>${icon('message')}<span class="nav__dot js-dm-dot" hidden></span></a>
       <a class="nav__btn nav__me js-me" href="${url('/join/')}" aria-label="好朋友登录 / 注册" title="好朋友登录 / 注册">${icon('user')}</a>
       <button class="nav__btn nav__toggle js-drawer" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="drawer"><usa-icon-morph class="js-menu-morph menu-morph" icons="menu,close" size="22" preset="stiff" aria-hidden="true">${icon('menu')}</usa-icon-morph></button>
     </div>
@@ -1554,15 +1572,19 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'features':
     case 'feature':
     case 'mystats':
+    case 'messages':
+    case 'msgrequests':
+    case 'msgsettings':
+    case 'conversation':
       return socialPage(site, route);
     default:
       return notFoundPage(site);
   }
 }
 
-export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats';
+export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats' | 'messages' | 'msgrequests' | 'msgsettings' | 'conversation';
 /** 所有交给 social-client 按需渲染的路由 */
-export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats'];
+export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats', 'messages', 'msgrequests', 'msgsettings', 'conversation'];
 /**
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
@@ -1579,6 +1601,9 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: SocialR
     projects: ['创作者项目', '好朋友们正在做的项目：开发日志、版本和关联作品'],
     features: ['摄影专题', '用一组照片和文字讲一个完整的故事'],
     mystats: ['我的数据', '只有你能看到：按天汇总的浏览与互动，不记录访客身份'],
+    messages: ['私信', '和互相关注的好朋友一对一聊天'],
+    msgrequests: ['消息请求', '还没有互相关注的人发来的消息，接受后才能回复'],
+    msgsettings: ['私信设置', '谁可以给你发私信、已读回执与在线状态'],
   } as const;
   const head =
     route.name === 'user'
@@ -1595,9 +1620,11 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: SocialR
                 ? { title: '项目', sub: '开发日志、版本与关联作品' }
                 : route.name === 'feature'
                   ? { title: '摄影专题', sub: '照片与文字组成的专题' }
-                  : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
-  const attr = route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' || route.name === 'collection' ? ` data-id="${route.id}"` : route.name === 'topic' || route.name === 'event' || route.name === 'project' || route.name === 'feature' ? ` data-slug="${e(route.slug)}"` : '';
-  const bare = route.name === 'user' || route.name === 'work' || route.name === 'topic' || route.name === 'event' || route.name === 'collection' || route.name === 'project' || route.name === 'feature';
+                  : route.name === 'conversation'
+                    ? { title: '私信', sub: '一对一会话' }
+                    : { title: HEADS[route.name][0], sub: HEADS[route.name][1] };
+  const attr = route.name === 'user' ? ` data-username="${e(route.username)}"` : route.name === 'work' || route.name === 'collection' || route.name === 'conversation' ? ` data-id="${route.id}"` : route.name === 'topic' || route.name === 'event' || route.name === 'project' || route.name === 'feature' ? ` data-slug="${e(route.slug)}"` : '';
+  const bare = route.name === 'user' || route.name === 'work' || route.name === 'topic' || route.name === 'event' || route.name === 'collection' || route.name === 'project' || route.name === 'feature' || route.name === 'conversation';
   return shell(site, route, {
     title: head.title,
     description: head.sub,

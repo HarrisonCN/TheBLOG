@@ -1080,6 +1080,13 @@ async function renderDiscoveryAdmin(): Promise<void> {
           )
           .join('') || '<tr><td colspan="6">还没有活动</td></tr>'
       }</tbody></table></div>
+<details class="adm-details"><summary>活动聊天室（L19）</summary><form class="adm-form" data-form="disc-room"><p class="muted small">给活动开一个实时聊天室（登录会员在活动页里聊天）。临时聊天室只显示最近几小时的消息；关闭后只能看不能发；取消勾选「开启」会删除聊天室和全部消息。你是所有聊天室的管理员，可以移除任何消息。</p><div class="adm-grid2">
+<label class="field"><span>活动</span><select name="slug" required>${ev.events.map((x) => `<option value="${e(x.slug)}">${e(x.title)}</option>`).join('')}</select></label>
+<label class="field"><span>消息保留</span><select name="retention"><option value="ephemeral" selected>临时（按小时过期）</option><option value="retained">保留</option></select></label>
+<label class="field"><span>临时消息保留小时数（1–336）</span><input name="ttlHours" type="number" min="1" max="336" value="24"></label>
+<label class="field adm-check"><input name="enabled" type="checkbox" checked><span>开启聊天室</span></label>
+<label class="field adm-check"><input name="closed" type="checkbox"><span>只读（暂停发言）</span></label>
+</div><p><button class="btn btn--sm" type="submit"${ev.events.length ? '' : ' disabled'}>保存聊天室设置</button></p></form></details>
 <details class="adm-details"><summary>新建活动</summary><form class="adm-form" data-form="disc-event"><div class="adm-grid2">
 <label class="field"><span>slug（网址）</span><input name="slug" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" maxlength="40" placeholder="weekly-rain"></label>
 <label class="field"><span>类型</span><select name="kind"><option value="daily">每日一图（≤ 2 天）</option><option value="weekly" selected>每周主题（≤ 14 天）</option><option value="open">作品征集（≤ 120 天）</option></select></label>
@@ -1126,6 +1133,7 @@ ${tp.topics.map((t) => `<form class="adm-form adm-topic" data-form="disc-topic" 
       }),
     );
   on('[data-form="disc-event"]', (f) => put('/api/admin/discovery/events', { slug: val(f, 'slug'), kind: val(f, 'kind'), title: val(f, 'title'), intro: val(f, 'intro'), rules: val(f, 'rules'), topic: val(f, 'topic') || null, startsAt: iso(val(f, 'startsAt')), endsAt: iso(val(f, 'endsAt')), voting: chk(f, 'voting'), voteEndsAt: iso(val(f, 'voteEndsAt')), hideTallies: chk(f, 'hideTallies'), minAccountDays: Number(val(f, 'minAccountDays')), maxEntries: Number(val(f, 'maxEntries')) }, 'POST'), '活动已创建');
+  on('[data-form="disc-room"]', (f) => put(`/api/admin/rooms/${val(f, 'slug')}`, { enabled: chk(f, 'enabled'), retention: val(f, 'retention'), ttlHours: Number(val(f, 'ttlHours')), closed: chk(f, 'closed') }), '聊天室设置已保存');
   on('[data-form="disc-feature"]', (f) => put('/api/admin/discovery/creators', { username: val(f, 'username'), note: val(f, 'note') }, 'POST'), '已加入精选');
   on('[data-form="disc-verify"]', (f) => put('/api/admin/discovery/verifications', { username: val(f, 'username'), label: val(f, 'label') }, 'POST'), '已认证');
   on('[data-form="disc-topic"]', (f) => put(`/api/admin/discovery/topics/${f.dataset.slug}`, { name: val(f, 'name'), intro: val(f, 'intro'), sort: Number(val(f, 'sort')), tags: val(f, 'tags').split(/[,，]/).map((x) => x.trim()).filter(Boolean) }), '话题已保存');
