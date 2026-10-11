@@ -18,6 +18,7 @@ _L16 · 用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注
 
 ### 杂项 Chores
 
+- **release:** 1.16.0 — L16 community publishing (docs: migration 0013_community, backup/rollback) (a5a5ce3)
 - **release:** freeze 1.15.0 merge sha 90381a4 (bacd51e)
 
 ## [1.15.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.15.0)
