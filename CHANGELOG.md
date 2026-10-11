@@ -2,6 +2,24 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.16.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.16.0) — 2026-10-11
+
+_L16 · 用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注与最新动态流、评论 / 提及 / 回应、举报与审核队列_
+
+### 新功能 Features
+
+- **web:** L16 UI — community feed, work page, composer (lazy ugc-client), profile works, notifications, admin moderation queue (c7581ee)
+- **demo:** L16 mock parity — works, feeds, comments, reactions, reports, moderation (mock-ugc.ts) (88efe7f)
+- **worker:** L16 community publishing — user works, feeds, comments, reactions, reports, moderation queue (migration 0013) (c63ff31)
+
+### 修复 Fixes
+
+- **web:** L16 feed heading order, bookmark class collision, admin chip contrast (225097f)
+
+### 杂项 Chores
+
+- **release:** freeze 1.15.0 merge sha 90381a4 (bacd51e)
+
 ## [1.15.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.15.0)
 
 _L15 · 社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云端收藏、通知中心_
