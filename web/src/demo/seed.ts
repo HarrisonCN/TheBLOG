@@ -7,6 +7,7 @@
  * 不包含任何真实账号、密钥或个人隐私信息。
  */
 import type { SectionMap } from '../sections';
+import type { PlaylistItem } from '../music-core';
 import { createSectionSeed } from './sections-seed';
 import type { Album, Favorite, Friend, Post, Profile, Settings } from '../types';
 import credits from '../../demo-assets/photos/credits.json';
@@ -35,6 +36,8 @@ export interface DemoDb {
   timeline: SectionMap['timeline'];
   changelog: SectionMap['changelog'];
   repos: SectionMap['repos'];
+  /** 站长歌单（音乐小部件）；旧的本地数据没有这个字段时用种子补齐 */
+  playlist?: PlaylistItem[];
   /** 文章表情回应计数（slug → 表情 → 次数）；旧的本地数据没有这个字段 */
   reactions?: Record<string, Record<string, number>>;
   /** 演示站只有「本机」一个访客：记录本机点过的 slug|emoji */
@@ -518,6 +521,7 @@ ${credit('baltic-view')}`,
   ];
   return {
     version: 2,
+    playlist: demoPlaylist(),
     nextId: posts.length + 1,
     posts: posts.map((p, i) => ({ id: i + 1, ...p, wordCount: count(p.contentMd) })),
     profile: {
@@ -633,4 +637,18 @@ ${credit('baltic-view')}`,
     ],
     ...createSectionSeed(photo, PHOTO_CREDITS),
   };
+}
+
+/**
+ * 演示歌单：Internet Archive 上 No-Source Netlabel 的合辑《Another Day, Another Way》（CC BY-NC-SA 4.0），
+ * 完整曲目，署名与出处链接随曲目显示。站长可以在后台「音乐」里替换。
+ */
+export function demoPlaylist(): PlaylistItem[] {
+  const lic = { license: 'CC BY-NC-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-nc-sa/4.0/', link: 'https://archive.org/details/NS050', album: 'Another Day, Another Way', cover: 'https://archive.org/services/img/NS050' };
+  const f = (file: string) => `https://archive.org/download/NS050/${file}`;
+  return [
+    { id: 'swing-low', title: 'Swing Low', artist: 'Cocolixe', src: f('03-NS050-Cocolixe_Swing-Low.mp3'), duration: 200, ...lic },
+    { id: 'the-light-between', title: 'The Light Between', artist: 'Tardiss', src: f('04-NS050-Tardiss_The-Light-Between.mp3'), duration: 183, ...lic },
+    { id: 'clouds-in-the-shape-of-clouds', title: 'Clouds in the Shape of Clouds', artist: 'Ross Baker', src: f('11-NS050-Ross-Baker_Clouds-in-the-Shape-of-Clouds.mp3'), duration: 186, ...lic },
+  ];
 }

@@ -3,6 +3,7 @@ import { HttpError, errorResponse, json, readJson, withSecurityHeaders } from '.
 import { allowedOrigins, checkOrigin, handleLogin, handleLogout, readSession, requireAdmin, verifyBearer } from './auth';
 import { handleMcp } from './mcp';
 import { serveImage, uploadFromRequest } from './images';
+import { serveAudio, uploadAudioFromRequest } from './audio';
 import { CONTENT_KEYS, listQuerySchema, type ContentKey } from './schema';
 import * as svc from './service';
 import { routeAdmin as communityAdmin, routePublic as communityPublic } from './community';
@@ -66,6 +67,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     if (path === '/api/profile') return json(await svc.getProfile(env), { headers: PUBLIC_CACHE });
     if (path === '/api/settings') return json(await svc.getSettings(env), { headers: PUBLIC_CACHE });
     if ((match = /^\/api\/(images\/.+)$/.exec(path))) return serveImage(env, match[1]!);
+    if ((match = /^\/api\/(audio\/.+)$/.exec(path))) return serveAudio(env, match[1]!, req);
   }
 
   // ---------- 社区（好朋友 / 便利贴 / 在线 / 上传 / 节日 / 项目） ----------
@@ -141,6 +143,7 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
       return json(await svc.moderateGuestbook(env, { id: Number(match[1]), action: body?.action }), { headers: NO_STORE });
     }
     if (sub === '/images' && m === 'POST') return json(await uploadFromRequest(env, req), { status: 201, headers: NO_STORE });
+    if (sub === '/audio' && m === 'POST') return json(await uploadAudioFromRequest(env, req), { status: 201, headers: NO_STORE });
     const adminComments = await routeAdminComments(req, env, sub, url, () => readJson(req));
     if (adminComments) return adminComments;
     const admin = await communityAdmin(req, env, sub, () => readJson(req));

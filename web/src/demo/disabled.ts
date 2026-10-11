@@ -7,3 +7,4 @@ const off = (): never => {
 export const DEMO_PASSWORD = '';
 export const demoHandle = (_path: string, _init?: RequestInit): Promise<MockResponse> => off();
 export const mountDemoBanner = (_opts?: { adminHref?: string; siteHref?: string }): void => off();
+export const demoAudioUrl = async (_path: string): Promise<string | null> => null;

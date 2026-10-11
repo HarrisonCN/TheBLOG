@@ -109,11 +109,12 @@ export interface Favorite {
   description: string;
   group: string;
 }
-export type ContentKey = 'friends' | 'gallery' | 'favorites' | SectionKey;
+export type ContentKey = 'friends' | 'gallery' | 'favorites' | SectionKey | 'playlist';
 export interface ContentMap extends SectionMap {
   friends: Friend[];
   gallery: Album[];
   favorites: Favorite[];
+  playlist: import('./music-core').PlaylistItem[];
 }
 export interface GuestbookEntry {
   id: number;

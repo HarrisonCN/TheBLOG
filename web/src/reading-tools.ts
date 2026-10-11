@@ -3,6 +3,7 @@
  * 设置作为 <html data-rs-*> 属性生效，样式见 l12.css；所有切换在 prefers-reduced-motion 时没有过渡动画。
  * 朗读：浏览器不支持 speechSynthesis 时整组按钮保持隐藏；优先选 zh-CN 声音；逐段朗读并高亮当前段落。
  */
+import { claimMedia, onMediaClaim } from './media-bus';
 
 export const RS_KEY = 'blog-reading-prefs';
 export const RS_OPTIONS = {
@@ -104,6 +105,9 @@ export function speakableBlocks(prose: ParentNode): HTMLElement[] {
 }
 
 let stopCurrent: (() => void) | null = null;
+/** 音乐开始播放时暂停朗读（只暂停，用户可以继续）。 */
+let pauseCurrent: (() => void) | null = null;
+onMediaClaim('tts', () => pauseCurrent?.());
 /** 换页时调用：停掉正在进行的朗读。 */
 export function stopSpeech(): void {
   stopCurrent?.();
@@ -173,8 +177,14 @@ export function bindSpeech(root: ParentNode): void {
     setState('idle');
   };
   stopCurrent = halt;
+  pauseCurrent = () => {
+    if (state !== 'playing') return;
+    synth.pause();
+    setState('paused');
+  };
   play.addEventListener('click', () => {
     if (state === 'idle') {
+      claimMedia('tts');
       blocks = speakableBlocks(prose);
       synth.cancel();
       speakFrom(0);
@@ -182,6 +192,7 @@ export function bindSpeech(root: ParentNode): void {
       synth.pause();
       setState('paused');
     } else {
+      claimMedia('tts');
       setState('playing');
       synth.resume();
     }
