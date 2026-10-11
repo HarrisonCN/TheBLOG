@@ -7,7 +7,7 @@
 -- 执行：
 --   npx wrangler d1 migrations apply blog --remote
 -- 完整性检查（执行后）：
---   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA integrity_check;"
+--   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA quick_check;"
 -- 回滚（只影响 L16 新数据，旧表与旧数据不受影响）：
 --   1) 把 Worker 回退到 1.15.0（wrangler rollback 或重新部署 v1.15.0 tag）；
 --   2) DROP TABLE user_post_bookmarks, user_reactions, mentions, user_post_comments, user_post_media,

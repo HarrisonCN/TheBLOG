@@ -7,7 +7,7 @@
 -- 执行：
 --   npx wrangler d1 migrations apply blog --remote
 -- 完整性检查（执行后）：
---   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA integrity_check;"
+--   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA quick_check;"
 -- 旧作品的 EXIF 索引（可选，部署后执行一次；只读 user_posts.params 写入 work_exif，可重复执行）：
 --   后台 POST /api/admin/studio/reindex-exif
 -- 回滚（只影响 L18 新数据，旧表与旧数据不受影响）：
