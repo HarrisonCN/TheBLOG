@@ -20,6 +20,8 @@
   // 消息都存在 D1（迁移 0016_dm.sql）；不配置这两项时私信照常可用，浏览器自动退回轮询。
   "durable_objects": { "bindings": [{ "name": "DM_HUB", "class_name": "DmHub" }] },
   "migrations": [{ "tag": "dm-v1", "new_sqlite_classes": ["DmHub"] }],
+  // L20：每 15 分钟重试待验证的 Webmention、发送到期的邮件摘要（迁移 0017_open.sql）
+  "triggers": { "crons": ["*/15 * * * *"] },
   // 社区模块（可选，见 README「社区模块的密钥与绑定」）：
   // 私有上传桶：{ "binding": "UPLOADS", "bucket_name": "blog-uploads" } 加进 r2_buckets
   // Cloudflare 发信："send_email": [{ "name": "EMAIL" }]

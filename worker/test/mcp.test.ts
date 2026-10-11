@@ -1,12 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { API_TOKEN, call, disposeEnv, mcp, setupEnv, tool } from './helpers';
 import type { Env } from '../src/env';
+import { OPEN_TOOLS } from '../src/open-mcp';
 
 let env: Env;
 beforeAll(async () => {
   env = await setupEnv();
 });
-afterAll(disposeEnv);
+afterAll(async () => {
+  // 测试库在各测试文件之间共用：把 update_section 写进去的「此刻」栏目恢复为空（api.test.ts 断言默认是空的）
+  await tool(env, 'update_section', { key: 'now', items: [] }).catch(() => undefined);
+  await disposeEnv();
+});
 
 const EXPECTED_TOOLS = [
   'list_posts', 'get_post', 'create_post', 'update_post', 'delete_post', 'publish_post',
@@ -57,10 +62,10 @@ describe('MCP 传输层', () => {
     expect(r.status).toBe(400);
   });
 
-  it('tools/list 列出全部 18 个工具，inputSchema 为 object', async () => {
+  it('tools/list（站长令牌）列出全部工具（含 L20 开放工具），inputSchema 为 object', async () => {
     const r = await mcp(env, 'tools/list');
     const tools = r.body.result.tools as any[];
-    expect(tools.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS].sort());
+    expect(tools.map((t) => t.name).sort()).toEqual([...EXPECTED_TOOLS, ...OPEN_TOOLS.map((t) => t.name)].sort());
     for (const t of tools) {
       expect(t.inputSchema.type).toBe('object');
       expect(t.inputSchema.$schema).toBeUndefined();

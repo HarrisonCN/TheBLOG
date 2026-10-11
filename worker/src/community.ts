@@ -49,7 +49,7 @@ export async function ipKey(req: Request, env: Env): Promise<string> {
 }
 
 // ============================================================ 邮件（可插拔：resend / cloudflare / console / memory）
-export interface OutgoingEmail { to: string; subject: string; text: string }
+export interface OutgoingEmail { to: string; subject: string; text: string; /** L20 邮件摘要：List-Unsubscribe 等附加头 */ headers?: Record<string, string> }
 /** EMAIL_PROVIDER=memory 时（只用于测试）邮件进这里。 */
 export const testOutbox: OutgoingEmail[] = [];
 
@@ -70,7 +70,7 @@ export async function sendEmail(env: Env, msg: OutgoingEmail): Promise<void> {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text }),
+      body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text, ...(msg.headers ? { headers: msg.headers } : {}) }),
     });
     if (!r.ok) throw new HttpError(502, 'email_failed', '验证码邮件发送失败，请稍后再试');
     return;
@@ -86,6 +86,7 @@ export async function sendEmail(env: Env, msg: OutgoingEmail): Promise<void> {
       `Subject: =?UTF-8?B?${btoa(String.fromCharCode(...new TextEncoder().encode(msg.subject)))}?=`,
       `Message-ID: <${crypto.randomUUID()}@${addr.split('@')[1] ?? 'localhost'}>`,
       `Date: ${new Date().toUTCString()}`,
+      ...Object.entries(msg.headers ?? {}).map(([k, v]) => `${k}: ${v.replace(/[\r\n]/g, '')}`),
       'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=utf-8',
       'Content-Transfer-Encoding: 8bit',
@@ -206,7 +207,15 @@ export async function verify(env: Env, input: unknown): Promise<{ member: Public
 }
 
 /** 会员接口用 Authorization: Bearer m_xxx（不用 Cookie，所以不需要 CSRF 令牌）。 */
+/** L20 MCP：作者令牌调用工具时，内部请求以令牌所属会员的身份执行（复用全部会员权限检查，只能操作自己的内容）。 */
+const ACTING = new WeakMap<Request, number>();
+export function actAsMember(req: Request, memberId: number): Request {
+  ACTING.set(req, memberId);
+  return req;
+}
 export async function requireMember(req: Request, env: Env): Promise<Member> {
+  const acting = ACTING.get(req);
+  if (acting !== undefined) return getMember(env, acting);
   const m = /^Bearer\s+(m_[A-Za-z0-9_-]{16,128})$/i.exec(req.headers.get('authorization') ?? '');
   if (!m) throw new HttpError(401, 'unauthorized', '请先注册 / 登录好朋友账号');
   const row = await env.DB.prepare('SELECT member_id, expires_at FROM member_sessions WHERE token_hash = ?').bind(await sha256Hex(m[1]!)).first<{ member_id: number; expires_at: number }>();
@@ -215,6 +224,7 @@ export async function requireMember(req: Request, env: Env): Promise<Member> {
 }
 
 export async function optionalMember(req: Request, env: Env): Promise<Member | null> {
+  if (ACTING.has(req)) return requireMember(req, env).catch(() => null);
   if (!/^Bearer\s+m_/i.test(req.headers.get('authorization') ?? '')) return null;
   return requireMember(req, env).catch(() => null);
 }

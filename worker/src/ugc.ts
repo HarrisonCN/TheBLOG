@@ -46,6 +46,7 @@ import {
   type WorkType,
   type WorkVisibility,
 } from './ugc-core';
+import { checkAiPublish } from './open-core';
 
 const NO_STORE = { 'cache-control': 'no-store' };
 const nowIso = () => new Date().toISOString();
@@ -72,6 +73,8 @@ export interface WorkRow {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** L20：采用过 AI 建议（迁移 0017；旧库没有这一列时为 undefined） */
+  ai_assisted?: number;
 }
 interface MediaRow { post_id: number; position: number; url: string; alt: string; width: number; height: number }
 export interface WorkMedia { url: string; alt: string; width: number; height: number }
@@ -96,6 +99,8 @@ export interface Work {
   counts: { comments: number; bookmarks: number; reactions: Partial<Record<WorkReaction, number>> };
   /** L18 共同作者署名（已加入 + 曾参与；邀请中只给所有者和被邀请人看） */
   coauthors: Coauthor[];
+  /** L20：作者采用过 AI 建议（作品页显示「含 AI 辅助内容」标签） */
+  aiAssisted: boolean;
   mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean; role: 'owner' | 'editor' | 'contributor' | null; can: Record<WorkRight, boolean> };
 }
 export interface PublicWork { kind: 'work'; id: number; type: WorkType; title: string; excerpt: string; cover: WorkMedia | null; visibility: WorkVisibility; createdAt: string }
@@ -210,6 +215,7 @@ export async function toWorks(env: Env, rows: WorkRow[], viewerId: number | null
         can: collab.get(r.id)!.can,
       },
       coauthors: collab.get(r.id)!.coauthors,
+      aiAssisted: r.ai_assisted === 1,
     };
   });
 }
@@ -406,14 +412,16 @@ export async function createWork(req: Request, env: Env, input: unknown) {
   const rules = await getRules(env);
   const { fp, links } = await spamChecks(env, me, v, rules);
   const draft = (input as { draft?: unknown }).draft === true;
+  const ai = checkAiPublish(input, !draft);
+  if (!ai.ok) throw new HttpError(400, 'ai_unconfirmed', ai.error);
   const review = needsReview(await standing(env, me.id), rules);
   const status: WorkStatus = draft ? 'draft' : review ? 'pending' : 'published';
   const t = nowIso();
   const row = await env.DB.prepare(
-    `INSERT INTO user_posts (author_id, type, title, body, caption, notes, params, visibility, status, fingerprint, link_count, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO user_posts (author_id, type, title, body, caption, notes, params, visibility, status, fingerprint, link_count, published_at, created_at, updated_at, ai_assisted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
-    .bind(me.id, v.type, v.title, v.body, v.caption, v.notes, JSON.stringify(v.params), v.visibility, status, fp, links, status === 'published' ? t : null, t, t)
+    .bind(me.id, v.type, v.title, v.body, v.caption, v.notes, JSON.stringify(v.params), v.visibility, status, fp, links, status === 'published' ? t : null, t, t, ai.value ? 1 : 0)
     .first<WorkRow>();
   await env.DB.batch([...mediaStmts(env, row!.id, v), ...exifStmts(env, row!), ...(topicIds ? setWorkTopicsStmts(env, row!.id, topicIds) : []), ...(status === 'published' ? [bump(env, me.id, 1, 1)] : [])]);
   await recordRevision(env, row!.id, me.id);
@@ -449,6 +457,8 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
   if (!c.ok) throw bad(c.path, c.error);
   const v = c.value;
   if (v.type !== w.type) throw bad('type', '发布后不能更改类型');
+  const ai = checkAiPublish(input, w.status !== 'draft');
+  if (!ai.ok) throw new HttpError(400, 'ai_unconfirmed', ai.error);
   if (role.role !== 'owner') v.visibility = w.visibility;
   const uploaders = await guardMedia(env, w, me.id, v.media, (input as { confirmMediaRemoval?: unknown }).confirmMediaRemoval === true);
   await ensureBaseRevision(env, w);
@@ -473,6 +483,7 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
       t,
       w.id,
     ),
+    ...(ai.value ? [env.DB.prepare('UPDATE user_posts SET ai_assisted = 1 WHERE id = ?').bind(w.id)] : []),
     ...mediaStmts(env, w.id, v, uploaders),
     ...exifStmts(env, { id: w.id, type: w.type, params: JSON.stringify(v.params) }),
     ...(topicIds ? setWorkTopicsStmts(env, w.id, topicIds) : []),
@@ -484,9 +495,11 @@ export async function updateWork(req: Request, env: Env, id: number, input: unkn
   return { work: (await toWorks(env, [fresh], me.id))[0]!, status };
 }
 
-export async function publishWork(req: Request, env: Env, id: number) {
+export async function publishWork(req: Request, env: Env, id: number, input: unknown = {}) {
   const { me, w } = await ownWork(req, env, id);
   if (w.status !== 'draft') throw new HttpError(409, 'not_draft', '只有草稿可以发布');
+  // L20：草稿里采用过 AI 建议 → 发布前必须明确确认
+  if (w.ai_assisted === 1 && (input as { aiConfirmed?: unknown } | null)?.aiConfirmed !== true) throw new HttpError(400, 'ai_unconfirmed', '这篇草稿采用了 AI 建议：发布前请确认你已检查过 AI 生成的部分');
   await rateLimit(env, 'work', String(me.id), 10, 3600, '发布太频繁，请一小时后再试');
   const rules = await getRules(env);
   const status: WorkStatus = needsReview(await standing(env, me.id), rules) ? 'pending' : 'published';
@@ -704,9 +717,11 @@ async function queueCounts(env: Env) {
     env.DB.prepare("SELECT COUNT(DISTINCT target_kind || ':' || target_id) AS n FROM reports WHERE status = 'open'"),
     env.DB.prepare("SELECT (SELECT COUNT(*) FROM user_posts WHERE mod_state = 'hidden') + (SELECT COUNT(*) FROM user_post_comments WHERE mod_state = 'hidden') AS n"),
     env.DB.prepare('SELECT COUNT(*) AS n FROM member_standing WHERE banned_at IS NOT NULL'),
+    // L20：待审核的 Webmention（站外回应）也算进审核队列
+    env.DB.prepare("SELECT COUNT(*) AS n FROM webmentions WHERE status = 'pending'"),
   ]);
   const n = (i: number) => r[i]?.results[0]?.n ?? 0;
-  return { pending: n(0), reports: n(1), hidden: n(2), banned: n(3) };
+  return { pending: n(0), reports: n(1), hidden: n(2), banned: n(3), webmentions: n(4) };
 }
 export async function adminQueue(env: Env, url: URL) {
   const view = url.searchParams.get('view') ?? 'pending';
@@ -872,7 +887,7 @@ export async function routeUgc(req: Request, env: Env, sub: string, url: URL, bo
     if (m === 'PUT' || m === 'PATCH') return ok(await updateWork(req, env, Number(mt[1]), await body()));
     if (m === 'DELETE') return ok(await deleteWork(req, env, Number(mt[1])));
   }
-  if ((mt = new RegExp(`^/works/${ID}/publish$`).exec(sub)) && m === 'POST') return ok(await publishWork(req, env, Number(mt[1])));
+  if ((mt = new RegExp(`^/works/${ID}/publish$`).exec(sub)) && m === 'POST') return ok(await publishWork(req, env, Number(mt[1]), await body().catch(() => ({}))));
   if ((mt = new RegExp(`^/works/${ID}/comments$`).exec(sub)) && m === 'POST') return ok(await addWorkComment(req, env, Number(mt[1]), await body()), 201);
   if ((mt = new RegExp(`^/works/comments/${ID}$`).exec(sub)) && m === 'DELETE') return ok(await deleteWorkComment(req, env, Number(mt[1])));
   if ((mt = new RegExp(`^/works/${ID}/reactions$`).exec(sub)) && m === 'POST') return ok(await react(req, env, Number(mt[1]), ((await body()) as { kind?: unknown } | null)?.kind, true));
