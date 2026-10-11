@@ -10,6 +10,7 @@ import { HttpError, json } from './http';
 import { b64Decode } from './crypto';
 import { storeImage, MAX_IMAGE_BYTES } from './images';
 import * as svc from './service';
+import { decodeCursor } from './post-page-core';
 import { COMMUNITY_TOOLS } from './community-mcp';
 import { CONTENT_KEYS, SECTION_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
 
@@ -32,10 +33,18 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'list_posts',
     title: '列出文章',
-    description: '列出文章（含草稿），可按状态、标签过滤并分页。返回摘要，不含正文。',
-    input: listQuerySchema.extend({ status: z.enum(['draft', 'published', 'all']).optional().describe('默认 all') }),
+    description: '列出文章（含草稿），可按状态、标签过滤并分页。返回摘要，不含正文；有下一页时返回 nextCursor，把它作为 cursor 传回即可取下一页。',
+    input: listQuerySchema.extend({
+      status: z.enum(['draft', 'published', 'all']).optional().describe('默认 all'),
+      cursor: z.string().max(200).optional().describe('上一页返回的 nextCursor'),
+    }),
     annotations: { readOnlyHint: true, openWorldHint: false },
-    run: (env, a) => svc.listPosts(env, { ...a, includeDrafts: true }),
+    run: (env, a) => {
+      const { cursor, ...q } = a;
+      const c = cursor ? decodeCursor(cursor) : null;
+      if (cursor && !c) throw new HttpError(400, 'validation_error', '分页游标无效');
+      return svc.listPosts(env, { ...q, cursor: c, includeDrafts: true });
+    },
   },
   {
     name: 'get_post',
