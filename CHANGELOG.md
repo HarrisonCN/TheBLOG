@@ -17,6 +17,10 @@ _L17 · 发现与活跃：话题与订阅、发现页、摄影活动（投稿 / 
 - **web:** work page drops old listeners on re-render (no duplicate actions after publish) (0a20828)
 - **web:** discovery views drop old listeners on re-render (no duplicate dialogs) (3433615)
 
+### 测试 Tests
+
+- **worker:** discovery test restores default review rules (shared D1; fixes CI order-dependent ugc failures) (5157490)
+
 ### 杂项 Chores
 
 - **release:** 1.17.0 — L17 discovery & engagement (docs: migration 0014_discovery, backup/rollback) (953a167)
