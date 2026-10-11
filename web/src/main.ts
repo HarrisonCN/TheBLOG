@@ -7,6 +7,7 @@ import './l12.css';
 import './music-tab.css';
 import './l14.css';
 import { api, ApiError, DEMO } from './api';
+import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
 import { renderSafe } from './sanitize';
 import { applyTheme, currentMode, setMode } from './theme';
@@ -20,7 +21,7 @@ import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
   stripBase, url, postPath, tagPath, categoryPath, latestParts, NAV, type Extra, type Page, type Route,
 } from './render';
-import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type SearchDoc, type SiteData } from './types';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type PostSummary, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
 import { initCommunity, bindCommunity } from './community';
 import { bindSections } from './sections-client';
@@ -68,11 +69,24 @@ function readSnapshot(): Snapshot {
   }
 }
 
+/**
+ * 全部已发布文章的摘要：优先用摘要索引（一次请求、可 304），
+ * 旧 Worker 没有索引接口时按游标逐页拉取（不再有 100 篇上限）。
+ */
+async function loadAllPosts(): Promise<{ posts: PostSummary[]; total: number }> {
+  try {
+    return await api.postIndex();
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 404) throw e;
+  }
+  return walkPages((cursor) => api.posts({ limit: PAGE_LIMIT_MAX, cursor }));
+}
+
 async function loadSite(): Promise<void> {
   const [settings, profile, list, tags, cats] = await Promise.all([
     api.settings(),
     api.profile(),
-    api.posts({ limit: 100 }),
+    loadAllPosts(),
     api.tags(),
     api.categories().catch(() => ({ categories: [] })),
   ]);

@@ -46,15 +46,18 @@ export async function request<T>(path: string, init: RequestInit & { timeoutMs?:
 }
 
 export const api = {
-  posts: (q: { tag?: string; category?: string; limit?: number; offset?: number } = {}) => {
+  posts: (q: { tag?: string; category?: string; limit?: number; offset?: number; cursor?: string | null } = {}) => {
     const p = new URLSearchParams();
     if (q.tag) p.set('tag', q.tag);
     if (q.category) p.set('category', q.category);
     if (q.limit) p.set('limit', String(q.limit));
     if (q.offset) p.set('offset', String(q.offset));
+    if (q.cursor) p.set('cursor', q.cursor);
     const qs = p.toString();
-    return request<{ posts: PostSummary[]; total: number }>(`/api/posts${qs ? `?${qs}` : ''}`);
+    return request<{ posts: PostSummary[]; total: number; nextCursor?: string | null }>(`/api/posts${qs ? `?${qs}` : ''}`);
   },
+  /** 文章摘要索引：全部已发布文章（不含正文），列表 / 归档 / 系列 / 相关文章 / 搜索回退共用 */
+  postIndex: () => request<{ posts: PostSummary[]; total: number; version?: string }>('/api/posts/index'),
   post: (slug: string) => request<Post>(`/api/posts/${encodeURIComponent(slug)}`),
   tags: () => request<{ tags: TagCount[] }>('/api/tags'),
   profile: () => request<Profile>('/api/profile'),

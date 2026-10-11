@@ -110,7 +110,7 @@ try {
   assert(withCsrf.status === 200, '带 CSRF token 的写请求成功');
 
   step('前端构建 + 预渲染（BLOG_API_URL 指向本地 Worker）');
-  execFileSync('npm', ['run', 'build'], { cwd: webDir, env: { ...env, BLOG_API_URL: BASE, BLOG_SITE_URL: 'https://blog.example.com/' }, stdio: 'pipe' });
+  execFileSync('npm', ['run', 'build'], { cwd: webDir, env: { ...env, BLOG_API_URL: BASE, BLOG_SITE_URL: 'https://blog.example.com/', PRERENDER_STRICT: '1' }, stdio: 'pipe' });
   const postHtml = join(webDir, 'dist', 'posts', slug, 'index.html');
   assert(existsSync(postHtml), `生成 dist/posts/${slug}/index.html`);
   const html = readFileSync(postHtml, 'utf8');

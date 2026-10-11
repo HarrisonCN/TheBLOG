@@ -232,7 +232,7 @@ export async function listCategories(env: Env): Promise<{ category: string; coun
 
 /** 站内搜索索引：已发布文章的标题、摘要、标签、分类与正文纯文本（截断）。 */
 export async function searchIndex(env: Env): Promise<{ slug: string; title: string; summary: string; tags: string[]; category: string | null; text: string }[]> {
-  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER} LIMIT 500`).all<PostRow>();
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow>();
   return (results ?? []).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, tags: parseTags(r.tags), category: r.category || null, text: plainText(r.content_md).slice(0, 3000) }));
 }
 

@@ -45,7 +45,7 @@ function idbAudioStore(): AudioStore {
   };
 }
 
-export const backend = new DemoBackend({ storage: browserStorage(), base: import.meta.env.BASE_URL, audio: idbAudioStore() });
+export const backend = new DemoBackend({ storage: browserStorage(), base: import.meta.env.BASE_URL, audio: idbAudioStore(), fixturePosts: Number(import.meta.env.VITE_DEMO_FIXTURE_POSTS ?? 0) || 0 });
 
 const audioUrls = new Map<string, string>();
 /** 演示站上传的 /api/audio/… → blob: 地址（找不到返回 null）。 */

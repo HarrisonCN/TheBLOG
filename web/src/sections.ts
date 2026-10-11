@@ -438,10 +438,11 @@ export interface FeedPost {
   updatedAt: string;
 }
 const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
-export function rssXml(o: { title: string; description: string; siteUrl: string; posts: FeedPost[]; now?: Date }): string {
+/** RSS 2.0：默认收录全部文章（limit 可选） */
+export function rssXml(o: { title: string; description: string; siteUrl: string; posts: FeedPost[]; now?: Date; limit?: number }): string {
   const site = o.siteUrl.replace(/\/?$/, '/');
   const items = o.posts
-    .slice(0, 30)
+    .slice(0, o.limit ?? o.posts.length)
     .map((p) => {
       const link = `${site}posts/${p.slug}/`;
       const date = new Date(p.publishedAt ?? p.updatedAt);
@@ -469,7 +470,7 @@ ${items}
 }
 
 /** JSON Feed 1.1 */
-export function jsonFeed(o: { title: string; description: string; siteUrl: string; posts: FeedPost[] }): string {
+export function jsonFeed(o: { title: string; description: string; siteUrl: string; posts: FeedPost[]; limit?: number }): string {
   const site = o.siteUrl.replace(/\/?$/, '/');
   return JSON.stringify(
     {
@@ -479,7 +480,7 @@ export function jsonFeed(o: { title: string; description: string; siteUrl: strin
       home_page_url: site,
       feed_url: `${site}feed.json`,
       language: 'zh-CN',
-      items: o.posts.slice(0, 30).map((p) => ({ id: `${site}posts/${p.slug}/`, url: `${site}posts/${p.slug}/`, title: p.title, summary: p.summary, content_text: p.summary, date_published: p.publishedAt ?? p.updatedAt, date_modified: p.updatedAt, tags: [p.category, ...p.tags].filter(Boolean) })),
+      items: o.posts.slice(0, o.limit ?? o.posts.length).map((p) => ({ id: `${site}posts/${p.slug}/`, url: `${site}posts/${p.slug}/`, title: p.title, summary: p.summary, content_text: p.summary, date_published: p.publishedAt ?? p.updatedAt, date_modified: p.updatedAt, tags: [p.category, ...p.tags].filter(Boolean) })),
     },
     null,
     2,

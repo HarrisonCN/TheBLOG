@@ -79,7 +79,8 @@ describe('扩展栏目：纯函数', () => {
     expect(xml).not.toContain('\u0001');
     expect(xml).toContain('<pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate>');
     const many = Array.from({ length: 40 }, (_, i) => ({ ...feedPosts[0]!, slug: `p${i}` }));
-    expect(rssXml({ title: 't', description: 'd', siteUrl: 'https://e.example/', posts: many }).match(/<item>/g)).toHaveLength(30);
+    expect(rssXml({ title: 't', description: 'd', siteUrl: 'https://e.example/', posts: many }).match(/<item>/g)).toHaveLength(many.length);
+    expect(rssXml({ title: 't', description: 'd', siteUrl: 'https://e.example/', posts: many, limit: 30 }).match(/<item>/g)).toHaveLength(30);
     const jf = JSON.parse(jsonFeed({ title: 't', description: 'd', siteUrl: 'https://e.example/', posts: feedPosts }));
     expect(jf.version).toBe('https://jsonfeed.org/version/1.1');
     expect(jf.items[0]).toMatchObject({ url: 'https://e.example/posts/a/', tags: ['摄影', 't'] });

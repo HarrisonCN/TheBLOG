@@ -3,7 +3,10 @@
  * 构建期预渲染（SSR-safe 回退）：
  * - 从 BLOG_API_URL（例如 https://blog.example.com 或 http://127.0.0.1:8787）拉取数据；
  * - 为首页、关于、标签、每个标签、每篇已发布文章生成带内容的静态 HTML + JSON 快照；
- * - API 不可用时不让构建失败：保留空壳（浏览器端会显示加载状态并在运行时拉取）。
+ * - 文章按游标逐页拉取（没有篇数上限），每篇文章页、分页列表页（/page/2/ …）、sitemap、RSS 都包含全部文章。
+ * - 严格模式（NODE_ENV=production、PRERENDER_STRICT=1 或 --strict；CI / Pages / 正式部署都开着）：
+ *   API 不可达、任何页面失败、或预渲染的文章页数 ≠ API 的 total，都让构建失败（退出码 1）。
+ * - 宽松模式（只给本地开发）：API 不可用时保留空壳并大声警告（浏览器端会在运行时拉取）。
  * - 生成 Cloudflare Pages 的 _headers（CSP 等）。
  * - `--demo`：GitHub Pages 演示版。数据来自浏览器内 mock API 的种子数据（不访问任何服务器），
  *   页面链接带上子路径前缀（BLOG_BASE，默认 /TheBLOG/），并生成 404.html（SPA 回退）、admin/index.html、.nojekyll。
@@ -13,12 +16,23 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { createHash } from 'node:crypto';
+import { fetchAllPosts, isStrict, verifyCounts } from './prerender-lib.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
-const dist = join(root, 'dist');
-const ssrOut = join(root, '.ssr');
+const dist = process.env.PRERENDER_DIST ? process.env.PRERENDER_DIST : join(root, 'dist');
+const ssrOut = process.env.PRERENDER_SSR_OUT ? process.env.PRERENDER_SSR_OUT : join(root, '.ssr');
 const DEMO = process.argv.includes('--demo');
+const STRICT = isStrict(process.argv, process.env);
+/** 测试 / E2E：演示数据后追加 n 篇夹具文章（正式演示站为 0） */
+const FIXTURE_POSTS = Number(process.env.DEMO_FIXTURE_POSTS ?? 0) || 0;
+const fail = (msg) => {
+  console.error(`\n[prerender] ✖ 严格模式失败：${msg}\n`);
+  if (existsSync(ssrOut)) rmSync(ssrOut, { recursive: true, force: true });
+  process.exit(1);
+};
+const loud = (msg) => console.warn(`\n${'!'.repeat(72)}\n[prerender] ⚠ ${msg}\n[prerender] ⚠ 宽松模式（仅本地开发）：生成空壳 / 跳过失败页，构建不会失败。\n[prerender] ⚠ 正式构建请设置 PRERENDER_STRICT=1（或 NODE_ENV=production / --strict）。\n${'!'.repeat(72)}\n`);
+console.log(`[prerender] 模式：${STRICT ? '严格（任何失败都会让构建失败）' : '宽松（本地开发）'}${DEMO ? '，演示版' : ''}${FIXTURE_POSTS ? `，夹具文章 ${FIXTURE_POSTS} 篇` : ''}`);
 const BASE = DEMO ? (process.env.BLOG_BASE ?? '/TheBLOG/') : '/';
 const API = (process.env.BLOG_API_URL ?? '').replace(/\/+$/, '');
 const API_BASE = (process.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
@@ -38,7 +52,7 @@ await build({
 });
 const R = await import(join(ssrOut, 'render.js'));
 R.setBasePath(BASE);
-const backend = DEMO ? new (await import(join(ssrOut, 'mock.js'))).DemoBackend({ base: BASE }) : null;
+const backend = DEMO ? new (await import(join(ssrOut, 'mock.js'))).DemoBackend({ base: BASE, fixturePosts: FIXTURE_POSTS }) : null;
 
 async function get(path) {
   if (backend) {
@@ -134,12 +148,16 @@ function write(rel, html) {
 
 let ok = false;
 let count = 0;
+let postPages = 0;
+let listPages = 0;
+const failures = [];
 const sitemap = [];
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 if (API || DEMO) {
   try {
-    const [settings, profile, list, tags, cats] = await Promise.all([get('/api/settings'), get('/api/profile'), get('/api/posts?limit=100'), get('/api/tags'), soft('/api/categories', { categories: [] })]);
+    const [settings, profile, list, tags, cats] = await Promise.all([get('/api/settings'), get('/api/profile'), fetchAllPosts(get), get('/api/tags'), soft('/api/categories', { categories: [] })]);
+    console.log(`[prerender] 文章：${list.posts.length} 篇（${list.pages} 页游标分页，total=${list.total}）`);
     const site = { settings, profile, posts: list.posts, total: list.total, tags: tags.tags, categories: cats.categories, festivals: (await soft('/api/festivals', { festivals: [] })).festivals };
     const extra = {
       gallery: (await soft('/api/content/gallery', { items: [] })).items,
@@ -151,21 +169,30 @@ if (API || DEMO) {
       members: (await soft('/api/members', { members: [] })).members,
     };
     for (const k of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos']) extra[k] = (await soft(`/api/content/${k}`, { items: [] })).items;
-    // 每个页面只嵌入它需要的额外数据
-    const emit = (route, x = {}) => {
-      const want = R.needs(route);
-      const ex = Object.fromEntries(Object.entries({ ...extra, ...x }).filter(([k]) => want.includes(k)));
-      const p = R.renderRoute(route, site, ex);
-      const rel = decodeURIComponent(R.routePath(route)).replace(/^\/|\/$/g, '');
-      write(rel, page(p, { ...site, extra: ex }));
-      count++;
-      if (route.name !== 'notfound') sitemap.push({ loc: R.url(R.routePath(route)), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+    // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
+    const emit = async (route, loadX) => {
+      const label = R.routePath(route);
+      try {
+        const x = loadX ? await loadX() : {};
+        const want = R.needs(route);
+        const ex = Object.fromEntries(Object.entries({ ...extra, ...x }).filter(([k]) => want.includes(k)));
+        const p = R.renderRoute(route, site, ex);
+        const rel = decodeURIComponent(label).replace(/^\/|\/$/g, '');
+        write(rel, page(p, { ...site, extra: ex }));
+        count++;
+        if (route.name === 'post') postPages++;
+        if (route.name === 'home') listPages++;
+        if (route.name !== 'notfound') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+      } catch (e) {
+        failures.push(`${label}：${e.message}`);
+        if (!STRICT) console.warn(`[prerender] ⚠ 跳过失败页 ${label}：${e.message}`);
+      }
     };
     const per = Math.max(1, settings.postsPerPage);
-    const pages = Math.max(1, Math.ceil(site.posts.length / per));
-    for (let n = 1; n <= pages; n++) emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES]) emit({ name });
-    // 订阅源：RSS 2.0 + JSON Feed（需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
+    const pages = Math.max(1, Math.ceil(list.total / per));
+    for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES]) await emit({ name });
+    // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
       const feed = { title: settings.siteTitle, description: settings.siteDescription, siteUrl, posts: list.posts };
@@ -175,17 +202,36 @@ if (API || DEMO) {
       console.warn('[prerender] 未设置 BLOG_SITE_URL（站点的绝对地址），跳过 rss.xml / feed.json。');
     }
     // Pages 按解码后的路径查找文件；含路径分隔符或以 . 开头的标签 / 分类不生成静态页（浏览器端回退渲染）
-    for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) emit({ name: 'tag', tag: t.tag });
-    for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) emit({ name: 'category', category: c.category });
-    for (const a of extra.gallery) emit({ name: 'album', slug: a.slug });
-    for (const s of list.posts) emit({ name: 'post', slug: s.slug }, { post: await get(`/api/posts/${s.slug}`) });
+    for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) await emit({ name: 'tag', tag: t.tag });
+    for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) await emit({ name: 'category', category: c.category });
+    for (const a of extra.gallery) await emit({ name: 'album', slug: a.slug });
+    // 文章页：小批量并发拉取正文
+    const queue = [...list.posts];
+    await Promise.all(Array.from({ length: 6 }, async () => {
+      for (let s = queue.shift(); s; s = queue.shift()) {
+        const slug = s.slug;
+        await emit({ name: 'post', slug }, async () => ({ post: await get(`/api/posts/${encodeURIComponent(slug)}`) }));
+      }
+    }));
+    // 并发渲染后，sitemap 里的文章按站点顺序排列（输出稳定）
+    const order = new Map(list.posts.map((p, i) => [R.url(R.routePath({ name: 'post', slug: p.slug })), i]));
+    sitemap.sort((a, b) => (order.get(a.loc) ?? -1) - (order.get(b.loc) ?? -1));
+    const problems = verifyCounts({ postPages, total: list.total, failures });
+    if (listPages !== pages) problems.push(`列表页 ${listPages} ≠ 应有 ${pages}`);
+    if (problems.length) {
+      if (STRICT) fail(problems.join('；'));
+      loud(problems.join('；'));
+    }
+    console.log(`[prerender] 文章页 ${postPages}/${list.total}，列表页 ${listPages}/${pages}`);
     ok = true;
   } catch (e) {
-    if (DEMO) throw e;
-    console.warn(`[prerender] 无法从 ${API} 获取数据（${e.message}），使用空壳回退。`);
+    if (DEMO || STRICT) fail(`无法从 ${DEMO ? '演示 mock API' : API} 获取数据（${e.message}）`);
+    loud(`无法从 ${API} 获取数据（${e.message}），使用空壳回退。`);
   }
+} else if (STRICT) {
+  fail('严格模式需要 BLOG_API_URL（或 --demo）：没有数据源就不能预渲染');
 } else {
-  console.warn('[prerender] 未设置 BLOG_API_URL，跳过内容预渲染（页面将在浏览器中加载数据）。');
+  loud('未设置 BLOG_API_URL，跳过内容预渲染（页面将在浏览器中加载数据）。');
 }
 if (!ok) {
   // 空壳：保持模板，浏览器端显示加载骨架并调用 API

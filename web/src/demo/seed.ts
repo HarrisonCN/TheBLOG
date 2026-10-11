@@ -809,3 +809,38 @@ link: https://archive.org/details/NS050
     },
   ];
 }
+
+/**
+ * 测试 / E2E 夹具：在种子数据后面追加 n 篇更早的文章（2018 年起），一半共享同一个发布时间，
+ * 用来证明第 101 篇以后的文章能被分页、归档、预渲染、sitemap 拿到。正式演示站不启用（n = 0）。
+ */
+export function withFixturePosts(db: DemoDb, n: number): DemoDb {
+  if (!(n > 0)) return db;
+  const start = db.nextId;
+  for (let k = 1; k <= n; k++) {
+    const t = k % 2 === 0 ? '2018-06-01T00:00:00.000Z' : new Date(Date.UTC(2018, 0, 1) + k * 3_600_000).toISOString();
+    const contentMd = `夹具文章 ${k} 的正文。`;
+    db.posts.push({
+      id: start + k - 1,
+      slug: `fixture-${String(k).padStart(3, '0')}`,
+      title: `夹具文章 ${k}`,
+      summary: `分页夹具 #${k}`,
+      contentMd,
+      tags: ['夹具'],
+      coverUrl: null,
+      category: '夹具',
+      series: null,
+      kind: 'post',
+      essay: null,
+      notes: null,
+      pinned: false,
+      wordCount: contentMd.replace(/[\s#*`]/g, '').length,
+      status: 'published',
+      publishedAt: t,
+      createdAt: t,
+      updatedAt: t,
+    });
+  }
+  db.nextId = start + n;
+  return db;
+}
