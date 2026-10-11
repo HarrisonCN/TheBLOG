@@ -51,10 +51,11 @@ export interface Work {
   publishedAt: string | null;
   editedAt: string | null;
   createdAt: string;
+  topics?: { slug: string; name: string }[];
   counts: { comments: number; bookmarks: number; reactions: Partial<Record<WorkReaction, number>> };
   mine: { reactions: WorkReaction[]; bookmarked: boolean; canEdit: boolean };
 }
-interface WComment { id: number; parentId: number | null; author: Card; body: string; pending: boolean; createdAt: string; canDelete: boolean }
+interface WComment { id: number; parentId: number | null; author: Card; body: string; pending: boolean; createdAt: string; canDelete: boolean; helpful?: boolean; canMarkHelpful?: boolean }
 
 // ---------------------------------------------------------------- 请求
 const auth = (): Record<string, string> => {
@@ -64,7 +65,9 @@ const auth = (): Record<string, string> => {
 const JH = { 'content-type': 'application/json' };
 const send = <T>(path: string, method: string, body?: unknown) => request<T>(path, { method, headers: { ...(body === undefined ? {} : JH), ...auth() }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 export const ugc = {
-  feed: (tab: string, type: string, cursor?: string | null) => request<{ works: Work[]; nextCursor: string | null }>(`/api/social/works?tab=${tab}${type ? `&type=${type}` : ''}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { headers: auth() }),
+  feed: (tab: string, type: string, cursor?: string | null, topic = '') => request<{ works: Work[]; nextCursor: string | null }>(`/api/social/works?tab=${tab}${type ? `&type=${type}` : ''}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { headers: auth() }),
+  topics: () => request<{ topics: { slug: string; name: string }[] }>('/api/social/topics', { headers: auth() }),
+  helpful: (cid: number, on: boolean) => send<{ helpful: boolean }>(`/api/social/works/comments/${cid}/helpful`, on ? 'POST' : 'DELETE'),
   mine: (status: string, cursor?: string | null) => request<{ works: Work[]; counts: Record<string, number>; nextCursor: string | null }>(`/api/social/me/works?status=${status}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { headers: auth() }),
   work: (id: number) => request<{ work: Work }>(`/api/social/works/${id}`, { headers: auth() }),
   create: (b: unknown) => send<{ work: Work; status: string }>('/api/social/works', 'POST', b),
@@ -94,7 +97,7 @@ export const ugc = {
 };
 interface ReactState { reactions: Partial<Record<WorkReaction, number>>; mine: WorkReaction[]; bookmarked: boolean; bookmarks: number }
 
-const errMsg = (x: unknown) => {
+export const errMsg = (x: unknown) => {
   if (x instanceof ApiError) {
     const d = Array.isArray(x.details) ? (x.details as { message: string }[]).map((y) => y.message).join('；') : '';
     return d ? `${x.message}：${d}` : x.message;
@@ -104,7 +107,7 @@ const errMsg = (x: unknown) => {
 export const workPath = (id: number) => url(`/w/${id}/`);
 const imgSrc = (u: string) => (u.startsWith('/api/') ? API_BASE + u : u);
 const DATE = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Shanghai' });
-function ago(iso: string | null): string {
+export function ago(iso: string | null): string {
   if (!iso) return '';
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return '刚刚';
@@ -113,7 +116,7 @@ function ago(iso: string | null): string {
   if (s < 86400 * 30) return `${Math.floor(s / 86400)} 天前`;
   return DATE.format(new Date(iso));
 }
-function avatar(c: Card, cls = 'soc-av'): string {
+export function avatar(c: Card, cls = 'soc-av'): string {
   if (c.avatarUrl) return `<img class="${cls}" src="${e(imgSrc(c.avatarUrl))}" alt="" loading="lazy" decoding="async">`;
   let h = 0;
   for (const ch of c.username) h = (h * 31 + ch.charCodeAt(0)) % 360;
@@ -121,7 +124,7 @@ function avatar(c: Card, cls = 'soc-av'): string {
 }
 const byline = (w: Work) =>
   `<a class="ugc-by" href="${userPath(w.author.username)}">${avatar(w.author)}<span><b>${e(w.author.nickname)}</b><span class="muted small"> @${e(w.author.username)}</span></span></a><span class="muted small ugc-meta"><span class="soc-chip">${WORK_TYPE_LABEL[w.type]}</span>${w.visibility !== 'public' ? `<span class="soc-chip soc-chip--soft">${icon('lock')}${VISIBILITY_LABEL[w.visibility]}</span>` : ''}<time datetime="${e(w.publishedAt ?? w.createdAt)}">${ago(w.publishedAt ?? w.createdAt)}</time>${w.editedAt ? '<span>· 已编辑</span>' : ''}</span>`;
-const img = (m: Media, cls = '', eager = false) => `<img class="${cls}" src="${e(imgSrc(m.url))}" alt="${e(m.alt)}"${m.width && m.height ? ` width="${m.width}" height="${m.height}"` : ''} loading="${eager ? 'eager' : 'lazy'}" decoding="async">`;
+export const img = (m: Media, cls = '', eager = false) => `<img class="${cls}" src="${e(imgSrc(m.url))}" alt="${e(m.alt)}"${m.width && m.height ? ` width="${m.width}" height="${m.height}"` : ''} loading="${eager ? 'eager' : 'lazy'}" decoding="async">`;
 const totalReactions = (w: Work) => Object.values(w.counts.reactions).reduce((a, b) => a + (b ?? 0), 0);
 function stateBanner(w: Work): string {
   if (w.modState === 'hidden') return `<p class="ugc-state ugc-state--hidden" role="note">${icon('eye')}这条内容已被管理员隐藏，只有你能看到${w.modReason ? `：${e(w.modReason)}` : ''}。</p>`;
@@ -129,7 +132,9 @@ function stateBanner(w: Work): string {
   if (w.status === 'pending') return `<p class="ugc-state" role="note">${icon('clock')}等待审核：新成员的前几条内容会先经过站长审核，通过后才会公开。</p>`;
   return '';
 }
-function card(w: Work): string {
+/** 话题标签（链接到 /t/slug/） */
+export const topicChips = (w: Work) => (w.topics?.length ? `<span class="ugc-topics">${w.topics.map((t) => `<a class="soc-chip soc-chip--topic" href="${url(`/t/${t.slug}/`)}">#${e(t.name)}</a>`).join('')}</span>` : '');
+export function card(w: Work): string {
   const media = w.media.slice(0, 4);
   const more = w.media.length - media.length;
   const text = w.type === 'short' ? `<p class="ugc-card__body">${e(w.body)}</p>` : `${w.title ? `<h3 class="ugc-card__title">${e(w.title)}</h3>` : ''}${w.caption || w.body ? `<p class="ugc-card__body muted">${e((w.caption || w.body).slice(0, 160))}</p>` : ''}`;
@@ -138,10 +143,10 @@ function card(w: Work): string {
   ${stateBanner(w)}
   <a class="ugc-card__link" id="w${w.id}-l" href="${workPath(w.id)}">${text || `<span class="visually-hidden">${WORK_TYPE_LABEL[w.type]}</span>`}</a>
   ${media.length ? `<a class="ugc-grid ugc-grid--${media.length}" href="${workPath(w.id)}" tabindex="-1" aria-hidden="true">${media.map((m, i) => `<span class="ugc-grid__cell">${img(m)}${i === media.length - 1 && more > 0 ? `<span class="ugc-grid__more">+${more}</span>` : ''}</span>`).join('')}</a>` : ''}
-  <footer class="ugc-card__foot muted small"><span>${icon('heart')}${totalReactions(w)}</span><span>${icon('message')}${w.counts.comments}</span>${w.counts.bookmarks ? `<span>${icon('bookmark')}${w.counts.bookmarks}</span>` : ''}</footer>
+  <footer class="ugc-card__foot muted small">${topicChips(w)}<span>${icon('heart')}${totalReactions(w)}</span><span>${icon('message')}${w.counts.comments}</span>${w.counts.bookmarks ? `<span>${icon('bookmark')}${w.counts.bookmarks}</span>` : ''}</footer>
 </article>`;
 }
-function gate(what: string): string {
+export function gate(what: string): string {
   return `<div class="soc-gate tile tile--full">${icon('lock')}<h2>登录后${what}</h2><p class="muted">用邮箱验证码登录好朋友账号，就能发布作品、关注创作者、参与评论。</p><a class="btn btn--primary" href="${url('/join/')}">${icon('user')}登录 / 注册</a></div>`;
 }
 
@@ -158,6 +163,7 @@ async function renderFeed(box: HTMLElement, ctx: UgcCtx): Promise<void> {
   const sp = new URLSearchParams(location.search);
   let tab = (['following', 'latest', 'mine'] as const).find((t) => t === sp.get('tab')) ?? (currentMember() ? 'following' : 'latest');
   let type = WORK_TYPES.includes(sp.get('type') as WorkType) ? sp.get('type')! : '';
+  const topic = /^[a-z0-9-]{2,32}$/.test(sp.get('topic') ?? '') ? sp.get('topic')! : '';
   let status = 'all';
   let cursor: string | null = null;
   const tabBtn = (k: string, l: string) => `<button type="button" class="soc-filter js-tab" data-tab="${k}" aria-pressed="${tab === k}">${l}</button>`;
@@ -194,7 +200,7 @@ async function renderFeed(box: HTMLElement, ctx: UgcCtx): Promise<void> {
         const lab: [string, string][] = [['all', '全部'], ['draft', `草稿 ${r.counts.draft ?? 0}`], ['pending', `待审核 ${r.counts.pending ?? 0}`], ['published', `已发布 ${r.counts.published ?? 0}`], ['hidden', `被隐藏 ${r.counts.hidden ?? 0}`]];
         statusBox.innerHTML = lab.map(([k, l]) => `<button type="button" class="soc-filter js-st" data-st="${k}" aria-pressed="${status === k}">${l}</button>`).join('');
       } else {
-        const r = await ugc.feed(tab, type, append ? cursor : null);
+        const r = await ugc.feed(tab, type, append ? cursor : null, topic);
         works = r.works;
         cursor = r.nextCursor;
       }
@@ -217,6 +223,7 @@ async function renderFeed(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     const q = new URLSearchParams();
     q.set('tab', tab);
     if (type) q.set('type', type);
+    if (topic) q.set('topic', topic);
     history.replaceState(history.state, '', `${location.pathname}?${q}`);
   };
   box.addEventListener('click', (ev) => {
@@ -257,6 +264,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
   <header class="ugc-work__head">${byline(w)}</header>
   ${stateBanner(w)}
   <h1 class="ugc-work__title" id="ugc-title">${e(w.title || `${w.author.nickname}的${WORK_TYPE_LABEL[w.type]}`)}</h1>
+  ${topicChips(w)}
   ${media}
   ${w.caption ? `<p class="ugc-caption">${e(w.caption)}</p>` : ''}
   ${w.body ? `<div class="prose ugc-body">${renderCommentHtml(w.body)}</div>` : ''}
@@ -265,6 +273,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
   <div class="ugc-actions">
     <div class="ugc-reacts" role="group" aria-label="回应">${reactBar}</div>
     <button type="button" class="btn btn--soft btn--sm js-wbookmark" aria-pressed="${w.mine.bookmarked}"${me ? '' : ' disabled'}>${icon('bookmark')}<span>${w.mine.bookmarked ? '已收藏' : '收藏'}</span></button>
+    ${me && w.status === 'published' && w.modState === 'ok' ? `<button type="button" class="btn btn--ghost btn--sm js-collect" aria-haspopup="dialog">${icon('folder')}加入合集</button>` : ''}
     ${w.mine.canEdit ? `<a class="btn btn--ghost btn--sm" href="${url(`/compose/?edit=${w.id}`)}">${icon('edit')}编辑</a>${w.status === 'draft' ? `<button type="button" class="btn btn--primary btn--sm js-publish">${icon('send')}发布</button>` : ''}<button type="button" class="btn btn--ghost btn--sm js-delete">${icon('trash')}删除</button>` : me ? `<button type="button" class="btn btn--ghost btn--sm js-report" data-kind="work" data-id="${w.id}">${icon('flag')}举报</button>` : ''}
   </div>
   ${me ? '' : `<p class="muted small"><a href="${url('/join/')}">登录</a>后可以回应、收藏和评论。</p>`}
@@ -283,7 +292,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
       const { comments } = await ugc.comments(w.id);
       const tops = comments.filter((c) => c.parentId === null || !comments.some((p) => p.id === c.parentId));
       const row = (c: WComment) =>
-        `<li class="ugc-c${c.pending ? ' is-pending' : ''}" data-id="${c.id}"><div class="ugc-c__head">${avatar(c.author)}<a href="${userPath(c.author.username)}"><b>${e(c.author.nickname)}</b></a><time class="muted small" datetime="${e(c.createdAt)}">${ago(c.createdAt)}</time>${c.pending ? '<span class="soc-chip">待审核</span>' : ''}</div><div class="ugc-c__body">${renderCommentHtml(c.body)}</div><div class="ugc-c__act">${me && !c.pending ? `<button type="button" class="ugc-link js-reply" data-id="${c.id}" data-name="${e(c.author.nickname)}">回复</button>` : ''}${c.canDelete ? `<button type="button" class="ugc-link js-cdel" data-id="${c.id}">删除</button>` : me && me.member && c.author.username ? `<button type="button" class="ugc-link js-report" data-kind="comment" data-id="${c.id}">举报</button>` : ''}</div>`;
+        `<li class="ugc-c${c.pending ? ' is-pending' : ''}" data-id="${c.id}"><div class="ugc-c__head">${avatar(c.author)}<a href="${userPath(c.author.username)}"><b>${e(c.author.nickname)}</b></a><time class="muted small" datetime="${e(c.createdAt)}">${ago(c.createdAt)}</time>${c.pending ? '<span class="soc-chip">待审核</span>' : ''}${c.helpful ? '<span class="soc-chip soc-chip--helpful">💡 作者觉得有帮助</span>' : ''}</div><div class="ugc-c__body">${renderCommentHtml(c.body)}</div><div class="ugc-c__act">${c.canMarkHelpful ? `<button type="button" class="ugc-link js-helpful" data-id="${c.id}" aria-pressed="${!!c.helpful}">${c.helpful ? '取消「有帮助」' : '有帮助'}</button>` : ''}${me && !c.pending ? `<button type="button" class="ugc-link js-reply" data-id="${c.id}" data-name="${e(c.author.nickname)}">回复</button>` : ''}${c.canDelete ? `<button type="button" class="ugc-link js-cdel" data-id="${c.id}">删除</button>` : me && me.member && c.author.username ? `<button type="button" class="ugc-link js-report" data-kind="comment" data-id="${c.id}">举报</button>` : ''}</div>`;
       ul.innerHTML =
         tops.map((t) => `${row(t)}${comments.filter((c) => c.parentId === t.id).length ? `<ul class="ugc-replies">${comments.filter((c) => c.parentId === t.id).map((c) => `${row(c)}</li>`).join('')}</ul>` : ''}</li>`).join('') ||
         '<li class="soc-empty muted">还没有评论。</li>';
@@ -347,6 +356,14 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
         (f.elements.namedItem('parentId') as HTMLInputElement).value = '';
         f.querySelector<HTMLElement>('.js-replying')!.hidden = true;
         b.hidden = true;
+      } else if (b.classList.contains('js-collect')) {
+        (await import('./discovery-client')).openCollect('work', String(w.id), w.title || WORK_TYPE_LABEL[w.type], ctx, b);
+      } else if (b.classList.contains('js-helpful')) {
+        const on = b.getAttribute('aria-pressed') !== 'true';
+        await ugc.helpful(Number(b.dataset.id), on);
+        void ctx.notify(on ? '已标记为有帮助，评论者会获得「热心解答」徽章' : '已取消标记', on ? 'success' : 'info');
+        await loadComments();
+        box.querySelector<HTMLElement>(`.js-helpful[data-id="${b.dataset.id}"]`)?.focus();
       } else if (b.classList.contains('js-cdel')) {
         if (!confirm('删除这条评论？')) return;
         await ugc.delComment(Number(b.dataset.id));
@@ -416,7 +433,7 @@ function openReport(kind: string, id: number, ctx: UgcCtx, opener: HTMLElement):
 }
 
 // ---------------------------------------------------------------- 发布器
-interface Draft { type: WorkType; title: string; body: string; caption: string; notes: string; params: WorkParams; media: Media[]; visibility: WorkVisibility }
+interface Draft { type: WorkType; title: string; body: string; caption: string; notes: string; params: WorkParams; media: Media[]; visibility: WorkVisibility; topics: string[] }
 async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
   if (!currentMember()) return void (box.innerHTML = gate('发布作品'));
   const editId = Number(new URLSearchParams(location.search).get('edit')) || 0;
@@ -426,8 +443,12 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     if (!editing.mine.canEdit) throw new ApiError(403, '只能编辑自己的内容');
   }
   const d: Draft = editing
-    ? { type: editing.type, title: editing.title, body: editing.body, caption: editing.caption, notes: editing.notes, params: { ...editing.params }, media: editing.media.map((m) => ({ ...m })), visibility: editing.visibility }
-    : { type: 'photo', title: '', body: '', caption: '', notes: '', params: {}, media: [], visibility: 'public' };
+    ? { type: editing.type, title: editing.title, body: editing.body, caption: editing.caption, notes: editing.notes, params: { ...editing.params }, media: editing.media.map((m) => ({ ...m })), visibility: editing.visibility, topics: (editing.topics ?? []).map((t) => t.slug) }
+    : { type: 'photo', title: '', body: '', caption: '', notes: '', params: {}, media: [], visibility: 'public', topics: [] };
+  // L17 话题（关联表，不是自由标签）：最多 3 个；?topic= 预选
+  const allTopics = await ugc.topics().then((r) => r.topics).catch(() => [] as { slug: string; name: string }[]);
+  const pre = new URLSearchParams(location.search).get('topic');
+  if (!editing && pre && allTopics.some((t) => t.slug === pre)) d.topics = [pre];
   const draw = () => {
     const r = TYPE_RULES[d.type];
     const field = (name: keyof Draft, label: string, max: number, min: number, rows = 0, hint = '') => {
@@ -466,6 +487,7 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
   ${field('body', d.type === 'short' ? '想说点什么' : d.type === 'article' ? '正文' : '描述', r.body[1], r.body[0], d.type === 'article' ? 14 : 4, d.type === 'article' ? '支持 **粗体**、*斜体*、`代码`、> 引用 和 https 链接；空行分段。可以用 @用户名 提到别人。' : '可以用 @用户名 提到别人。')}
   ${paramsHtml}
   ${field('notes', '拍摄手记', r.notes, 0, 4, '这张照片背后的故事：怎么拍的、当时的天气和心情。')}
+  ${allTopics.length ? `<fieldset class="ugc-topicpick"><legend>话题 <span class="muted small">（可选，最多 3 个；会出现在话题页，订阅了话题的人能看到）</span></legend><div class="soc-filters">${allTopics.map((t) => `<label class="ugc-type${d.topics.includes(t.slug) ? ' is-on' : ''}"><input type="checkbox" class="js-topic" value="${e(t.slug)}"${d.topics.includes(t.slug) ? ' checked' : ''}>#${e(t.name)}</label>`).join('')}</div><p class="field__err js-err" data-for="topics" hidden></p></fieldset>` : ''}
   <div class="field"><label class="field__label" for="ugc-vis">谁可以看</label><select id="ugc-vis" name="visibility">${(['public', 'followers', 'private'] as const).map((v) => `<option value="${v}"${d.visibility === v ? ' selected' : ''}>${VISIBILITY_LABEL[v]}</option>`).join('')}</select></div>
   <p class="field__err js-err" data-for="" role="alert" hidden></p>
   <div class="ugc-row ugc-submit">${!editing || editing.status === 'draft' ? `<button class="btn btn--soft js-save-draft" type="submit" value="draft">${icon('file')}${editing ? '保存草稿' : '存为草稿'}</button>` : ''}<button class="btn btn--primary js-submit" type="submit" value="publish">${icon('send')}${editing ? (editing.status === 'draft' ? '发布' : '保存修改') : '发布'}</button></div>
@@ -479,6 +501,7 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
       else d[k] = '';
     }
     d.visibility = (f.elements.namedItem('visibility') as HTMLSelectElement).value as WorkVisibility;
+    d.topics = [...f.querySelectorAll<HTMLInputElement>('.js-topic:checked')].map((x) => x.value);
     f.querySelectorAll<HTMLInputElement>('.js-alt').forEach((a) => (d.media[Number(a.dataset.i)]!.alt = a.value));
     if (TYPE_RULES[d.type].params) {
       const p: WorkParams = {};
@@ -511,6 +534,15 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
       if (d.media.length > r.media[1]) d.media = d.media.slice(0, r.media[1]);
       draw();
       box.querySelector<HTMLInputElement>(`input[name=type][value=${d.type}]`)?.focus();
+      return;
+    }
+    if (t.classList.contains('js-topic')) {
+      const on = [...box.querySelectorAll<HTMLInputElement>('.js-topic:checked')];
+      if (on.length > 3) {
+        t.checked = false;
+        return void ctx.notify('最多选 3 个话题', 'warning');
+      }
+      t.closest('label')?.classList.toggle('is-on', t.checked);
       return;
     }
     if (t.classList.contains('js-file') && t.files?.length) {
@@ -560,9 +592,9 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     try {
       let res: { work: Work; status: string };
       if (editing) {
-        res = await ugc.update(editing.id, c.value);
+        res = await ugc.update(editing.id, { ...c.value, topics: d.topics });
         if (editing.status === 'draft' && !asDraft) res = await ugc.publish(editing.id);
-      } else res = await ugc.create({ ...c.value, draft: asDraft });
+      } else res = await ugc.create({ ...c.value, topics: d.topics, draft: asDraft });
       void ctx.notify(res.status === 'draft' ? '草稿已保存，只有你能看到' : res.status === 'pending' ? '已提交，等待站长审核后公开' : editing ? '修改已保存' : '发布成功', 'success');
       ctx.navigate?.(workPath(res.work.id));
     } catch (x) {

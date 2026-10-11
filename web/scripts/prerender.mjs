@@ -191,7 +191,7 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose']) await emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events']) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {
@@ -222,6 +222,15 @@ if (API || DEMO) {
       for (const u of authors) await emit({ name: 'user', username: u });
     } catch (e) {
       console.warn(`[prerender] 跳过社区作品外壳：${e.message}`);
+    }
+    // L17：话题页 / 活动页的静态外壳（内容在浏览器端加载）；旧 Worker 没有这些接口时跳过。
+    try {
+      const { topics } = await get('/api/social/topics');
+      for (const t of topics ?? []) if (/^[a-z0-9-]{2,32}$/.test(t.slug)) await emit({ name: 'topic', slug: t.slug });
+      const { events } = await get('/api/social/events?status=all');
+      for (const ev of events ?? []) if (/^[a-z0-9-]{2,40}$/.test(ev.slug)) await emit({ name: 'event', slug: ev.slug });
+    } catch (e) {
+      console.warn(`[prerender] 跳过话题 / 活动外壳：${e.message}`);
     }
     // 文章页：小批量并发拉取正文
     const queue = [...list.posts];

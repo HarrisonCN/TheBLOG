@@ -95,3 +95,13 @@
 @media (prefers-reduced-motion: reduce) {
   .ugc-react, .ugc-type { transition: none; }
 }
+
+/* L17 话题标签 / 有帮助的评论 / 发布器话题选择 */
+.soc-chip--topic { text-decoration: none; }
+.soc-chip--topic:hover, .soc-chip--topic:focus-visible { text-decoration: underline; }
+.soc-chip--helpful { background: color-mix(in srgb, #d97706 16%, transparent); color: var(--heading); }
+.ugc-topics { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; }
+.ugc-card__foot .ugc-topics { flex-basis: 100%; }
+.ugc-card__foot { flex-wrap: wrap; }
+.ugc-topicpick .soc-filters { flex-wrap: wrap; }
+
