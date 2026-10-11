@@ -19,7 +19,7 @@
 .soc-profile { padding: 0 !important; overflow: hidden; }
 .soc-cover { height: 180px; background: var(--cover, linear-gradient(120deg, var(--grad-1), var(--grad-3) 55%, var(--accent-2))); background-size: cover; background-position: center; }
 .soc-id { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; margin-top: -48px; padding: 0 1.5rem; }
-.soc-id__txt { flex: 1 1 200px; min-width: 0; }
+.soc-id__txt { flex: 1 1 200px; min-width: 0; padding-top: 56px; }
 .soc-id__txt p { margin: 0.2rem 0 0; }
 .soc-name { margin: 0.6rem 0 0; font-family: var(--serif); font-size: clamp(1.5rem, 3vw, 2rem); color: var(--heading); overflow-wrap: anywhere; }
 .soc-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; padding-bottom: 0.3rem; }

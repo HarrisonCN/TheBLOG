@@ -79,7 +79,7 @@ function avatar(c: { nickname: string; avatarUrl: string; username: string }, cl
   if (c.avatarUrl) return `<img class="${cls}" src="${e(c.avatarUrl)}" alt="" loading="lazy" decoding="async">`;
   let h = 0;
   for (const ch of c.username) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return `<span class="${cls} ${cls}--letter" style="--h:${h}" aria-hidden="true">${e((c.nickname || c.username).slice(0, 1))}</span>`;
+  return `<span class="${cls} soc-av--letter" style="--h:${h}" aria-hidden="true">${e((c.nickname || c.username).slice(0, 1))}</span>`;
 }
 const userLink = (c: Card) => `<a class="soc-user" href="${userPath(c.username)}">${avatar(c)}<span class="soc-user__txt"><b>${e(c.nickname)}</b><span class="muted small">@${e(c.username)}</span></span></a>`;
 
@@ -92,11 +92,7 @@ export async function refreshUnread(): Promise<number> {
   const me = currentMember();
   const links = document.querySelectorAll<HTMLElement>('.js-notif-link');
   links.forEach((l) => (l.hidden = !me));
-  document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => {
-    a.href = me ? url('/me/') : url('/join/');
-    a.setAttribute('aria-label', me ? '我的' : '好朋友登录 / 注册');
-    a.title = me ? '我的' : '好朋友登录 / 注册';
-  });
+  document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => (a.href = me ? url('/me/') : url('/join/')));
   if (!me) return 0;
   let n = 0;
   try {
@@ -293,7 +289,7 @@ async function renderNotifications(box: HTMLElement, ctx: SocialCtx): Promise<vo
   box.innerHTML = `<div class="soc-notes tile tile--full">
   <div class="soc-notes__bar"><div class="soc-filters" role="group" aria-label="筛选通知">${FILTERS.map(([k, l]) => `<button type="button" class="soc-filter js-filter" data-f="${k}" aria-pressed="${k === 'all'}">${l}</button>`).join('')}</div>
   <button class="btn btn--soft btn--sm js-readall" type="button">${icon('check')}全部已读</button></div>
-  <p class="sr-only js-unread-live" role="status"></p>
+  <p class="visually-hidden js-unread-live" role="status"></p>
   <ul class="soc-nlist js-nlist" aria-label="通知列表"></ul>
   <button class="btn btn--ghost btn--sm js-more" type="button" hidden>加载更多</button>
 </div>`;
@@ -307,7 +303,7 @@ async function renderNotifications(box: HTMLElement, ctx: SocialCtx): Promise<vo
     live.textContent = `${r.unread} 条未读`;
     const html = r.notifications
       .map(
-        (n) => `<li class="soc-n${n.read ? '' : ' is-unread'}" data-id="${n.id}"><span class="soc-n__ic soc-n__ic--${e(n.type)}" aria-hidden="true">${icon(NOTICE_ICON[n.type] ?? 'bell')}</span>${n.actor ? avatar(n.actor) : ''}<div class="soc-n__body"><p>${noticeText(n)}</p>${n.excerpt && n.type !== 'follow' ? `<p class="soc-n__ex muted small">${e(n.excerpt)}</p>` : ''}<time class="muted small" datetime="${e(n.updatedAt)}">${ago(n.updatedAt)}</time></div>${n.read ? '<span class="sr-only">已读</span>' : `<button class="soc-n__mark js-mark" type="button" aria-label="标记为已读">${icon('check')}</button>`}</li>`,
+        (n) => `<li class="soc-n${n.read ? '' : ' is-unread'}" data-id="${n.id}"><span class="soc-n__ic soc-n__ic--${e(n.type)}" aria-hidden="true">${icon(NOTICE_ICON[n.type] ?? 'bell')}</span>${n.actor ? avatar(n.actor) : ''}<div class="soc-n__body"><p>${noticeText(n)}</p>${n.excerpt && n.type !== 'follow' ? `<p class="soc-n__ex muted small">${e(n.excerpt)}</p>` : ''}<time class="muted small" datetime="${e(n.updatedAt)}">${ago(n.updatedAt)}</time></div>${n.read ? '<span class="visually-hidden">已读</span>' : `<button class="soc-n__mark js-mark" type="button" aria-label="标记为已读">${icon('check')}</button>`}</li>`,
       )
       .join('');
     if (append) list.insertAdjacentHTML('beforeend', html);
@@ -344,7 +340,7 @@ async function renderNotifications(box: HTMLElement, ctx: SocialCtx): Promise<vo
       const btn = li.querySelector<HTMLElement>('.js-mark');
       if (btn) {
         const next = li.nextElementSibling?.querySelector<HTMLElement>('.js-mark') ?? box.querySelector<HTMLElement>('.js-readall');
-        btn.outerHTML = '<span class="sr-only">已读</span>';
+        btn.outerHTML = '<span class="visually-hidden">已读</span>';
         if (viaButton) next?.focus();
       }
       live.textContent = `${r.unread} 条未读`;
@@ -361,11 +357,11 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   const [{ profile: p, settings: s }, { prefs }] = await Promise.all([social.me(), social.prefs()]);
   const linkRows = [0, 1, 2, 3, 4].map((i) => {
     const l = p.links[i];
-    return `<div class="soc-linkrow"><label><span class="sr-only">链接 ${i + 1} 名称</span><input name="ll${i}" maxlength="24" placeholder="名称" value="${e(l?.label ?? '')}"></label><label><span class="sr-only">链接 ${i + 1} 地址</span><input name="lu${i}" type="url" maxlength="200" placeholder="https://…" value="${e(l?.url ?? '')}"></label></div>`;
+    return `<div class="soc-linkrow"><label><span class="visually-hidden">链接 ${i + 1} 名称</span><input name="ll${i}" maxlength="24" placeholder="名称" value="${e(l?.label ?? '')}"></label><label><span class="visually-hidden">链接 ${i + 1} 地址</span><input name="lu${i}" type="url" maxlength="200" placeholder="https://…" value="${e(l?.url ?? '')}"></label></div>`;
   });
   const chk = (name: string, on: boolean, label: string, hint = '') => `<label class="soc-check"><input type="checkbox" name="${name}"${on ? ' checked' : ''}><span>${label}${hint ? `<small class="muted">${hint}</small>` : ''}</span></label>`;
-  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a></section>
-<section class="tile tile--half soc-find" aria-labelledby="soc-find-h"><h2 class="soc-h" id="soc-find-h">${icon('search')}找人</h2><form class="js-find" role="search"><label for="soc-q" class="sr-only">按用户名或昵称搜索</label><div class="soc-find__row"><input id="soc-q" name="q" maxlength="40" placeholder="用户名或昵称" autocomplete="off"><button class="btn btn--primary btn--sm" type="submit">搜索</button></div></form><ul class="soc-users js-find-res" aria-live="polite"></ul></section>
+  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a></div></section>
+<section class="tile tile--half soc-find" aria-labelledby="soc-find-h"><h2 class="soc-h" id="soc-find-h">${icon('search')}找人</h2><form class="js-find" role="search"><label for="soc-q" class="visually-hidden">按用户名或昵称搜索</label><div class="soc-find__row"><input id="soc-q" name="q" maxlength="40" placeholder="用户名或昵称" autocomplete="off"><button class="btn btn--primary btn--sm" type="submit">搜索</button></div></form><ul class="soc-users js-find-res" aria-live="polite"></ul></section>
 <section class="tile tile--half" aria-labelledby="soc-bm-h"><h2 class="soc-h" id="soc-bm-h">${icon('bookmark')}云端收藏</h2><p class="muted small">在任何设备登录都能看到。文章卡片上的书签按钮会自动同步。</p><ul class="soc-bms js-bms"><li class="muted">加载中…</li></ul><button class="btn btn--ghost btn--sm js-bm-more" type="button" hidden>加载更多</button></section>
 <section class="tile tile--full" aria-labelledby="soc-prof-h"><h2 class="soc-h" id="soc-prof-h">${icon('edit')}资料</h2>
 <form class="soc-form js-profile" novalidate>
@@ -387,7 +383,7 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   ${chk('showFollows', s.showFollows, '公开我的关注 / 粉丝列表')}
   ${chk('discoverable', s.discoverable, '允许别人通过搜索找到我')}
   <button class="btn btn--soft btn--sm" type="submit">保存隐私设置</button></form></section>
-<section class="tile tile--half" aria-labelledby="soc-np-h"><h2 class="soc-h" id="soc-np-h">${icon('bell')}通知</h2>
+<section class="tile tile--half" aria-labelledby="soc-np-h"><h2 class="soc-h" id="soc-np-h">${icon('bell')}通知设置</h2>
 <form class="soc-form js-prefs"><fieldset><legend>站内通知</legend>${chk('follow', prefs.follow, '有人关注我')}${chk('reply', prefs.reply, '有人回复我的评论')}${chk('mention', prefs.mention, '有人 @ 我')}${chk('bookmark', prefs.bookmark, '有人收藏我的作品')}</fieldset>
   <fieldset><legend>邮件</legend>${chk('email', prefs.email, '同时发邮件提醒', '默认关闭；每小时最多 5 封')}</fieldset>
   <button class="btn btn--soft btn--sm" type="submit">保存通知设置</button></form></section>

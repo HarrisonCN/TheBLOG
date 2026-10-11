@@ -2,6 +2,20 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.15.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.15.0)
+
+_L15 · 社交基础：用户名与个人主页、关注 / 拉黑 / 静音、云端收藏、通知中心_
+
+### 新功能 Features
+
+- **social:** lazy social UI — /u/:username profile, /notifications center, /me settings; nav bell + drawer 通知/我的; cloud bookmark sync + merge prompt (c886ed0)
+- **social:** demo mock parity for /api/social (shared social-core, web unit tests) (41e8ad3)
+- **social:** L15 worker API — usernames, profiles, follow/block/mute, cloud bookmarks, notifications (migration 0012_social) (16e0ffb)
+
+### 杂项 Chores
+
+- **release:** freeze 1.14.1 merge sha 11354ee (3ed8fa2)
+
 ## [1.14.1](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.1)
 
 _L14 hardening · 工程加固：分页、严格预渲染、设计令牌、版本管理、Motionary 13.5_

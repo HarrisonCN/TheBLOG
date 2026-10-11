@@ -104,3 +104,14 @@ describe('演示 mock：L15 社交（与 Worker 同规则）', () => {
     expect((await api.handle('GET', '/api/social/users/alice_r')).status).toBe(404);
   });
 });
+
+describe('L15 路由', () => {
+  it('/u/:username、/notifications/、/me/', async () => {
+    const { parseRoute, routePath } = await import('../src/render');
+    expect(parseRoute('/u/Alice_X/')).toEqual({ name: 'user', username: 'alice_x' });
+    expect(routePath({ name: 'user', username: 'bob' })).toBe('/u/bob/');
+    expect(parseRoute('/notifications/')).toEqual({ name: 'notifications' });
+    expect(parseRoute('/me/')).toEqual({ name: 'me' });
+    expect(parseRoute('/u/a/')).toEqual({ name: 'notfound' });
+  });
+});
