@@ -61,6 +61,14 @@ export const disc = {
 };
 
 // ---------------------------------------------------------------- 小部件
+/** 同一个容器重新渲染时撤掉上一轮的事件监听（避免重复绑定导致一次点击触发多次）。 */
+const LISTENERS = new WeakMap<HTMLElement, AbortController>();
+function freshSignal(box: HTMLElement): AbortSignal {
+  LISTENERS.get(box)?.abort();
+  const ac = new AbortController();
+  LISTENERS.set(box, ac);
+  return ac.signal;
+}
 const DT = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' });
 const when = (iso: string) => DT.format(new Date(iso));
 const topicPath = (slug: string) => url(`/t/${slug}/`);
@@ -291,6 +299,7 @@ async function renderEvent(box: HTMLElement, slug: string, ctx: UgcCtx): Promise
       btn.disabled = false;
     }
   });
+  const signal = freshSignal(box);
   box.addEventListener('click', async (evt) => {
     const b = (evt.target as HTMLElement).closest<HTMLButtonElement>('.js-vote, .js-withdraw, .js-edit-entry');
     if (!b || b.disabled) return;
@@ -323,7 +332,7 @@ async function renderEvent(box: HTMLElement, slug: string, ctx: UgcCtx): Promise
       b.disabled = false;
       void ctx.notify(errMsg(x), 'error');
     }
-  });
+  }, { signal });
   void mine;
 }
 
@@ -379,6 +388,7 @@ async function renderCollection(box: HTMLElement, id: number, ctx: UgcCtx): Prom
       f.querySelector<HTMLElement>('.js-cerr')!.textContent = errMsg(x);
     }
   });
+  const signal = freshSignal(box);
   box.addEventListener('click', async (evt) => {
     const b = (evt.target as HTMLElement).closest<HTMLButtonElement>('.js-rm, .js-cdel');
     if (!b) return;
@@ -397,7 +407,7 @@ async function renderCollection(box: HTMLElement, id: number, ctx: UgcCtx): Prom
     } catch (x) {
       void ctx.notify(errMsg(x), 'error');
     }
-  });
+  }, { signal });
 }
 
 /** 「加入合集」对话框：勾选 / 取消我的合集，或新建一个（默认私密）。 */
