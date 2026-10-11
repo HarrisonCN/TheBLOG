@@ -10,7 +10,11 @@ beforeAll(async () => {
   env = await setupEnv({ EMAIL_PROVIDER: 'memory' });
   admin = await login(env, '10.17.0.1');
 });
-afterAll(disposeEnv);
+afterAll(async () => {
+  // 测试共用一个持久化 D1：恢复默认审核规则（reviewFirstN 2），避免影响之后运行的测试文件（CI 里 ugc.test 排在后面）
+  await call(env, '/api/admin/ugc/rules', { method: 'PUT', cookie: admin.cookie, csrf: admin.csrf, body: { reviewFirstN: 2 } });
+  await disposeEnv();
+});
 
 const ip = (n: number) => ({ 'cf-connecting-ip': `10.17.1.${n}` });
 const codeFor = (email: string) => /(\d{6})/.exec(testOutbox.filter((m) => m.to === email).at(-1)?.text ?? '')?.[1] ?? '';
