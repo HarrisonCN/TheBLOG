@@ -6,6 +6,7 @@ import './styles.css';
 import './admin.css';
 import './motion-ui.css';
 import './l12.css';
+import './l14.css';
 import { request, ApiError, API_BASE, DEMO } from './api';
 import { escapeHtml as e } from './markdown';
 import { renderSafe } from './sanitize';
@@ -13,7 +14,11 @@ import { icon } from './icons';
 import { defineUsed } from './usa';
 import { resultIconHtml } from './result-icon';
 import { installIconMotion } from './icon-motion';
-import { backdrop, festivalText, memberBadge } from './render';
+import { backdrop, essaySection, festivalText, memberBadge } from './render';
+import { bindEssayEditor, essayEditorHtml, readPostMediaRaw } from './admin-essay';
+import { validateEssay } from './essay-core';
+import { searchBooks, type BookHit } from './openlibrary';
+import { shotNotesHtml } from './essay-view';
 import { badgeBuilderHtml, bindBadgeBuilder } from './badge-view';
 import { renderCommentHtml, type CommentStatus, type PostComment } from './comment-core';
 import { toggleTheme } from './theme';
@@ -341,6 +346,7 @@ async function renderEditor(): Promise<void> {
   <div class="field"><label for="f-tags">标签（逗号分隔）</label><input id="f-tags" name="tags" value="${e((p?.tags ?? []).join(', '))}"></div>
   <div class="field"><label for="f-cover">封面图</label><div class="adm-cover"><input id="f-cover" name="coverUrl" placeholder="URL，或点右边上传" value="${e(p?.coverUrl ?? '')}"><label class="btn btn--soft btn--sm">${icon('upload')}上传封面<input type="file" id="f-cover-file" accept="${PHOTO_ACCEPT}" hidden></label></div></div>
   <label class="adm-check"><input type="checkbox" name="pinned" ${p?.pinned ? 'checked' : ''}> 置顶这篇文章</label>
+  ${essayEditorHtml(p)}
   <div class="field"><div class="adm-row adm-row--between"><label for="f-content">正文（Markdown）</label><label class="btn btn--ghost btn--sm">${icon('image')}插入图片<input type="file" id="f-image" accept="${PHOTO_ACCEPT}" hidden></label></div><textarea id="f-content" name="contentMd" class="adm-md">${e(p?.contentMd ?? '')}</textarea></div>
   <div class="adm-row">
     <button class="btn" type="submit">${icon('check')}${p ? '保存' : '保存草稿'}</button>
@@ -363,10 +369,29 @@ async function renderEditor(): Promise<void> {
     preview.innerHTML = `${cover ? `<img class="adm-preview__cover" src="${e(rawUrl(cover))}" alt="">` : ''}
 <p class="muted small">${field('category') ? `${e(field('category'))} · ` : ''}${tags.map((t) => `#${e(t)}`).join(' ')}</p>
 <h1 class="adm-preview__title">${e(field('title') || '（无标题）')}</h1>${field('summary') ? `<p class="adm-preview__sum">${e(field('summary'))}</p>` : ''}
-<div class="prose">${renderSafe(content.value)}</div>`;
+<div class="prose">${renderSafe(content.value)}</div>${mediaPreview()}`;
     const wc = root.querySelector('#wc');
     if (wc) wc.textContent = `${content.value.replace(/\s+/g, '').length} 字`;
   };
+  function mediaPreview(): string {
+    const m = readPostMediaRaw(form);
+    const ess = m.essay ? validateEssay({ ...m.essay, photos: m.essay.photos.filter((x) => x.src) }).essay : null;
+    return `${ess?.photos.length ? essaySection(ess) : ''}${m.notes ? shotNotesHtml(m.notes, '拍摄手记', true) : ''}`;
+  }
+  const l14 = bindEssayEditor(form, {
+    upload: async (file) => {
+      const { res, prep } = await uploadPhoto(file);
+      return { url: res.url, width: prep.width, height: prep.height, exif: prep.fields, notes: prep.notes };
+    },
+    msg: (t, err) => msg(t, err),
+    onChange: () => update(),
+    insert: (md) => {
+      const pos = content.selectionStart ?? content.value.length;
+      content.value = `${content.value.slice(0, pos)}${pos ? '\n\n' : ''}${md}\n\n${content.value.slice(pos)}`;
+      content.focus();
+      update();
+    },
+  });
   form.addEventListener('input', update);
   update();
   form.querySelector<HTMLInputElement>('#f-cover-file')!.addEventListener('change', async (ev) => {
@@ -426,6 +451,9 @@ async function renderEditor(): Promise<void> {
       pinned: fd.get('pinned') === 'on',
     };
     if (slug) body.slug = slug;
+    const media = l14.validate();
+    if (!media.ok) return msg('影集 / 拍摄手记有需要修改的地方，见表单下方的提示', true);
+    Object.assign(body, media.body);
     try {
       if (editing) editing = await put<Post>(`/api/admin/posts/${encodeURIComponent(editing.slug)}`, body, 'PATCH');
       else {
@@ -717,7 +745,11 @@ async function renderSection(key: SectionKey): Promise<void> {
   const uploadTile =
     key === 'works'
       ? tile('full', `${head('upload', '从照片添加', `<label class="btn btn--sm">${icon('upload')}选择照片<input type="file" id="work-photo" accept="${PHOTO_ACCEPT}" hidden></label>`)}<p class="muted small">上传时在浏览器里自动读取 EXIF（拍摄时间、手机 / 机身、镜头、焦距、光圈、快门、ISO），并从文件中去掉 EXIF 和 GPS。位置默认不公开。</p><div id="work-photo-panel"></div>`, 'adm-photo-tile')
-      : '';
+      : key === 'shelf'
+        ? tile('full', `${head('library', '添加书影音', `<label class="btn btn--sm btn--soft">${icon('upload')}上传封面新建<input type="file" id="shelf-cover" accept="${PHOTO_ACCEPT}" hidden></label>`)}
+<form class="adm-row adm-ol" id="ol-form" role="search"><label class="visually-hidden" for="ol-q">书名</label><input id="ol-q" placeholder="书名，例如 明室 / Camera Lucida" maxlength="100" required><label class="visually-hidden" for="ol-a">作者（可选）</label><input id="ol-a" placeholder="作者（可选）" maxlength="60"><button class="btn btn--sm" type="submit">${icon('search')}在 Open Library 找书和封面</button></form>
+<p class="muted small">只用 Open Library 的公开搜索接口（不抓取网页）；封面可以换成自己上传的图片或任意 https 链接。电影 / 音乐 / 游戏请手动填写。</p><ul class="adm-ol-list" id="ol-list" aria-live="polite"></ul>`, 'adm-photo-tile')
+        : '';
   mount(uploadTile + listTile('list', spec.icon, `${spec.label}（${items.length}）`, `${e(spec.note)} <a href="${e(base + spec.path)}" target="_blank" rel="noopener">查看页面</a>`));
   const fields: FieldDef[] = spec.fields.map((f) => ({
     key: f.key,
@@ -733,11 +765,63 @@ async function renderSection(key: SectionKey): Promise<void> {
     items,
     blank,
     title: (x) => String(x.title ?? x.name ?? x.version ?? '') + (x.date ? ` · ${String(x.date)}` : ''),
-    preview: key === 'works' ? (x) => thumb(x.url) : undefined,
+    preview: key === 'works' ? (x) => thumb(x.url) : key === 'shelf' ? (x) => thumb(x.cover) : undefined,
     save: (list) => put(`/api/admin/content/${key}`, { items: list }),
     fields,
   });
   if (key === 'works') bindWorkPhoto(blank, list.add);
+  if (key === 'shelf') bindShelfTools(blank, list.add);
+}
+
+/** 书影音：上传封面新建条目；Open Library 搜书 → 选一本加入书架（状态默认「想读」）。 */
+function bindShelfTools(blank: Record<string, unknown>, add: (x: Record<string, unknown>) => Promise<void>): void {
+  const file = root.querySelector<HTMLInputElement>('#shelf-cover');
+  file?.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    file.value = '';
+    if (!f) return;
+    msg('封面上传中…');
+    try {
+      const url = (await uploadImage(f)).url;
+      await add({ ...blank, title: f.name.replace(/\.[^.]+$/, '').slice(0, 60) || '新条目', status: 'want', cover: url });
+      msg('已新建条目，记得改标题和类型');
+    } catch (err) {
+      msg(photoErr(err), true);
+    }
+  });
+  const form = root.querySelector<HTMLFormElement>('#ol-form');
+  const out = root.querySelector<HTMLElement>('#ol-list');
+  if (!form || !out) return;
+  let hits: BookHit[] = [];
+  let ctl: AbortController | null = null;
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const q = (form.querySelector('#ol-q') as HTMLInputElement).value;
+    const a = (form.querySelector('#ol-a') as HTMLInputElement).value;
+    if (!q.trim()) return;
+    ctl?.abort();
+    ctl = new AbortController();
+    out.innerHTML = '<li class="muted small">搜索中…</li>';
+    try {
+      hits = await searchBooks(q, a, ctl.signal);
+      out.innerHTML = hits.length
+        ? hits.map((h, i) => `<li class="adm-ol-hit">${h.cover ? `<img src="${e(h.cover)}" alt="" loading="lazy" width="48" height="72">` : `<span class="adm-ol-ph">${icon('book')}</span>`}<span><b>${e(h.title)}</b><small class="muted">${e([h.creator, h.year].filter(Boolean).join(' · '))}${h.cover ? '' : ' · 没有封面'}</small></span><button type="button" class="btn btn--sm btn--soft" data-ol="${i}">${icon('plus')}加入书架</button></li>`).join('')
+        : '<li class="muted small">没有找到，换个书名或手动添加。</li>';
+    } catch (err) {
+      if ((err as DOMException)?.name !== 'AbortError') out.innerHTML = '<li class="muted small">Open Library 暂时连不上，可以手动填写。</li>';
+    }
+  });
+  out.addEventListener('click', async (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-ol]');
+    const h = b ? hits[Number(b.dataset.ol)] : undefined;
+    if (!h) return;
+    try {
+      await add({ ...blank, kind: 'book', title: h.title, creator: h.creator, year: h.year, status: 'want', cover: h.cover, url: h.key ? `https://openlibrary.org${h.key}` : '' });
+      msg(`已加入书架：${h.title}`);
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
 }
 
 /** 作品集「从照片添加」：读 EXIF → 预填 → 位置开关（默认关）→ 加入列表并保存。 */

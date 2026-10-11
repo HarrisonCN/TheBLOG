@@ -20,6 +20,19 @@ export const categorySchema = z.string().trim().max(30);
 /** 系列：单个字符串；空字符串表示不属于系列 */
 export const seriesSchema = z.string().trim().max(40);
 
+/** 影集 / 拍摄手记：形状在这里只粗查，严格规则在 essay-core.ts（与 web 共用一份），service 里调用 validatePostMedia。 */
+const postMediaFields = {
+  kind: z.enum(['post', 'essay']).optional().describe('文章类型：post 普通文章（默认）/ essay 影集（全幅照片序列）'),
+  essay: z
+    .union([z.object({}).passthrough(), z.null()])
+    .optional()
+    .describe('影集：{ layout: "grid"|"single"|"diptych", photos: [{ src, alt, caption, credit, width, height, exif: { camera, lens, focal, aperture, shutter, iso, date }, notes }] }；最多 40 张；照片地址必须是 https 或本站上传路径；不收坐标'),
+  notes: z
+    .union([z.object({}).passthrough(), z.null()])
+    .optional()
+    .describe('文章级拍摄手记：{ place（粗略地名，不要坐标）, light, gear, settings, thought }；null 清空'),
+};
+
 export const postCreateSchema = z.object({
   title: z.string().trim().min(1).max(200).describe('文章标题'),
   slug: slugSchema.optional().describe('URL 标识（小写字母/数字/连字符）；不填则由标题生成'),
@@ -31,6 +44,7 @@ export const postCreateSchema = z.object({
   series: seriesSchema.optional().describe('系列连载名（同名文章按发布时间组成系列）；空字符串表示不属于系列'),
   pinned: z.boolean().optional().describe('是否置顶'),
   status: z.enum(['draft', 'published']).optional().describe('默认 draft'),
+  ...postMediaFields,
 });
 export type PostCreate = z.infer<typeof postCreateSchema>;
 
@@ -44,6 +58,7 @@ export const postUpdateSchema = z.object({
   category: categorySchema.optional().describe('分类；空字符串表示未分类'),
   series: seriesSchema.optional().describe('系列连载名；空字符串表示不属于系列'),
   pinned: z.boolean().optional().describe('是否置顶'),
+  ...postMediaFields,
 });
 export type PostUpdate = z.infer<typeof postUpdateSchema>;
 
@@ -186,7 +201,7 @@ export const workSchema = z.object({
   geo: z.enum(['off', 'on']).default('off'), lat: coord(90), lng: coord(180),
 });
 export const gearItemSchema = z.object({ name: req(60), brand: str(30), category: z.enum(['相机', '镜头', '手机', '配件', '电脑与外设', '软件']).default('相机'), rating: int(1, 5, 3), since: str(20), url: optionalUrl.default(''), note: str(200) });
-export const shelfItemSchema = z.object({ kind: z.enum(['book', 'movie', 'music', 'game']).default('book'), title: req(60), creator: str(60), year: str(10), status: z.enum(['doing', 'done', 'want']).default('done'), rating: int(0, 5), url: optionalUrl.default(''), note: str(200) });
+export const shelfItemSchema = z.object({ kind: z.enum(['book', 'movie', 'music', 'game']).default('book'), title: req(60), creator: str(60), year: str(10), status: z.enum(['doing', 'done', 'want']).default('done'), rating: int(0, 5), url: optionalUrl.default(''), cover: z.union([imageUrl, z.literal('')]).default(''), date: str(10), note: str(200) });
 export const timelineItemSchema = z.object({ date: req(20), kind: z.enum(['study', 'work', 'project', 'life', 'award']).default('life'), title: req(60), url: optionalUrl.default(''), detail: str(300) });
 export const changelogEntrySchema = z.object({ version: req(20), date: req(20), type: z.enum(['feature', 'improve', 'fix', 'weekly']).default('feature'), title: req(80), items: strList(20, 200) });
 export const repoSchema = z.object({ title: req(40), owner: ghName, repo: ghName, language: str(20), status: z.enum(['active', 'wip', 'archived', 'private']).default('active'), stars: int(0, 10_000_000), forks: int(0, 10_000_000), url: optionalUrl.default(''), topics: strList(8, 30), description: str(240) });

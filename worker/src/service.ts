@@ -20,6 +20,7 @@ import {
   type Settings,
 } from './schema';
 import type { z } from 'zod';
+import { validateEssay, validatePostMedia, validateShotNote, type Essay, type PostKind, type ShotNote } from './essay-core';
 
 export interface PostRow {
   id: number;
@@ -31,6 +32,9 @@ export interface PostRow {
   cover_url: string | null;
   category: string | null;
   series?: string | null;
+  kind?: string | null;
+  essay?: string | null;
+  notes?: string | null;
   pinned: number;
   word_count: number;
   status: 'draft' | 'published';
@@ -50,6 +54,12 @@ export interface Post {
   category: string | null;
   /** 系列连载名（null = 不属于系列） */
   series: string | null;
+  /** post 普通文章 / essay 影集 */
+  kind: PostKind;
+  /** 影集（只有 kind = essay 时有；列表接口不带） */
+  essay?: Essay | null;
+  /** 文章级拍摄手记（列表接口不带） */
+  notes?: ShotNote | null;
   pinned: boolean;
   /** 正文字数（近似：Markdown 去掉空白后的字符数） */
   wordCount: number;
@@ -58,7 +68,16 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
 }
-export type PostSummary = Omit<Post, 'contentMd'>;
+export type PostSummary = Omit<Post, 'contentMd' | 'essay' | 'notes'>;
+
+function parseJson<T>(s: string | null | undefined, check: (v: unknown) => T | null): T | null {
+  if (!s) return null;
+  try {
+    return check(JSON.parse(s));
+  } catch {
+    return null;
+  }
+}
 
 function parseTags(s: string): string[] {
   try {
@@ -80,6 +99,9 @@ export function rowToPost(r: PostRow): Post {
     coverUrl: r.cover_url,
     category: r.category || null,
     series: r.series || null,
+    kind: r.kind === 'essay' ? 'essay' : 'post',
+    essay: r.kind === 'essay' ? parseJson(r.essay, (v) => validateEssay(v).essay) : null,
+    notes: parseJson(r.notes, (v) => validateShotNote(v).note),
     pinned: !!r.pinned,
     wordCount: Number(r.word_count ?? 0),
     status: r.status,
@@ -90,7 +112,7 @@ export function rowToPost(r: PostRow): Post {
 }
 
 export function toSummary(p: Post): PostSummary {
-  const { contentMd: _omit, ...rest } = p;
+  const { contentMd: _omit, essay: _e, notes: _n, ...rest } = p;
   return rest;
 }
 
@@ -115,8 +137,8 @@ export function slugify(title: string): string {
 
 // 字数：去掉空白与常见 Markdown 符号后的字符数（中文按字计）
 const WORDS = "LENGTH(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content_md, ' ', ''), char(10), ''), char(13), ''), '#', ''), '*', ''), '`', '')) AS word_count";
-const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, series, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
-const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, series, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const COLS = `id, slug, title, summary, content_md, tags, cover_url, category, series, kind, essay, notes, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
+const SUMMARY_COLS = `id, slug, title, summary, '' AS content_md, tags, cover_url, category, series, kind, NULL AS essay, NULL AS notes, pinned, ${WORDS}, status, published_at, created_at, updated_at`;
 const ORDER = 'ORDER BY pinned DESC, COALESCE(published_at, created_at) DESC, id DESC';
 
 export async function listPosts(env: Env, q: ListQuery & { includeDrafts?: boolean }): Promise<{ posts: PostSummary[]; total: number }> {
@@ -195,15 +217,23 @@ export async function createPost(env: Env, input: unknown): Promise<Post> {
     if (data.slug) throw new HttpError(409, 'slug_conflict', `slug「${slug}」已存在`);
     slug = `${slug.slice(0, 70)}-${Date.now().toString(36)}`;
   }
+  const media = checkMedia(data);
   const status = data.status ?? 'draft';
   const ts = nowIso();
   const row = await env.DB.prepare(
-    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, category, series, pinned, status, published_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
+    `INSERT INTO posts (slug, title, summary, content_md, tags, cover_url, category, series, kind, essay, notes, pinned, status, published_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${COLS}`,
   )
-    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.series || null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
+    .bind(slug, data.title, data.summary ?? '', data.contentMd ?? '', JSON.stringify(dedupe(data.tags ?? [])), data.coverUrl || null, data.category || null, data.series || null, media.kind, media.essay ? JSON.stringify(media.essay) : null, media.notes ? JSON.stringify(media.notes) : null, data.pinned ? 1 : 0, status, status === 'published' ? ts : null, ts, ts)
     .first<PostRow>();
   return rowToPost(row!);
+}
+
+/** 影集 / 拍摄手记的严格校验（规则与 web 共用 essay-core.ts） */
+function checkMedia(data: { kind?: unknown; essay?: unknown; notes?: unknown }, current?: Post) {
+  const r = validatePostMedia(data, current ? { kind: current.kind, essay: current.essay ?? null, notes: current.notes ?? null } : undefined);
+  if (r.issues.length) throw new HttpError(400, 'validation_error', '参数校验失败', {}, r.issues);
+  return r;
 }
 
 function dedupe(tags: string[]): string[] {
@@ -216,8 +246,9 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
   if (data.slug && data.slug !== current.slug && (await slugExists(env, data.slug))) {
     throw new HttpError(409, 'slug_conflict', `slug「${data.slug}」已存在`);
   }
+  const media = checkMedia(data, current);
   const row = await env.DB.prepare(
-    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, category = ?, series = ?, pinned = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
+    `UPDATE posts SET slug = ?, title = ?, summary = ?, content_md = ?, tags = ?, cover_url = ?, category = ?, series = ?, kind = ?, essay = ?, notes = ?, pinned = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
   )
     .bind(
       data.slug ?? current.slug,
@@ -228,6 +259,9 @@ export async function updatePost(env: Env, slug: string, input: unknown): Promis
       data.coverUrl === undefined ? current.coverUrl : data.coverUrl || null,
       data.category === undefined ? current.category : data.category || null,
       data.series === undefined ? current.series ?? null : data.series || null,
+      media.kind,
+      media.essay ? JSON.stringify(media.essay) : null,
+      media.notes ? JSON.stringify(media.notes) : null,
       (data.pinned ?? current.pinned) ? 1 : 0,
       nowIso(),
       current.id,

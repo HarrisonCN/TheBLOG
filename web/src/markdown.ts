@@ -7,6 +7,8 @@
  */
 import { Marked, type Tokens } from 'marked';
 import { highlight, langLabel } from './highlight';
+import { parseAudioBlock, parseMapBlock, parseNotesBlock, parseQuoteSource } from './essay-core';
+import { shotNotesHtml } from './essay-view';
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -96,6 +98,104 @@ function footnoteSection(): string {
     .join('')}</ol></section>`;
 }
 
+
+// ---------------------------------------------------------------- ::: 嵌入块
+/**
+ * :::tip|warn|note [标题]   提示 / 注意 / 备注
+ * :::details 摘要           折叠块
+ * :::compare [图注]          两张图（前 / 后）的对比滑块，脚本加载后才出现滑块，否则并排显示
+ * :::audio                  src / title / artist / credit / link，点播放交给左下角音乐播放器（不自动播放）
+ * :::map 地名               下一行「纬度, 经度」，只保留 0.1°（约 11 km）
+ * :::quote 来源 | 链接       摘录卡片，可生成分享图片
+ * :::notes [标题]            拍摄手记：地点 / 光线 / 器材 / 参数 / 想法
+ * 块以单独一行的 ::: 结束，可以嵌套（例如折叠块里放提示）。
+ */
+export const EMBED_KINDS = ['tip', 'warn', 'note', 'details', 'compare', 'audio', 'map', 'quote', 'notes'] as const;
+const CALLOUT_LABEL: Record<string, string> = { tip: '提示', warn: '注意', note: '备注' };
+const OPEN_RE = new RegExp(`^:::(${EMBED_KINDS.join('|')})(?:[ \\t]+([^\\n]*))?[ \\t]*(?:\\n|$)`);
+const IMG_RE = /!\[([^\]\n]*)\]\(\s*([^\s)]+)(?:\s+"([^"\n]*)")?\s*\)/g;
+
+function splitContainer(src: string): { raw: string; kind: string; title: string; body: string } | null {
+  const m = OPEN_RE.exec(src);
+  if (!m) return null;
+  let pos = m[0].length;
+  let depth = 1;
+  const lineRe = /^.*(?:\n|$)/gm;
+  lineRe.lastIndex = pos;
+  let line: RegExpExecArray | null;
+  while (pos < src.length && (line = lineRe.exec(src))) {
+    if (!line[0]) break;
+    const t = line[0].replace(/\n$/, '');
+    if (/^:::[a-z]+/.test(t)) depth++;
+    else if (/^:::\s*$/.test(t)) depth--;
+    pos = line.index + line[0].length;
+    if (depth === 0) return { raw: src.slice(0, pos), kind: m[1]!, title: (m[2] ?? '').trim(), body: src.slice(m[0].length, line.index).replace(/\n$/, '') };
+    lineRe.lastIndex = pos;
+  }
+  return null; // 没有结束标记：按普通文字处理
+}
+const embedError = (msg: string) => `<p class="embed-error" role="note">${escapeHtml(msg)}</p>\n`;
+
+const containers = {
+  extensions: [
+    {
+      name: 'container',
+      level: 'block' as const,
+      start(src: string) {
+        return /^:::[a-z]/m.exec(src)?.index;
+      },
+      tokenizer(this: any, src: string) {
+        const c = splitContainer(src);
+        if (!c) return undefined;
+        const tok: any = { type: 'container', raw: c.raw, kind: c.kind, title: c.title, body: c.body, tokens: [] };
+        if (['tip', 'warn', 'note', 'details', 'quote'].includes(c.kind)) tok.tokens = this.lexer.blockTokens(c.body, []);
+        return tok;
+      },
+      renderer(this: any, t: any) {
+        const title = escapeHtml(String(t.title).slice(0, 80));
+        switch (t.kind) {
+          case 'tip':
+          case 'warn':
+          case 'note':
+            return `<div class="callout callout--${t.kind}" role="note" aria-label="${CALLOUT_LABEL[t.kind]}"><p class="callout__t">${title || CALLOUT_LABEL[t.kind]}</p><div class="callout__b">${this.parser.parse(t.tokens)}</div></div>\n`;
+          case 'details':
+            return `<details class="md-details"><summary>${title || '展开'}</summary><div class="md-details__b">${this.parser.parse(t.tokens)}</div></details>\n`;
+          case 'quote': {
+            const q = parseQuoteSource(t.title);
+            const cite = q.source ? (q.link ? `<a href="${escapeHtml(q.link)}"${/^https?:/i.test(q.link) ? ' target="_blank" rel="noopener noreferrer nofollow"' : ''}><cite>${escapeHtml(q.source)}</cite></a>` : `<cite>${escapeHtml(q.source)}</cite>`) : '';
+            return `<figure class="quote-card" data-quote><blockquote class="quote-card__q">${this.parser.parse(t.tokens)}</blockquote>${cite ? `<figcaption class="quote-card__src">— ${cite}</figcaption>` : ''}</figure>\n`;
+          }
+          case 'compare': {
+            const imgs = [...String(t.body).matchAll(IMG_RE)].slice(0, 2).map((m) => ({ alt: m[1] ?? '', src: safeHref(m[2], true), label: (m[3] ?? '').trim() }));
+            if (imgs.length < 2 || !imgs[0]!.src || !imgs[1]!.src) return embedError('对比块需要两张图片（前 / 后）');
+            const [a, b] = imgs as { alt: string; src: string; label: string }[];
+            const la = escapeHtml(a!.label || '前');
+            const lb = escapeHtml(b!.label || '后');
+            return `<figure class="compare" data-compare data-label-a="${la}" data-label-b="${lb}"><div class="compare__stage"><img class="compare__img compare__img--a" src="${escapeHtml(a!.src)}" alt="${escapeHtml(a!.alt)}" loading="lazy" decoding="async"><img class="compare__img compare__img--b" src="${escapeHtml(b!.src)}" alt="${escapeHtml(b!.alt)}" loading="lazy" decoding="async"><span class="compare__tag compare__tag--a">${la}</span><span class="compare__tag compare__tag--b">${lb}</span></div>${title ? `<figcaption>${title}</figcaption>` : ''}</figure>\n`;
+          }
+          case 'audio': {
+            const a = parseAudioBlock(t.body);
+            if (!a) return embedError('音频块需要 src（https 链接或本站上传的音频）');
+            const d = (k: string, v: string) => (v ? ` data-${k}="${escapeHtml(v)}"` : '');
+            return `<div class="audio-embed" data-audio${d('src', a.src)}${d('title', a.title)}${d('artist', a.artist)}${d('credit', a.credit)}${d('link', a.link)}><span class="audio-embed__disc" aria-hidden="true"></span><div class="audio-embed__meta"><b class="audio-embed__t">${escapeHtml(a.title)}</b>${a.artist ? `<span class="audio-embed__a">${escapeHtml(a.artist)}</span>` : ''}${a.credit ? `<small class="audio-embed__c">${a.link ? `<a href="${escapeHtml(a.link)}" target="_blank" rel="noopener noreferrer nofollow">${escapeHtml(a.credit)}</a>` : escapeHtml(a.credit)}</small>` : ''}</div><a class="audio-embed__open" href="${escapeHtml(a.src)}" target="_blank" rel="noopener noreferrer nofollow">打开音频</a></div>\n`;
+          }
+          case 'map': {
+            const p = parseMapBlock(t.title, t.body);
+            if (!p) return embedError('地图块格式：:::map 地名，下一行写「纬度, 经度」');
+            return `<figure class="map-pin" data-map data-lat="${p.lat}" data-lng="${p.lng}"><div class="map-pin__stage" aria-hidden="true"></div><figcaption class="map-pin__cap"><b>${escapeHtml(p.place)}</b><span class="map-pin__acc">约 11 km 精度</span></figcaption></figure>\n`;
+          }
+          case 'notes': {
+            const n = parseNotesBlock(t.body);
+            if (!n.note) return embedError('拍摄手记块是空的，或地点写成了坐标');
+            return shotNotesHtml(n.note, t.title || '拍摄手记') + '\n';
+          }
+        }
+        return '';
+      },
+    },
+  ],
+};
+
 const marked = new Marked({
   gfm: true,
   breaks: false,
@@ -141,6 +241,7 @@ const marked = new Marked({
 });
 
 marked.use(footnotes);
+marked.use(containers);
 
 export function renderMarkdown(md: string): string {
   headingIds = new Map();
@@ -157,6 +258,7 @@ export function renderMarkdown(md: string): string {
 export function plainText(md: string, max = 160): string {
   const t = (md ?? '')
     .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^:::.*$/gm, ' ')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[#>*_`~\-]+/g, ' ')

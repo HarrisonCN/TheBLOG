@@ -73,6 +73,10 @@ export interface ShelfItem {
   rating: number;
   note: string;
   url: string;
+  /** 封面：上传的图片或 https 链接；空 = 用色块占位 */
+  cover?: string;
+  /** 标记时间（例如 2026-09） */
+  date?: string;
 }
 
 export type TimelineKind = 'study' | 'work' | 'project' | 'life' | 'award';
@@ -135,7 +139,12 @@ export const SHELF_KIND: Record<ShelfKind, { label: string; icon: string; verb: 
   music: { label: '音', icon: 'music', verb: '听' },
   game: { label: '游', icon: 'gamepad', verb: '玩' },
 };
-export const SHELF_STATUS: Record<ShelfStatus, string> = { doing: '进行中', done: '已完成', want: '想要' };
+export const SHELF_STATUS: Record<ShelfStatus, string> = { doing: '在看', done: '看过', want: '想看' };
+/** 按类型换动词：想读 / 在读 / 读过，想听 / 在听 / 听过… */
+export function shelfStatusLabel(kind: ShelfKind, status: ShelfStatus): string {
+  const v = SHELF_KIND[kind]?.verb ?? '看';
+  return status === 'want' ? `想${v}` : status === 'doing' ? `在${v}` : `${v}过`;
+}
 export const TIMELINE_KIND: Record<TimelineKind, { label: string; icon: string }> = {
   study: { label: '学习', icon: 'book' },
   work: { label: '实习与工作', icon: 'briefcase' },
@@ -235,7 +244,7 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
   },
   shelf: {
     key: 'shelf', label: '书影音', icon: 'library', path: '/shelf/', max: 200,
-    note: '书 / 影 / 音 / 游四类；评分 0 表示还没评。',
+    note: '书 / 影 / 音 / 游四类；状态是 想看 / 在看 / 看过（按类型显示成 想读 / 在听…）；评分 0 表示还没评。封面可以上传、贴 https 链接，书可以从 Open Library 查封面。',
     fields: [
       { key: 'kind', label: '类型', t: 'enum', options: Object.keys(SHELF_KIND), labels: Object.fromEntries(Object.entries(SHELF_KIND).map(([k, v]) => [k, v.label])) },
       { key: 'title', label: '标题', t: 'str', max: 60, required: true },
@@ -243,7 +252,9 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       { key: 'year', label: '年份', t: 'str', max: 10 },
       { key: 'status', label: '状态', t: 'enum', options: Object.keys(SHELF_STATUS), labels: SHELF_STATUS },
       { key: 'rating', label: '评分 0–5', t: 'int', min: 0, max: 5 },
+      { key: 'date', label: '标记时间', t: 'str', max: 10, placeholder: '2026-09' },
       urlF(),
+      { key: 'cover', label: '封面（上传或 https 链接）', t: 'url', image: true, wide: true },
       { key: 'note', label: '短评', t: 'str', max: 200, wide: true },
     ],
   },

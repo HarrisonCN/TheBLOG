@@ -152,17 +152,23 @@ function bindWorks(root: ParentNode): void {
 function bindShelf(root: ParentNode): void {
   const list = root.querySelector<HTMLElement>('.js-shelf');
   if (!list) return;
-  const state = { kind: '', status: '' };
+  const state = { kind: '', status: '', rating: 0 };
   const empty = root.querySelector<HTMLElement>('.js-shelf-empty');
+  const count = root.querySelector<HTMLElement>('.js-shelf-count');
   const apply = () => {
     let n = 0;
     list.querySelectorAll<HTMLElement>('.shelf').forEach((el) => {
-      const show = (!state.kind || el.dataset.kind === state.kind) && (!state.status || el.dataset.status === state.status);
+      const show = (!state.kind || el.dataset.kind === state.kind) && (!state.status || el.dataset.status === state.status) && Number(el.dataset.rating || 0) >= state.rating;
       el.hidden = !show;
       if (show) n++;
     });
     if (empty) empty.hidden = n > 0;
+    if (count) count.textContent = `共 ${n} 项`;
   };
+  segGroup(root.querySelector('.js-shelf-rating'), (v) => {
+    state.rating = Number(v) || 0;
+    apply();
+  });
   segGroup(root.querySelector('.js-shelf-kind'), (v) => {
     state.kind = v;
     apply();

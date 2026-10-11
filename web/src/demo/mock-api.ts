@@ -7,6 +7,7 @@ import { stripMetadata } from '../exif';
 import type { Album, CategoryCount, ContentKey, Favorite, Friend, Post, PostSummary, Profile, SearchDoc, Settings, SocialIcon, TagCount } from '../types';
 import { createSeed, demoPlaylist, DEMO_OTP, DEMO_PASSWORD, type DemoDb } from './seed';
 import { checkAudioUpload, validatePlaylist } from '../music-core';
+import { validatePostMedia } from '../essay-core';
 import { isReaction, REACTION_SET } from '../reactions-core';
 import { isSectionKey, SECTION_KEYS, validateSection } from '../sections';
 import { isDefaultStyle, validateNoteStyle } from '../note-style';
@@ -139,7 +140,8 @@ const publicMember = (m: Member): PublicMember => {
   return rest;
 };
 function summary(p: Post): PostSummary {
-  const { contentMd: _omit, ...rest } = p;
+  const { contentMd: _omit, essay: _e, notes: _n, ...rest } = p;
+  if (!rest.kind) rest.kind = 'post';
   return rest;
 }
 
@@ -450,7 +452,9 @@ export class DemoBackend {
       else issues.push({ path: 'status', message: '只能是 draft 或 published' });
     }
     check(issues);
-    return { title, slug, summary: sum, contentMd, tags, coverUrl, category, series, pinned, status };
+    // 影集 / 拍摄手记：与 Worker 共用 essay-core 的严格规则
+    const media = { kind: o.kind, essay: o.essay, notes: o.notes };
+    return { title, slug, summary: sum, contentMd, tags, coverUrl, category, series, pinned, status, media };
   }
 
   private create(input: unknown): Post {
@@ -462,6 +466,8 @@ export class DemoBackend {
       if (f.slug) throw new MockError(409, 'slug_conflict', `slug「${slug}」已存在`);
       slug = `${slug.slice(0, 70)}-${this.now().getTime().toString(36)}`;
     }
+    const m = validatePostMedia(f.media);
+    check(m.issues);
     const status = f.status ?? 'draft';
     const post: Post = {
       id: db.nextId++,
@@ -473,6 +479,9 @@ export class DemoBackend {
       coverUrl: f.coverUrl || null,
       category: f.category || null,
       series: f.series || null,
+      kind: m.kind,
+      essay: m.essay,
+      notes: m.notes,
       pinned: f.pinned ?? false,
       wordCount: wordCount(f.contentMd ?? ''),
       status,
@@ -491,6 +500,8 @@ export class DemoBackend {
     const cur = db.posts.find((p) => p.slug === slug);
     if (!cur) throw new MockError(404, 'not_found', '文章不存在');
     if (f.slug && f.slug !== cur.slug && db.posts.some((p) => p.slug === f.slug)) throw new MockError(409, 'slug_conflict', `slug「${f.slug}」已存在`);
+    const m = validatePostMedia(f.media, { kind: cur.kind ?? 'post', essay: cur.essay ?? null, notes: cur.notes ?? null });
+    check(m.issues);
     if (f.slug && f.slug !== cur.slug) db.settings.featuredSlugs = db.settings.featuredSlugs.map((s) => (s === cur.slug ? f.slug! : s));
     Object.assign(cur, {
       slug: f.slug ?? cur.slug,
@@ -501,6 +512,9 @@ export class DemoBackend {
       coverUrl: f.coverUrl === undefined ? cur.coverUrl : f.coverUrl || null,
       category: f.category === undefined ? cur.category : f.category || null,
       series: f.series === undefined ? cur.series ?? null : f.series || null,
+      kind: m.kind,
+      essay: m.essay,
+      notes: m.notes,
       pinned: f.pinned ?? cur.pinned,
       wordCount: wordCount(f.contentMd ?? cur.contentMd),
       updatedAt: this.now().toISOString(),

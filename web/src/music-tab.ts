@@ -4,13 +4,15 @@
  * 即使上次是打开的，刷新后也只是把面板摆出来，绝不自动播放。
  */
 import { icon } from './icons';
-import { OPEN_KEY } from './music-core';
+import { OPEN_KEY, type Track } from './music-core';
 
 export interface MusicPlayerHandle {
   open(focus?: boolean): void;
   close(returnFocus?: boolean): void;
   toggle(): void;
   isOpen(): boolean;
+  /** 正文音频块：加入队列并播放（只在用户点击后调用，不会自动播放） */
+  addAndPlay(t: Track): void;
 }
 
 export function musicTabHtml(): string {
@@ -43,4 +45,11 @@ export function installMusicTab(): void {
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 1500 });
     else setTimeout(go, 300);
   }
+}
+
+/** 正文 :::audio 块的「播放」按钮：打开播放器、把这一首加到队列里播放。 */
+export function playInMusicPlayer(t: Track): Promise<void> {
+  const tab = document.querySelector<HTMLButtonElement>('.js-mtab');
+  if (!tab) return Promise.reject(new Error('no music tab'));
+  return ensurePlayer(tab).then((p) => p.addAndPlay(t));
 }

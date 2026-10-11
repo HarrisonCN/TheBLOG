@@ -249,8 +249,9 @@ if (DEMO) {
 
 // 2) Cloudflare Pages 响应头
 // api.github.com：开源项目页从 GitHub 公开 API 刷新星标数（只读、匿名）
+// 书影音后台：Open Library 搜书找封面（匿名只读，允许 CORS）
 // 音乐小部件的搜索：Openverse / Internet Archive（完整 CC 曲目）+ iTunes Search（30 秒试听），都是匿名只读的公开 API
-const connect = ["'self'", API_BASE && new URL(API_BASE).origin, 'https://api.github.com', 'https://api.openverse.org', 'https://archive.org', 'https://itunes.apple.com'].filter(Boolean).join(' ');
+const connect = ["'self'", API_BASE && new URL(API_BASE).origin, 'https://api.github.com', 'https://api.openverse.org', 'https://archive.org', 'https://itunes.apple.com', 'https://openlibrary.org'].filter(Boolean).join(' ');
 // 音频来自上面这些来源的 CDN（jamendo、archive.org 镜像、Apple 预览……）或站长填的 https 链接，所以 media-src 放开 https:
 const media = ["'self'", 'blob:', 'data:', 'https:'].join(' ');
 const img = ["'self'", 'https:', 'data:'].join(' ');
