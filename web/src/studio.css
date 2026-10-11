@@ -73,8 +73,8 @@
 .st-exifline .icon { width: 1em; height: 1em; }
 
 /* 摄影专题（长页面） */
-.st-essay { grid-column: 1 / -1; display: grid; gap: clamp(1.25rem, 4vw, 2.5rem); min-width: 0; }
-.st-essay__head { display: grid; gap: 0; position: relative; }
+.st-essay { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(1.25rem, 4vw, 2.5rem); min-width: 0; }
+.st-essay__head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; position: relative; }
 .st-essay__hero { width: 100%; justify-self: stretch; margin: 0; border-radius: var(--radius, 16px); overflow: hidden; background: var(--soft); max-height: 72vh; }
 .st-essay__hero img { width: 100%; height: 100%; max-height: 72vh; object-fit: cover; display: block; }
 .st-essay__htxt { display: grid; gap: 0.5rem; padding: clamp(1rem, 3vw, 1.75rem); }
@@ -83,7 +83,7 @@
 .st-essay__title { margin: 0; font-size: clamp(1.6rem, 4.6vw, 2.8rem); line-height: 1.15; color: var(--heading); overflow-wrap: anywhere; }
 .st-essay__dek { font-size: clamp(1rem, 2.2vw, 1.2rem); overflow-wrap: anywhere; }
 .st-essay__tools { align-items: center; }
-.st-essay__body { display: grid; gap: clamp(1.5rem, 5vw, 3.5rem); }
+.st-essay__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(1.5rem, 5vw, 3.5rem); }
 .st-essay__text { max-width: 42rem; margin: 0 auto; width: 100%; padding: 0 clamp(0.25rem, 2vw, 1rem); font-size: 1.08rem; overflow-wrap: anywhere; }
 .st-essay__work { width: 100%; justify-self: stretch; margin: 0; display: grid; gap: 0.6rem; }
 .st-essay__work img { width: 100%; height: auto; display: block; border-radius: var(--radius-sm, 10px); background: var(--soft); }
