@@ -12,6 +12,10 @@ _L18 · 摄影与创作工具：摄影专题、EXIF 筛选（含手机）、项�
 - **web:** demo mock parity for L18 studio (same rules, fictional seed: project, photo essay, co-authored album) (436704a)
 - **worker:** L18 studio — EXIF index + filters, co-authors with roles/invitations, revision history with restore, multi-author media removal guard, projects with dev logs/releases/links/members, photo essays, private aggregated daily creator stats (migration 0015_studio, additive) (d23a983)
 
+### 修复 Fixes
+
+- **web:** photo essay grid columns no longer overflow narrow viewports (minmax(0,1fr) on essay, head and body) (58fcff9)
+
 ### 杂项 Chores
 
 - **release:** 1.18.0 — L18 photography & creator studio (docs: migration 0015_studio, backup/rollback) (819eafb)
