@@ -208,7 +208,10 @@ export function installHomeClient(ctx: Ctx): void {
       }
       paintBookmarks(document);
       if (on) flashResult(bm, 'success', 1200);
-      void ctx.notify(on ? '已收藏到本机（只保存在这个浏览器里）' : '已取消收藏', on ? 'success' : 'info');
+      const signedIn = !!localStorage.getItem('blog-member');
+      void ctx.notify(on ? (signedIn ? '已收藏（同步到你的账号）' : '已收藏到本机（登录后可同步到账号）') : '已取消收藏', on ? 'success' : 'info');
+      // L15：已登录时由 main.ts 按需加载 social-client 同步到云端
+      document.dispatchEvent(new CustomEvent('blog:bookmark', { detail: { slug, on, title: /《(.+)》/.exec(bm.getAttribute('aria-label') ?? '')?.[1] ?? '' } }));
       return;
     }
     const soc = t.closest<HTMLAnchorElement>('.js-soc');

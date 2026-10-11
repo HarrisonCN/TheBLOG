@@ -182,7 +182,7 @@ if (API || DEMO) {
         count++;
         if (route.name === 'post') postPages++;
         if (route.name === 'home') listPages++;
-        if (route.name !== 'notfound') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
       } catch (e) {
         failures.push(`${label}：${e.message}`);
         if (!STRICT) console.warn(`[prerender] ⚠ 跳过失败页 ${label}：${e.message}`);
@@ -191,7 +191,7 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES]) await emit({ name });
+    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me']) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {

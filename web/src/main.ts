@@ -24,7 +24,7 @@ import {
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type PostSummary, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
-import { initCommunity, bindCommunity } from './community';
+import { initCommunity, bindCommunity, currentMember } from './community';
 import { bindSections } from './sections-client';
 import { bindHomePage, installHomeClient, paintBookmarks, paintMember } from './home-client';
 import { createPalette, paletteHtml, shortcutLabel } from './palette';
@@ -695,8 +695,30 @@ function bindPage(page: Page): void {
       m.bindEmbeds(root, { notify: (msg, t) => void notify(msg, t), reducedMotion: prefersReducedMotion, siteTitle: site.settings.siteTitle, pageUrl: () => location.href }),
     );
   }
+  // L15 社交页：内容在按需加载的 social-client 里渲染（社交代码不进首屏包）
+  if (page.route.name === 'user' || page.route.name === 'notifications' || page.route.name === 'me') {
+    void import('./social-client').then((m) => m.mountSocial(root, { notify: (msg, t) => void notify(msg, t), navigate: (h) => void go(h) }));
+  }
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
+
+/** L15：登录态变化 → 刷新导航里的通知铃 / 未读数、询问合并本机收藏；未登录时不下载社交代码。 */
+function syncSocialChrome(offer: boolean): void {
+  if (!currentMember()) {
+    document.querySelectorAll<HTMLElement>('.js-notif-link').forEach((l) => (l.hidden = true));
+    document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => (a.href = url('/join/')));
+    return;
+  }
+  void import('./social-client').then((m) => {
+    void m.refreshUnread();
+    if (offer) void m.offerMerge({ notify: (msg, t) => void notify(msg, t) });
+  });
+}
+document.addEventListener('blog:member', () => syncSocialChrome(true));
+document.addEventListener('blog:bookmark', (ev) => {
+  const d = (ev as CustomEvent<{ slug: string; on: boolean; title: string }>).detail;
+  if (d && currentMember()) void import('./social-client').then((m) => m.syncBookmark(d.slug, d.on, d.title, { notify: (msg, t) => void notify(msg, t) }));
+});
 
 // ---------------------------------------------------------------- 启动
 async function boot(): Promise<void> {
@@ -726,6 +748,7 @@ async function boot(): Promise<void> {
     const page = await pageFor(route);
     firstPaint(page);
     mountChrome(true);
+    syncSocialChrome(false);
   } catch (e) {
     if (!current) {
       firstPaint({ ...renderRoute({ name: 'notfound' }, site), route, main: errorMain((e as Error).message), title: `加载失败 · ${site.settings.siteTitle}` });
