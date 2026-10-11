@@ -8,12 +8,15 @@ export const USERNAME_RE = /^[a-z0-9](?:[a-z0-9_]{1,18})[a-z0-9]$/;
 export const RESERVED_USERNAMES = new Set(['admin', 'administrator', 'root', 'system', 'winston', 'theblog', 'api', 'me', 'settings', 'notifications', 'support', 'help', 'about', 'null', 'undefined', 'login', 'logout', 'official', 'mod', 'moderator']);
 
 export type Visibility = 'public' | 'members' | 'private';
-export type NotificationType = 'follow' | 'reply' | 'mention' | 'bookmark' | 'system';
+export type NotificationType = 'follow' | 'reply' | 'mention' | 'bookmark' | 'system' | 'reaction' | 'new_work' | 'moderation';
 export type BookmarkKind = 'post' | 'photo' | 'essay';
 export type RelationKind = 'block' | 'mute';
-export const NOTIFICATION_TYPES: readonly NotificationType[] = ['follow', 'reply', 'mention', 'bookmark', 'system'];
+export const NOTIFICATION_TYPES: readonly NotificationType[] = ['follow', 'reply', 'mention', 'bookmark', 'system', 'reaction', 'new_work', 'moderation'];
+/** L16 新事件：库里以 type = 'system' + event 列存储（0012 的 CHECK 约束不变，迁移只做加法），API 对外返回 type = event。 */
+export const EVENT_TYPES: readonly NotificationType[] = ['reaction', 'new_work', 'moderation'];
+export const storedType = (t: NotificationType): { type: NotificationType; event: string } => (EVENT_TYPES.includes(t) ? { type: 'system', event: t } : { type: t, event: '' });
 export const BOOKMARK_KINDS: readonly BookmarkKind[] = ['post', 'photo', 'essay'];
-export const NOTIFICATION_FILTERS = ['all', 'unread', 'follow', 'reply', 'mention', 'bookmark'] as const;
+export const NOTIFICATION_FILTERS = ['all', 'unread', 'follow', 'reply', 'mention', 'bookmark', 'reaction', 'new_work'] as const;
 export type NotificationFilter = (typeof NOTIFICATION_FILTERS)[number];
 
 export interface SocialLink { label: string; url: string }
@@ -188,7 +191,7 @@ export function notificationKey(type: NotificationType, p: { actorId?: number | 
 }
 /** 已存在同键通知时：follow / mention 不变（幂等）；reply / bookmark 在未读时聚合计数，已读则重新置为未读并从 1 开始。 */
 export function aggregates(type: NotificationType): boolean {
-  return type === 'reply' || type === 'bookmark';
+  return type === 'reply' || type === 'bookmark' || type === 'reaction';
 }
 
 /** 正文里的 @用户名（去重、最多 5 个），给 mention 通知用。 */
