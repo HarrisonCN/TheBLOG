@@ -2,6 +2,35 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.21.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.21.0) — 2026-10-11
+
+_L21 · 生产稳定性与运维：健康检查 / 版本 / 公开状态页、错误监控（PII 清洗、采样、可选 Sentry）、定时任务记录、D1 每日备份与恢复演练、一键回滚、部署后冒烟检查、运维手册_
+
+### 新功能 Features
+
+- **web:** L21 /status/ page, admin 运行状态 tab, demo mock ops, client error reporter honouring DNT/GPC (766ffe7)
+- **ops:** L21 post-deploy smoke, D1 backup/restore with CI restore drill, rollback scripts; deploy/backup/rollback workflows; dist/build.json (b3c7fcc)
+- **worker:** L21 ops — /api/health, /api/version, public /api/status, PII-scrubbed error capture (D1 ring buffer, sampling, optional Sentry envelope), cron run records + health checks, admin ops endpoints (migration 0018) (22f0d26)
+
+### 修复 Fixes
+
+- **ops:** scrub key=value credentials in error text (token= / password= / api_key=); underline 公开状态页 link in admin (1a9bbd6)
+
+### 测试 Tests
+
+- **worker:** satisfy noUncheckedIndexedAccess in restore drill (tsconfig.test.json) (d9e6e52)
+- **e2e:** assert /api/version, /api/status and dist/build.json (a3bf798)
+
+### 文档 Docs
+
+- **readme:** worker test count after scrubber test (8f4c960)
+- **readme:** current unit test counts (0d64cca)
+- **ops:** operations runbook — secrets, backup/restore, D1 Time Travel, rollback, compensating migrations, monitoring; use PRAGMA quick_check (D1 has no integrity_check) (ff379c9)
+
+### 杂项 Chores
+
+- **release:** 1.21.0 — README L21 (API, migration 0018, ops docs), release-meta (b45e870)
+
 ## [1.20.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.20.0) — 2026-10-11
 
 _L20 · 开放创作者网络：Webmention 收发与审核、RSS / Atom / JSON Feed、开放只读 API、GitHub 项目卡片、邮件订阅摘要、分级 MCP 令牌、可选 AI 辅助_
