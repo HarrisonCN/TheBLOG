@@ -16,8 +16,13 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 - **release:** changelog skips docs(changelog): regenerate commits (957dbbe)
 - **ci:** deploy.yml YAML (quote summary steps as block scalars) (c7a3195)
 
+### 重构 Refactoring
+
+- **web:** extract design tokens + @font-face into styles/tokens.css (CSS output byte-identical) (0e15b0f)
+
 ### 构建 Build
 
+- **deps:** motionary ^13.5.0 (lockfile 13.5.0) (df4a906)
 - **release:** SemVer 1.14.1 (Lnn = 1.nn.0), generated CHANGELOG + README version badges, CI version check (96461b6)
 
 ## [1.14.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.0) — 2026-10-11
