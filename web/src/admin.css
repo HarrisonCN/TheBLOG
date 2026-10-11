@@ -273,3 +273,29 @@
 
 /* 说明文字里的链接：不只靠颜色区分（axe link-in-text-block） */
 .adm-tile p.muted a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------------------------------------------------------------- l14：影集编辑、拍摄手记、嵌入块菜单、Open Library */
+.adm-l14 { display: grid; gap: 0.8rem; }
+.adm-grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr)); gap: 0.6rem; }
+.adm-essay { display: grid; gap: 0.7rem; margin: 0; padding: 0.8rem; border: 1px solid var(--hairline); border-radius: 14px; }
+.adm-essay legend { display: inline-flex; align-items: center; gap: 0.35em; padding: 0 0.3em; color: var(--heading); font-weight: 600; }
+.adm-ep-list { display: grid; gap: 0.8rem; margin: 0; padding: 0; list-style: none; }
+.adm-ep { display: grid; gap: 0.5rem; padding: 0.7rem; border: 1px solid var(--hairline); border-radius: 12px; background: var(--soft); }
+.adm-ep__head { display: flex; flex-wrap: wrap; align-items: end; gap: 0.6rem; }
+.adm-ep__n { display: grid; place-items: center; width: 1.8em; height: 1.8em; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 0.85rem; }
+.adm-ep__thumb { width: 64px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--tile); }
+.adm-ep__src { flex: 1 1 12rem; margin: 0; }
+.adm-ep__tools { display: flex; gap: 0.3rem; }
+.adm-ep__more > summary, .adm-notes > summary { cursor: pointer; color: var(--heading); font-size: 0.9rem; }
+.adm-ep__more > div, .adm-notes > div { margin-top: 0.5rem; }
+.adm-notes > summary { display: inline-flex; align-items: center; gap: 0.35em; font-weight: 600; }
+.adm-wide { grid-column: 1 / -1; }
+.adm-issues { margin: 0; padding: 0.6rem 0.8rem 0.6rem 1.6rem; border: 1px solid #b91c1c; border-radius: 10px; color: #991b1b; font-size: 0.88rem; }
+:root[data-theme="dark"] .adm-issues { border-color: #fca5a5; color: #fecaca; }
+.adm-ol { flex-wrap: wrap; gap: 0.5rem; margin: 0.4rem 0; }
+.adm-ol input { flex: 1 1 10rem; min-width: 0; }
+.adm-ol-list { display: grid; gap: 0.5rem; margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.adm-ol-hit { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem; border: 1px solid var(--hairline); border-radius: 10px; }
+.adm-ol-hit img, .adm-ol-ph { flex: none; width: 48px; height: 72px; border-radius: 6px; object-fit: cover; background: var(--soft); display: grid; place-items: center; }
+.adm-ol-hit > span { display: grid; flex: 1; min-width: 0; }
+.adm-preview .essay--single .essay__open { width: 100%; margin-inline: 0; }

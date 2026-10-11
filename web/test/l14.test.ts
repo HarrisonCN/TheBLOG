@@ -7,6 +7,17 @@ import {
 } from '../src/essay-core';
 import { renderMarkdown } from '../src/markdown';
 import { renderSafe } from '../src/sanitize';
+import { essaySection, postPage, postCard } from '../src/render';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS, type Post, type PostSummary, type SiteData } from '../src/types';
+import { DemoBackend, memoryKV } from '../src/demo/mock-api';
+import { createSeed, DEMO_PASSWORD } from '../src/demo/seed';
+import { parseSearch, searchUrl } from '../src/openlibrary';
+import { swipeDir } from '../src/essay-story';
+import { clampPos, mapPinSvg } from '../src/embeds-client';
+import { EMBED_TEMPLATES, essayEditorHtml, readPostMediaRaw } from '../src/admin-essay';
+import { shelfStatusLabel, validateSection } from '../src/sections';
+import { shelfPage } from '../src/sections-view';
+import { beforeEach } from 'vitest';
 
 const read = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
 const photo = (o: Record<string, unknown> = {}) => ({ src: '/api/images/2026/09/0b1c2d3e-0000-4000-8000-000000000001.webp', alt: '漓江', caption: '雾里的山', ...o });
@@ -127,5 +138,155 @@ describe('Markdown ::: 块', () => {
     expect(h).toContain('role="note"');
     expect(h).toContain('<details class="md-details">');
     expect(h).toContain('data-lat="28.2"');
+  });
+});
+
+const P = (id: number, slug: string, o: Partial<PostSummary> = {}): PostSummary => ({ id, slug, title: slug, summary: '', tags: [], coverUrl: null, category: null, pinned: false, wordCount: 10, status: 'published', publishedAt: `2026-0${id}-15T12:00:00Z`, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', ...o });
+const site = (posts: PostSummary[]): SiteData => ({ settings: DEFAULT_SETTINGS, profile: DEFAULT_PROFILE, posts, total: posts.length, tags: [], categories: [] });
+const ESSAY = validateEssay({ layout: 'diptych', photos: [photo({ exif: { camera: 'Phone', iso: '50' }, notes: { place: '桂林' } }), photo({ caption: '第二张', credit: 'A · CC0' })] }).essay!;
+
+describe('影集页面渲染', () => {
+  it('essaySection：版式 class、编号、EXIF 条、署名、每张手记、故事模式按钮；不输出坐标', () => {
+    const h = essaySection(ESSAY);
+    expect(h).toContain('class="essay essay--diptych"');
+    expect(h).toContain('data-essay');
+    expect(h).toContain('js-essay-story');
+    expect(h.match(/js-essay-open/g)).toHaveLength(2);
+    expect(h).toContain('<span class="exif-strip__v">Phone · ISO 50</span>');
+    expect(h).toContain('署名：A · CC0');
+    expect(h).toContain('拍摄手记 · 第 1 张');
+    expect(h).not.toMatch(/lat|lng|gps/i);
+  });
+  it('postPage：影集类型 → page--essay、无侧栏布局、文章级手记默认展开；普通文章不受影响', () => {
+    const s = site([P(1, 'e', { kind: 'essay' })]);
+    const pg = postPage(s, { ...P(1, 'e', { kind: 'essay' }), contentMd: '前言', essay: ESSAY, notes: { place: '漓江', light: '', gear: '', settings: '', thought: '等雾' } } as Post);
+    expect(pg.kind).toContain('page--essay');
+    expect(pg.main).toContain('post-layout--essay');
+    expect(pg.main).toContain('<details class="shot-notes" open>');
+    expect(pg.top).toContain('影集');
+    const plain = postPage(s, { ...P(1, 'e'), contentMd: 'x' } as Post);
+    expect(plain.kind).toBe('page--post');
+    expect(plain.main).not.toContain('data-essay');
+    // kind=essay 但没有照片 → 按普通文章渲染
+    expect(postPage(s, { ...P(1, 'e', { kind: 'essay' }), contentMd: 'x', essay: null } as Post).main).not.toContain('data-essay');
+  });
+  it('文章卡片标出影集', () => expect(postCard(P(1, 'e', { kind: 'essay' }), 0)).toContain('影集'));
+});
+
+describe('演示 mock API 与 Worker 同一套影集规则', () => {
+  let api: DemoBackend;
+  let csrf = '';
+  const admin = (m: string, p: string, b?: unknown) => api.handle(m, p, b, { 'x-csrf-token': csrf });
+  beforeEach(async () => {
+    api = new DemoBackend({ storage: memoryKV(), base: '/TheBLOG/', now: () => new Date('2026-10-10T12:00:00Z') });
+    csrf = ((await api.handle('POST', '/api/auth/login', { password: DEMO_PASSWORD })).body as { csrfToken: string }).csrfToken;
+  });
+  it('创建 / 读取 / 列表只带 kind / 改回文章清空影集', async () => {
+    const essay = { layout: 'grid', photos: [photo({ exif: { iso: '64' } })] };
+    const r = await admin('POST', '/api/admin/posts', { title: 'E', slug: 'mock-essay', kind: 'essay', essay, notes: { place: '长沙' }, status: 'published' });
+    expect(r.status).toBe(201);
+    const full = (await api.handle('GET', '/api/posts/mock-essay')).body as Post;
+    expect(full.essay!.photos[0]!.exif.iso).toBe('64');
+    expect(full.notes!.place).toBe('长沙');
+    const list = (await api.handle('GET', '/api/posts')).body as { posts: PostSummary[] };
+    const s = list.posts.find((p) => p.slug === 'mock-essay') as Record<string, unknown>;
+    expect(s.kind).toBe('essay');
+    expect(s.essay).toBeUndefined();
+    const up = (await admin('PATCH', '/api/admin/posts/mock-essay', { kind: 'post', notes: null })).body as Post;
+    expect(up.essay).toBeNull();
+    expect(up.notes).toBeNull();
+  });
+  it('同样的错误路径（与 worker/test/l14.test.ts 对应）', async () => {
+    const r = await admin('POST', '/api/admin/posts', { title: '坏', kind: 'essay', essay: { layout: 'grid', photos: [{ src: 'javascript:alert(1)', gps: '25,110', exif: { iso: 'x' }, notes: { place: '25°16′N' } }] } });
+    expect(r.status).toBe(400);
+    const paths = ((r.body as any).error.details as { path: string }[]).map((d) => d.path);
+    expect(paths).toEqual(expect.arrayContaining(['essay.photos.0.src', 'essay.photos.0.gps', 'essay.photos.0.exif.iso', 'essay.photos.0.notes.place']));
+    expect((await admin('POST', '/api/admin/posts', { title: '空', kind: 'essay' })).status).toBe(400);
+  });
+  it('种子里的示例影集都能通过严格校验，并且明确标注为示例', () => {
+    const seed = createSeed('/TheBLOG/');
+    const essays = seed.posts.filter((p) => p.kind === 'essay');
+    expect(essays.length).toBe(3);
+    for (const p of essays) {
+      expect(validateEssay(p.essay).issues).toEqual([]);
+      expect(p.title).toMatch(/^示例/);
+      expect(p.contentMd).toContain('示例影集');
+      for (const ph of p.essay!.photos) expect(ph.credit).toMatch(/Wikimedia Commons/);
+    }
+    expect(new Set(essays.map((p) => p.essay!.layout))).toEqual(new Set(['single', 'diptych', 'grid']));
+    const demo = seed.posts.find((p) => p.slug === 'demo-embeds')!;
+    for (const k of ['tip', 'warn', 'note', 'details', 'compare', 'audio', 'map', 'quote', 'notes']) expect(demo.contentMd).toContain(`:::${k}`);
+    expect(renderMarkdown(demo.contentMd)).not.toContain('embed-error');
+  });
+  it('书影音：cover / date 两边一致，javascript: 被拒', async () => {
+    const ok = await admin('PUT', '/api/admin/content/shelf', { items: [{ kind: 'book', title: '明室', status: 'done', cover: 'https://covers.openlibrary.org/b/id/1-M.jpg', date: '2026-09' }] });
+    expect(ok.status).toBe(200);
+    expect(((await api.handle('GET', '/api/content/shelf')).body as any).items[0]).toMatchObject({ cover: 'https://covers.openlibrary.org/b/id/1-M.jpg', date: '2026-09' });
+    expect((await admin('PUT', '/api/admin/content/shelf', { items: [{ kind: 'book', title: 'x', cover: 'javascript:alert(1)' }] })).status).toBe(400);
+  });
+});
+
+describe('书影音页面', () => {
+  it('按类型换动词、封面图、评分筛选、计数 live region', () => {
+    expect(shelfStatusLabel('book', 'want')).toBe('想读');
+    expect(shelfStatusLabel('movie', 'doing')).toBe('在看');
+    expect(shelfStatusLabel('music', 'done')).toBe('听过');
+    const items = validateSection('shelf', [{ kind: 'book', title: '明室', status: 'done', rating: 5, cover: '/demo/photos/cover.webp' }, { kind: 'movie', title: '花样年华', status: 'want' }]).items;
+    const h = shelfPage(site([]), items).main;
+    expect(h).toContain('js-shelf-rating');
+    expect(h).toContain('aria-live="polite"');
+    expect(h).toContain('alt="《明室》封面"');
+    expect(h).toContain('>读过<');
+    expect(h).toContain('>想看<');
+    expect(h).toContain('data-rating="5"');
+  });
+});
+
+describe('后台 l14 编辑器', () => {
+  it('嵌入块模板都能渲染（除了需要填写的占位）', () => {
+    for (const [k, t] of Object.entries(EMBED_TEMPLATES)) {
+      const h = renderMarkdown(t.md);
+      if (['compare', 'audio', 'map', 'notes'].includes(k)) expect(h).toContain('embed-error');
+      else expect(h, k).not.toContain('embed-error');
+    }
+  });
+  it('表单 → { kind, essay, notes }', () => {
+    const p = { ...P(1, 'e', { kind: 'essay' }), contentMd: '', essay: ESSAY, notes: null } as Post;
+    document.body.innerHTML = `<form id="f">${essayEditorHtml(p)}</form>`;
+    const form = document.getElementById('f')!;
+    // happy-dom 对 <option selected> 的处理有 bug（会选中第二项），真实浏览器正常：这里先断言 HTML，再手动设值
+    expect(form.innerHTML).toContain('<option value="diptych" selected="">');
+    form.querySelector<HTMLSelectElement>('#f-layout')!.value = 'diptych';
+    const m = readPostMediaRaw(form);
+    expect(m.kind).toBe('essay');
+    expect(m.essay!.layout).toBe('diptych');
+    expect(m.essay!.photos).toHaveLength(2);
+    expect(m.essay!.photos[0]!.exif.camera).toBe('Phone');
+    expect(m.essay!.photos[0]!.notes!.place).toBe('桂林');
+    expect(validateEssay(m.essay).issues).toEqual([]);
+    expect(m.notes).toBeNull();
+  });
+});
+
+describe('客户端小工具', () => {
+  it('Open Library：URL 与结果清洗', () => {
+    expect(searchUrl('明室', 'Barthes')).toBe('https://openlibrary.org/search.json?title=%E6%98%8E%E5%AE%A4&limit=6&fields=key%2Ctitle%2Cauthor_name%2Cfirst_publish_year%2Ccover_i&author=Barthes');
+    const hits = parseSearch({ docs: [{ key: '/works/OL1375083W', title: 'Camera Lucida', author_name: ['Roland Barthes'], first_publish_year: 1981, cover_i: 4379322 }, { title: '<b>x</b>' }, { title: 'No cover', cover_i: -1, key: 'javascript:1' }] });
+    expect(hits).toEqual([
+      { key: '/works/OL1375083W', title: 'Camera Lucida', creator: 'Roland Barthes', year: '1981', cover: 'https://covers.openlibrary.org/b/id/4379322-M.jpg' },
+      { key: '', title: 'No cover', creator: '', year: '', cover: '' },
+    ]);
+    expect(parseSearch(null)).toEqual([]);
+  });
+  it('故事模式滑动方向；对比滑块取值；地图 SVG 只用粗化坐标', () => {
+    expect(swipeDir(-80, 5)).toBe(1);
+    expect(swipeDir(80, 5)).toBe(-1);
+    expect(swipeDir(30, 0)).toBe(0);
+    expect(swipeDir(-60, 90)).toBe(0);
+    expect(clampPos(120)).toBe(100);
+    expect(clampPos(NaN)).toBe(50);
+    const svg = mapPinSvg(25.3, 110.3, '桂林<script>');
+    expect(svg).toContain('cx="290.3"');
+    expect(svg).not.toContain('<script>');
   });
 });
