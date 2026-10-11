@@ -205,6 +205,24 @@ if (API || DEMO) {
     for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) await emit({ name: 'tag', tag: t.tag });
     for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) await emit({ name: 'category', category: c.category });
     for (const a of extra.gallery) await emit({ name: 'album', slug: a.slug });
+    // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
+    // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
+    try {
+      const authors = new Set();
+      let cursor = null;
+      for (let i = 0; i < 10; i++) {
+        const r = await get(`/api/social/works?tab=latest&limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        for (const w of r.works ?? []) {
+          await emit({ name: 'work', id: w.id });
+          if (/^[a-z0-9_]{3,20}$/.test(w.author?.username ?? '')) authors.add(w.author.username);
+        }
+        cursor = r.nextCursor;
+        if (!cursor) break;
+      }
+      for (const u of authors) await emit({ name: 'user', username: u });
+    } catch (e) {
+      console.warn(`[prerender] 跳过社区作品外壳：${e.message}`);
+    }
     // 文章页：小批量并发拉取正文
     const queue = [...list.posts];
     await Promise.all(Array.from({ length: 6 }, async () => {
