@@ -29,4 +29,14 @@ export interface Env {
   COOKIE_SECURE?: string;
   /** L19 私信实时层：Durable Object 绑定（class DmHub）。未绑定时私信照常可用，浏览器退回轮询 */
   DM_HUB?: DurableObjectNamespace;
+  // ---------- L20 开放网络（全部可选） ----------
+  /** 只用于本地测试：允许 Webmention 验证 / 外发抓取内网与本机地址（正式环境不要设置） */
+  WEBMENTION_ALLOW_PRIVATE?: string;
+  /** GitHub 公开 API 地址（默认 https://api.github.com；测试时指向本地假服务器） */
+  GITHUB_API?: string;
+  /** AI 辅助的提供方：openai-compatible（需要 AI_API_URL + AI_API_KEY，可选 AI_MODEL）；不设置 = 本地确定性回退 */
+  AI_PROVIDER?: string;
+  AI_API_URL?: string;
+  AI_API_KEY?: string;
+  AI_MODEL?: string;
 }

@@ -16,6 +16,9 @@ import { routeAdminUgc } from './ugc';
 import { routeAdminDiscovery } from './discovery';
 import { routeAdminStudio } from './studio';
 import { routeAdminDm } from './dm';
+import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
+import { rateLimit } from './community';
+import { MCP_LIMITS } from './open-core';
 export { DmHub } from './dm-hub';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
@@ -55,7 +58,9 @@ function corsHeaders(req: Request, env: Env, path: string): Record<string, strin
 
 const isContentKey = (k: string): k is ContentKey => (CONTENT_KEYS as readonly string[]).includes(k);
 
-async function route(req: Request, env: Env, url: URL): Promise<Response> {
+type Ctx = { waitUntil(p: Promise<unknown>): void } | undefined;
+
+async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Response> {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const m = req.method;
   let match: RegExpExecArray | null;
@@ -63,10 +68,19 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   // ---------- MCP ----------
   if (path === '/mcp') {
     checkOrigin(req, env); // 防 DNS rebinding
-    if (!(await verifyBearer(req, env))) {
-      throw new HttpError(401, 'unauthorized', '需要 Bearer token', { 'www-authenticate': 'Bearer realm="blog-mcp"' });
-    }
-    return handleMcp(req, env);
+    // 站长环境令牌 = admin；L20 会员分层令牌（mcp_…）= 令牌的作用域，按令牌限流
+    if (await verifyBearer(req, env)) return handleMcp(req, env);
+    const auth = await verifyMcpToken(req, env);
+    if (!auth) throw new HttpError(401, 'unauthorized', '需要有效的 Bearer token', { 'www-authenticate': 'Bearer realm="blog-mcp"' });
+    await rateLimit(env, 'mcp', String(auth.tokenId), MCP_LIMITS.callsPerMinute, 60, 'MCP 调用太频繁，请稍后再试');
+    return handleMcp(req, env, auth);
+  }
+
+  // ---------- L20 开放网络：Webmention / 订阅源 / 开放接口 / h-entry 页面 / 退订 ----------
+  if (path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
+    const open = await routeOpen(req, env, path, url, ctx);
+    if (open) return open;
+    throw new HttpError(404, 'not_found', '接口不存在');
   }
 
   // ---------- 公开接口 ----------
@@ -103,6 +117,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
   if (path.startsWith('/api/social/')) {
     if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
     // 投稿正文（长文最多 2 万字 + 影集 30 张图的元数据）需要比社交接口更大的请求体上限
+    // L20 订阅 / MCP 令牌 / AI 建议 / 项目 GitHub 卡片
+    const os = await routeOpenSocial(req, env, path.slice('/api/social'.length), url, () => readJson(req, path.startsWith('/api/social/ai/') ? 64 * 1024 : 16 * 1024));
+    if (os) return os;
     const social = await routeSocial(req, env, path, url, () => readJson(req, path.startsWith('/api/social/works') ? 128 * 1024 : 16 * 1024));
     if (social) return social;
     throw new HttpError(404, 'not_found', '接口不存在');
@@ -149,6 +166,9 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
     // L19 活动聊天室配置 / 私信举报快照
     const dmAdmin = await routeAdminDm(req, env, sub, () => readJson(req, 8 * 1024));
     if (dmAdmin) return dmAdmin;
+    // L20 Webmention 审核 / 外发、站点角色、AI 开关
+    const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
+    if (openAdmin) return openAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
@@ -201,14 +221,14 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
     const cors = corsHeaders(req, env, path);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     let res: Response;
     try {
-      res = await route(req, env, url);
+      res = await route(req, env, url, ctx);
     } catch (e) {
       res = errorResponse(e);
     }
@@ -217,5 +237,9 @@ export default {
     res = withSecurityHeaders(res);
     for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
     return res;
+  },
+  // L20 定时任务（wrangler.jsonc triggers.crons）：Webmention 重试验证 + 邮件摘要
+  async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(scheduledOpen(env));
   },
 } satisfies ExportedHandler<Env>;

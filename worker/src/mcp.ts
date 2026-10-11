@@ -12,6 +12,9 @@ import { storeImage, MAX_IMAGE_BYTES } from './images';
 import * as svc from './service';
 import { decodeCursor } from './post-page-core';
 import { COMMUNITY_TOOLS } from './community-mcp';
+import { OPEN_TOOLS } from './open-mcp';
+import { scopeAllows, toolScope, SCOPE_LABEL, type McpScope } from './open-core';
+import { auditMcp, type McpAuth } from './open';
 import { CONTENT_KEYS, SECTION_KEYS, albumSchema, favoriteSchema, friendSchema, guestbookModerateSchema, listQuerySchema, postCreateSchema, postUpdateSchema, profilePatchSchema, settingsPatchSchema, slugSchema } from './schema';
 
 export const SERVER_INFO = { name: 'winston-blog', title: 'Winston 的博客', version: '0.2.0' };
@@ -24,8 +27,10 @@ export interface ToolDef {
   description: string;
   input: z.ZodObject;
   annotations: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
-  run: (env: Env, args: any) => Promise<unknown>;
+  run: (env: Env, args: any, ctx: McpCtx) => Promise<unknown>;
 }
+/** L20：调用上下文 = 令牌的作用域与所属会员（站长环境令牌 memberId = null） */
+export interface McpCtx extends McpAuth { req: Request }
 
 const slugArg = z.object({ slug: slugSchema.describe('文章 slug') });
 
@@ -206,6 +211,7 @@ export const TOOLS: ToolDef[] = [
     run: (env, a) => svc.moderateGuestbook(env, a),
   },
   ...COMMUNITY_TOOLS,
+  ...OPEN_TOOLS,
 ];
 
 function inputSchemaOf(t: ToolDef): Record<string, unknown> {
@@ -213,8 +219,8 @@ function inputSchemaOf(t: ToolDef): Record<string, unknown> {
   return { type: 'object', ...schema };
 }
 
-export function listTools() {
-  return TOOLS.map((t) => ({ name: t.name, title: t.title, description: t.description, inputSchema: inputSchemaOf(t), annotations: t.annotations }));
+export function listTools(scope: McpScope = 'admin') {
+  return TOOLS.filter((t) => scopeAllows(scope, toolScope(t.name))).map((t) => ({ name: t.name, title: t.title, description: t.description, inputSchema: inputSchemaOf(t), annotations: t.annotations }));
 }
 
 type Id = string | number;
@@ -230,19 +236,27 @@ interface RpcMessage {
 const rpcError = (id: Id | null, code: number, message: string, data?: unknown) => ({ jsonrpc: '2.0', id, error: { code, message, ...(data === undefined ? {} : { data }) } });
 const rpcResult = (id: Id, result: unknown) => ({ jsonrpc: '2.0', id, result });
 
-async function callTool(env: Env, params: any) {
+async function callTool(env: Env, params: any, ctx: McpCtx) {
   const name = params?.name;
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return { error: { code: -32602, message: `未知工具：${String(name)}` } };
+  // L20 权限分层：令牌作用域不够 → 拒绝（审计里记 insufficient_scope）
+  const need = toolScope(tool.name);
+  if (!scopeAllows(ctx.scope, need)) {
+    await auditMcp(env, ctx, 'tools/call', tool.name, false, 'insufficient_scope');
+    return { result: { content: [{ type: 'text', text: `insufficient_scope: 工具 ${tool.name} 需要「${SCOPE_LABEL[need]}」（${need}）权限，当前令牌是「${SCOPE_LABEL[ctx.scope]}」（${ctx.scope}）` }], structuredContent: { error: 'insufficient_scope', required: need, scope: ctx.scope }, isError: true } };
+  }
   const parsed = tool.input.safeParse(params?.arguments ?? {});
   if (!parsed.success) {
     const msg = parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
     return { result: { content: [{ type: 'text', text: `参数校验失败：${msg}` }], isError: true } };
   }
   try {
-    const out = await tool.run(env, parsed.data);
+    const out = await tool.run(env, parsed.data, ctx);
+    await auditMcp(env, ctx, 'tools/call', tool.name, true, '');
     return { result: { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }], structuredContent: out as Record<string, unknown>, isError: false } };
   } catch (e) {
+    await auditMcp(env, ctx, 'tools/call', tool.name, false, e instanceof HttpError ? e.code : 'internal');
     if (e instanceof HttpError) {
       const details = e.details ? ` ${JSON.stringify(e.details)}` : '';
       return { result: { content: [{ type: 'text', text: `${e.code}: ${e.message}${details}` }], isError: true } };
@@ -252,7 +266,7 @@ async function callTool(env: Env, params: any) {
   }
 }
 
-async function handleMessage(env: Env, msg: RpcMessage): Promise<object | null> {
+async function handleMessage(env: Env, msg: RpcMessage, ctx: McpCtx): Promise<object | null> {
   const isRequest = msg && typeof msg === 'object' && 'id' in msg && msg.id !== undefined && msg.id !== null && typeof msg.method === 'string';
   const isNotification = msg && typeof msg === 'object' && typeof msg.method === 'string' && !('id' in msg && msg.id !== undefined);
   const isResponse = msg && typeof msg === 'object' && !('method' in msg) && ('result' in msg || 'error' in msg);
@@ -270,15 +284,18 @@ async function handleMessage(env: Env, msg: RpcMessage): Promise<object | null> 
         protocolVersion,
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
-        instructions: '这是 Winston 个人博客的管理接口。文章用 slug 标识；create_post 默认存为草稿，确认后用 publish_post 发布。正文为 Markdown。',
+        instructions:
+          ctx.scope === 'admin'
+            ? '这是 Winston 个人博客的管理接口。文章用 slug 标识；create_post 默认存为草稿，确认后用 publish_post 发布。正文为 Markdown。'
+            : `这是 Winston 个人博客的 MCP 接口，当前令牌权限：${SCOPE_LABEL[ctx.scope]}（${ctx.scope}）。tools/list 只列出这个令牌能用的工具；作者工具只能操作令牌所属会员自己的作品，create_my_work 默认存为草稿。`,
       });
     }
     case 'ping':
       return rpcResult(id, {});
     case 'tools/list':
-      return rpcResult(id, { tools: listTools() });
+      return rpcResult(id, { tools: listTools(ctx.scope) });
     case 'tools/call': {
-      const r = await callTool(env, msg.params);
+      const r = await callTool(env, msg.params, ctx);
       return 'error' in r && r.error ? rpcError(id, r.error.code, r.error.message) : rpcResult(id, r.result);
     }
     default:
@@ -287,7 +304,8 @@ async function handleMessage(env: Env, msg: RpcMessage): Promise<object | null> 
 }
 
 /** 调用前已完成鉴权与 Origin 校验。 */
-export async function handleMcp(req: Request, env: Env): Promise<Response> {
+export async function handleMcp(req: Request, env: Env, auth: McpAuth = { scope: 'admin', memberId: null, tokenId: null }): Promise<Response> {
+  const ctx: McpCtx = { ...auth, req };
   const headers = { 'cache-control': 'no-store' };
   if (req.method === 'GET' || req.method === 'DELETE') {
     return new Response(null, { status: 405, headers: { ...headers, allow: 'POST' } });
@@ -313,9 +331,9 @@ export async function handleMcp(req: Request, env: Env): Promise<Response> {
 
   if (Array.isArray(body)) {
     if (body.length === 0) return json(rpcError(null, -32600, 'Invalid Request'), { status: 400, headers });
-    const out = (await Promise.all(body.map((m) => handleMessage(env, m as RpcMessage)))).filter(Boolean);
+    const out = (await Promise.all(body.map((m) => handleMessage(env, m as RpcMessage, ctx)))).filter(Boolean);
     return out.length ? json(out, { headers }) : new Response(null, { status: 202, headers });
   }
-  const out = await handleMessage(env, body as RpcMessage);
+  const out = await handleMessage(env, body as RpcMessage, ctx);
   return out ? json(out, { headers }) : new Response(null, { status: 202, headers });
 }

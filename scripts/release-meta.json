@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.19.0", "milestone": "L19", "from": "0e07014", "date": "2026-10-11", "title": "实时交流：私信与消息请求、隐私开关、已读回执 / 撤回、离线同步、Durable Object WebSocket 实时推送、活动聊天室" },
+    { "version": "1.20.0", "milestone": "L20", "from": "525c94c", "date": "2026-10-11", "title": "开放创作者网络：Webmention 收发与审核、RSS / Atom / JSON Feed、开放只读 API、GitHub 项目卡片、邮件订阅摘要、分级 MCP 令牌、可选 AI 辅助" },
+    { "version": "1.19.0", "milestone": "L19", "sha": "525c94c", "from": "0e07014", "date": "2026-10-11", "title": "实时交流：私信与消息请求、隐私开关、已读回执 / 撤回、离线同步、Durable Object WebSocket 实时推送、活动聊天室" },
     { "version": "1.18.0", "milestone": "L18", "sha": "0e07014", "from": "ca448f0", "date": "2026-10-11", "title": "摄影与创作工具：摄影专题、EXIF 筛选（含手机）、项目页与开发日志、共同作者与修订历史、创作者数据中心" },
     { "version": "1.17.0", "milestone": "L17", "sha": "ca448f0", "from": "5d37dae", "date": "2026-10-11", "title": "发现与活跃：话题与订阅、发现页、摄影活动（投稿 / 投票 / 精选）、合集、社区徽章" },
     { "version": "1.16.0", "milestone": "L16", "sha": "5d37dae", "from": "90381a4", "date": "2026-10-11", "title": "用户内容发布：短动态 / 长文 / 摄影作品 / 影集、关注与最新动态流、评论 / 提及 / 回应、举报与审核队列" },

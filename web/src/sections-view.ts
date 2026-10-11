@@ -424,6 +424,7 @@ ${tile('full', `<p class="sp-status muted js-sp-status" role="status" aria-live=
 export function subscribePage(site: SiteData): Page {
   const feeds: [string, string, string, string][] = [
     ['RSS 2.0', '/rss.xml', 'rss', '几乎所有阅读器都支持'],
+    ['Atom', '/atom.xml', 'rss', '更严格的标准格式，带完整时间与作者信息'],
     ['JSON Feed', '/feed.json', 'code', '更现代的格式，适合开发者'],
   ];
   return shell(site, { name: 'subscribe' }, {
@@ -445,7 +446,10 @@ ${tile('twothird', `${kicker('history', '最近会推送的文章')}<ul class="m
         .slice(0, 5)
         .map((p) => `<li><a href="${postPath(p.slug)}"><span><span class="mini-list__title">${e(p.title)}</span><time datetime="${e(pub(p))}">${formatDate(pub(p))}</time></span></a></li>`)
         .join('')}</ul>`, { cls: 'feed-preview' })}
-${tile('full', `${kicker('message', '怎么用')}<usa-disclosure class="faq"><details><summary>RSS 是什么？</summary><p>一种开放的订阅格式：把上面的地址粘贴进阅读器，有新文章时阅读器会自动拉取。没有算法推荐，也不会追踪你。</p></details><details><summary>会推送全文吗？</summary><p>订阅源里是标题和摘要，点进来看全文和图片。</p></details><details><summary>想通过邮件收到更新？</summary><p>可以<a href="${url('/join/')}">成为好朋友</a>，或者在<a href="${url('/guestbook/')}">留言板</a>告诉我。</p></details></usa-disclosure>`)}`,
+${tile('half', `${kicker('users', '创作者 / 话题 / 项目')}<p class="muted">每个公开的主页、话题和项目都有自己的 RSS / Atom / JSON Feed（页面上的「订阅源」，支持自动发现）；登录后可开启邮件摘要，默认关闭。</p>`, { cls: 'feed-scope-tile' })}
+${tile('half', `${kicker('link', 'Webmention')}<p class="muted">在你的博客里链接或回复这里，再把文章地址发到 <code>/api/webmention</code>（或粘贴到文章底部「站外回应」）。验证并审核后显示；本站页面带 microformats2 标记。</p>`, { cls: 'feed-wm-tile', attrs: 'id="webmention"' })}
+${tile('full', `${kicker('code', '开放接口')}<p class="muted">公开内容的只读 JSON 接口，免令牌、允许跨域，游标分页（<code>nextCursor</code> → <code>?cursor=</code>），每 IP 每分钟 120 次：<code>/api/open/v1/{posts, works, works/{id}, users/{username}, topics, projects}</code>，订阅源 <code>/api/feeds/…</code>。演示站没有服务器，接口在正式站提供。</p>`, { cls: 'feed-api-tile', attrs: 'id="open-api"' })}
+${tile('full', `${kicker('message', '怎么用')}<usa-disclosure class="faq"><details><summary>RSS 是什么？</summary><p>一种开放的订阅格式：把上面的地址粘贴进阅读器，有新文章时阅读器会自动拉取。没有算法推荐，也不会追踪你。</p></details><details><summary>会推送全文吗？</summary><p>订阅源里是标题和摘要，点进来看全文和图片。</p></details><details><summary>想通过邮件收到更新？</summary><p>可以<a href="${url('/join/')}">成为好朋友</a>，然后在创作者主页或话题页开启邮件摘要（每天或每周一封，没有新内容就不发）。</p></details></usa-disclosure>`)}`,
     ),
   });
 }

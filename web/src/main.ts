@@ -695,6 +695,20 @@ function bindPage(page: Page): void {
       m.bindEmbeds(root, { notify: (msg, t) => void notify(msg, t), reducedMotion: prefersReducedMotion, siteTitle: site.settings.siteTitle, pageUrl: () => location.href }),
     );
   }
+  // L20 站外回应（Webmention）：滚动到评论附近时才下载 open-client
+  const wm = root.querySelector<HTMLElement>('.js-open-wm[data-kind="post"]');
+  if (wm) {
+    const load = () => void import('./open-client').then((m) => m.mountMentions(wm, { notify: (msg, t) => void notify(msg, t) }));
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((es) => {
+        if (es.some((x) => x.isIntersecting)) {
+          io.disconnect();
+          load();
+        }
+      }, { rootMargin: '600px 0px' });
+      io.observe(wm.previousElementSibling ?? wm);
+    } else load();
+  }
   // L15 社交页：内容在按需加载的 social-client 里渲染（社交代码不进首屏包）
   if ((SOCIAL_ROUTES as readonly string[]).includes(page.route.name)) {
     void import('./social-client').then((m) => m.mountSocial(root, { notify: (msg, t) => void notify(msg, t), navigate: (h) => void go(h) }));

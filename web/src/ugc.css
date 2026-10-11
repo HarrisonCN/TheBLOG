@@ -112,3 +112,8 @@
 .ugc-impact img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; }
 .ugc-impact li > span { display: grid; }
 .ugc-co { display: block; }
+
+/* L20：采用过 AI 建议的作品标注 + 发布前确认 */
+.soc-chip--ai { background: #ede9fe; color: #4c1d95; }
+:root[data-theme='dark'] .soc-chip--ai { background: #3b0764; color: #ede9fe; }
+.ugc-aiconfirm { padding: 0.5rem 0.7rem; border-radius: 10px; background: var(--soft); }
