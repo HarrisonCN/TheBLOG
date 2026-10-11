@@ -1,5 +1,5 @@
 /**
- * L15 社交基础的纯函数（Worker 与前端演示 mock 共用同一份逻辑；web/src/social-core.ts 为同内容副本）。
+ * L15 社交基础的纯函数（Worker 与前端演示 mock 共用同一份逻辑；web/src/social-core.ts 为同内容副本，改动需同步）。
  * 不依赖 D1 / DOM：用户名与资料校验、游标编解码、通知去重键 / 聚合规则、收藏合并去重。
  */
 
