@@ -12,6 +12,14 @@ _L20 · 开放创作者网络：Webmention 收发与审核、RSS / Atom / JSON F
 - **web:** L20 demo mock parity for webmentions, feeds, subscriptions, MCP tokens and AI assist (8a938ec)
 - **worker:** L20 open creator network — Webmention receive/verify/moderate/send, RSS/Atom/JSON feeds, open read API v1, h-entry source pages, GitHub repo cards (D1 cache + ETag), email digest subscriptions with one-click unsubscribe, scoped member MCP tokens with audit, optional AI assist gate, cron (migration 0017) (929ad9d)
 
+### 测试 Tests
+
+- **e2e:** admin token lists all 45 MCP tools (29 site + 16 L20 scoped open tools) (f936762)
+
+### 文档 Docs
+
+- **changelog:** 1.20.0 (acbbdde)
+
 ### 杂项 Chores
 
 - **release:** 1.20.0 — README L20 (API, cron triggers, migrations 0006–0017), release-meta (9d0d43c)
