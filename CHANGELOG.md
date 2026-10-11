@@ -4,7 +4,7 @@
 
 ## [1.14.1](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.1)
 
-_L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版本管理_
+_L14 hardening · 工程加固：分页、严格预渲染、设计令牌、版本管理、Motionary 13.5_
 
 ### 新功能 Features
 
@@ -24,6 +24,10 @@ _L14 hardening · 工程加固：分页、严格预渲染、模块拆分、版�
 
 - **deps:** motionary ^13.5.0 (lockfile 13.5.0) (df4a906)
 - **release:** SemVer 1.14.1 (Lnn = 1.nn.0), generated CHANGELOG + README version badges, CI version check (96461b6)
+
+### 杂项 Chores
+
+- **release:** 1.14.1 title reflects shipped scope (module split deferred) (9b4e1c1)
 
 ## [1.14.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.14.0) — 2026-10-11
 
