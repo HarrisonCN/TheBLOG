@@ -1001,13 +1001,20 @@ interface UgcLog { id: number; actor: string; action: string; targetKind: string
 const UGC_TYPE: Record<string, string> = { short: '短动态', article: '长文', photo: '摄影作品', album: '影集', comment: '评论', user: '用户' };
 const UGC_REASON: Record<string, string> = { spam: '垃圾广告', abuse: '辱骂骚扰', nsfw: '不适宜内容', copyright: '侵犯版权', privacy: '泄露隐私', other: '其他' };
 const UGC_ACTION: Record<string, string> = { approve: '通过', hide: '隐藏', restore: '恢复', purge: '彻底删除', ban: '封禁', unban: '解封', dismiss: '驳回举报', auto_pending: '自动进入审核', rules: '修改规则' };
-let ugcView: 'pending' | 'reports' | 'hidden' | 'banned' | 'log' = 'pending';
+let ugcView: 'pending' | 'reports' | 'hidden' | 'banned' | 'log' | 'webmentions' = 'pending';
+// L20 Webmention（站外回应）审核
+interface WmItem { id: number; type: string; source: string; url: string; author: { name: string; url: string; photo: string }; content: string; target: string; targetKind: string; targetRef: string; status: string; error: string; sourceHost: string; createdAt: string }
+const WM_TYPE: Record<string, string> = { reply: '回复', like: '喜欢', repost: '转发', bookmark: '收藏', mention: '提及' };
+const WM_STATUS: Record<string, string> = { queued: '排队验证', pending: '待审核', approved: '已显示', rejected: '已拒绝', spam: '垃圾', invalid: '验证失败' };
+let wmStatus = 'pending';
 async function renderUgc(): Promise<void> {
   const q = await optional(
-    adminFetch<{ items: UgcItem[]; counts: Record<string, number>; rules: { reviewFirstN: number; maxLinks: number } }>(`/api/admin/ugc/queue?view=${ugcView === 'log' ? 'pending' : ugcView}`),
+    adminFetch<{ items: UgcItem[]; counts: Record<string, number>; rules: { reviewFirstN: number; maxLinks: number } }>(`/api/admin/ugc/queue?view=${ugcView === 'log' || ugcView === 'webmentions' ? 'pending' : ugcView}`),
     { items: [], counts: { pending: 0, reports: 0, hidden: 0, banned: 0 }, rules: { reviewFirstN: 2, maxLinks: 3 } },
   );
   const log = ugcView === 'log' ? (await optional(adminFetch<{ actions: UgcLog[] }>('/api/admin/ugc/log?limit=50'), { actions: [] })).actions : [];
+  const wm = ugcView === 'webmentions' ? await optional(adminFetch<{ items: WmItem[]; counts: Record<string, number> }>(`/api/admin/webmentions?status=${wmStatus}`), { items: [], counts: {} }) : { items: [], counts: {} as Record<string, number> };
+  const ai = await optional(adminFetch<{ enabled: boolean; provider: string }>('/api/admin/ai'), { enabled: false, provider: 'local' });
   const seg = (v: typeof ugcView, l: string) => `<button type="button" class="adm-seg__b${ugcView === v ? ' is-on' : ''}" data-ugcv="${v}" aria-pressed="${ugcView === v}">${l}</button>`;
   const btn = (it: UgcItem, action: string, label: string, cls = 'btn--soft', report?: number) =>
     `<button class="btn ${cls} btn--sm" type="button" data-ugc="${action}" data-kind="${it.kind}" data-id="${it.kind === 'user' ? it.author?.id ?? it.id : it.id}"${report ? ` data-report="${report}"` : ''}>${label}</button>`;
@@ -1026,19 +1033,66 @@ ${it.reports.length ? `<ul class="adm-ugc__reports" aria-label="举报">${it.rep
   mount(
     tile(
       'full',
-      `${head('flag', '社区审核', `<div class="adm-seg" role="group" aria-label="审核队列">${seg('pending', `待审核 ${q.counts.pending ?? 0}`)}${seg('reports', `举报 ${q.counts.reports ?? 0}`)}${seg('hidden', `已隐藏 ${q.counts.hidden ?? 0}`)}${seg('banned', `已封禁 ${q.counts.banned ?? 0}`)}${seg('log', '审核日志')}</div>`)}
+      `${head('flag', '社区审核', `<div class="adm-seg" role="group" aria-label="审核队列">${seg('pending', `待审核 ${q.counts.pending ?? 0}`)}${seg('reports', `举报 ${q.counts.reports ?? 0}`)}${seg('hidden', `已隐藏 ${q.counts.hidden ?? 0}`)}${seg('banned', `已封禁 ${q.counts.banned ?? 0}`)}${seg('webmentions', `Webmention ${q.counts.webmentions ?? 0}`)}${seg('log', '审核日志')}</div>`)}
 <p class="muted small">用户投稿和投稿下的评论不沿用「好朋友评论直接公开」：新成员的前 ${q.rules.reviewFirstN} 条内容先进这里审核。「隐藏」可恢复；「彻底删除」不可撤销；作者自己删除的内容只做软删除。每个操作都会写入审核日志。</p>
 ${
-  ugcView === 'log'
+  ugcView === 'webmentions'
+    ? `<p class="muted small">站外网站通过 Webmention 回应你的文章 / 作品：先异步验证对方页面确实链接到这里，再进这里等你审核；通过过的来源站点以后直接显示。</p><div class="adm-seg" role="group" aria-label="Webmention 状态">${['pending', 'approved', 'queued', 'invalid', 'rejected', 'spam', 'all'].map((s) => `<button type="button" class="adm-seg__b${wmStatus === s ? ' is-on' : ''}" data-wms="${s}" aria-pressed="${wmStatus === s}">${s === 'all' ? '全部' : WM_STATUS[s]} ${s === 'all' ? '' : (wm.counts[s] ?? 0)}</button>`).join('')}</div>
+<div class="adm-gb adm-wm-list">${wm.items.map((m) => `<article class="adm-gb__item adm-wm" data-id="${m.id}"><header><b>${e(m.author.name)}</b><span class="chip">${e(WM_TYPE[m.type] ?? m.type)}</span><span class="chip chip--${m.status === 'approved' ? 'pub' : m.status}">${e(WM_STATUS[m.status] ?? m.status)}</span><span class="muted small">${e(fmtDate(m.createdAt))}</span></header>
+<p class="small">来自 <a href="${e(m.source)}" target="_blank" rel="noopener nofollow ugc">${e(m.sourceHost)}</a> → <a href="${e(m.target)}" target="_blank" rel="noopener">${e(m.targetKind)} ${e(m.targetRef)}</a>${m.error ? ` · <span class="muted">${e(m.error)}</span>` : ''}</p>${m.content ? `<p>${e(m.content)}</p>` : ''}
+<div class="adm-row">${m.status !== 'approved' && m.status !== 'queued' && m.status !== 'invalid' ? `<button class="btn btn--sm" type="button" data-wm="approve" data-id="${m.id}">${icon('check')}通过</button>` : ''}${m.status !== 'rejected' ? `<button class="btn btn--soft btn--sm" type="button" data-wm="reject" data-id="${m.id}">拒绝</button>` : ''}${m.status !== 'spam' ? `<button class="btn btn--ghost btn--sm" type="button" data-wm="spam" data-id="${m.id}">标记垃圾</button>` : ''}<button class="adm-icon-btn adm-icon-btn--danger" type="button" data-wm="delete" data-id="${m.id}" aria-label="删除 Webmention #${m.id}">${icon('trash')}</button></div></article>`).join('') || '<p class="empty">这里是空的 🎉</p>'}</div><p><button class="btn btn--soft btn--sm" type="button" data-wm="process">立即验证排队中的 Webmention</button></p>`
+    : ugcView === 'log'
     ? `<div class="adm-table-wrap"><table class="adm-table"><caption class="visually-hidden">审核日志</caption><thead><tr><th scope="col">时间</th><th scope="col">操作者</th><th scope="col">操作</th><th scope="col">对象</th><th scope="col">原因</th></tr></thead><tbody>${log.map((a) => `<tr><td>${e(fmtDate(a.createdAt))}</td><td>${e(a.actor === 'system' ? '系统' : a.actor === 'token' ? 'API 令牌' : '站长')}</td><td>${e(UGC_ACTION[a.action] ?? a.action)}</td><td>${e(UGC_TYPE[a.targetKind] ?? a.targetKind)} #${a.targetId}${a.reportId ? `（举报 #${a.reportId}）` : ''}</td><td>${e(a.reason)}</td></tr>`).join('') || '<tr><td colspan="5">还没有记录</td></tr>'}</tbody></table></div>`
     : `<div class="adm-gb adm-ugc-list">${q.items.map(item).join('') || '<p class="empty">这里是空的 🎉</p>'}</div>`
 }`,
     ) +
       tile(
         'full',
+        `${head('link', '开放网络')}<div class="adm-open">
+<form class="adm-form" data-form="wm-send"><p class="muted small">发送 Webmention：找出一篇已发布文章 / 公开作品正文里的外链，逐个发现对方的 Webmention 端点并通知它们（只由站长手动触发）。</p><div class="adm-grid2"><label class="field"><span>内容类型</span><select name="kind"><option value="post">文章（slug）</option><option value="work">作品（id）</option></select></label><label class="field"><span>slug 或 id</span><input name="ref" required maxlength="80"></label></div><p><button class="btn btn--sm" type="submit">${icon('send')}发送 Webmention</button></p><ul class="adm-wm-sent js-wm-sent plain-list small" aria-live="polite"></ul></form>
+<form class="adm-form" data-form="ai-flag"><label class="adm-switch"><input type="checkbox" name="enabled"${ai.enabled ? ' checked' : ''}> AI 辅助（实验）：会员在发布器里可以请求摘要 / 标签 / 提纲建议</label><p class="muted small">默认关闭。建议只在作者点击「采用」后才会填入，发布前需要作者再次确认，作品会标注「含 AI 辅助内容」。AI 不会生成评论、点赞等互动。提供方：${e(ai.provider === 'local' ? '本地确定性回退（不调用任何外部服务）' : ai.provider)}。</p><p><button class="btn btn--sm" type="submit">保存</button></p></form>
+<form class="adm-form" data-form="role"><p class="muted small">站点角色决定会员最多能创建哪一级 MCP 令牌：审核员可以用「社区审核」令牌处理审核队列。撤销角色后旧令牌自动降级。</p><div class="adm-grid2"><label class="field"><span>会员 id</span><input name="id" type="number" min="1" required></label><label class="field"><span>角色</span><select name="role"><option value="moderator">审核员</option><option value="admin">站长</option><option value="member">普通好朋友（撤销）</option></select></label></div><p><button class="btn btn--sm" type="submit">保存角色</button></p></form>
+</div>`,
+      ) +
+      tile(
+        'full',
         `${head('settings', '社区规则')}<form class="adm-form adm-ugc-rules" data-form="ugc-rules"><div class="adm-grid2"><label class="field"><span>新成员前几条内容先审核</span><input name="reviewFirstN" type="number" min="0" max="50" value="${q.rules.reviewFirstN}" required></label><label class="field"><span>每条内容最多几个链接</span><input name="maxLinks" type="number" min="0" max="20" value="${q.rules.maxLinks}" required></label></div><p><button class="btn btn--sm" type="submit">保存规则</button></p></form>`,
       ),
   );
+  root.querySelector<HTMLFormElement>('[data-form="wm-send"]')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget as HTMLFormElement;
+    const kind = (f.elements.namedItem('kind') as HTMLSelectElement).value;
+    const ref = (f.elements.namedItem('ref') as HTMLInputElement).value.trim();
+    try {
+      const r = await put<{ links: number; results: { target: string; status: string; detail: string }[] }>('/api/admin/webmentions/send', { kind, ref }, 'POST');
+      const label: Record<string, string> = { sent: '已发送', no_endpoint: '对方不支持', failed: '失败', skipped: '跳过' };
+      f.querySelector('.js-wm-sent')!.innerHTML = r.results.map((x) => `<li><span class="chip">${e(label[x.status] ?? x.status)}</span> ${e(x.target)}${x.detail ? ` <span class="muted">${e(x.detail)}</span>` : ''}</li>`).join('') || '<li class="muted">正文里没有外链</li>';
+      msg(`处理了 ${r.links} 个外链`);
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+  root.querySelector<HTMLFormElement>('[data-form="ai-flag"]')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const on = ((ev.currentTarget as HTMLFormElement).elements.namedItem('enabled') as HTMLInputElement).checked;
+    try {
+      await put('/api/admin/ai', { enabled: on });
+      msg(on ? 'AI 辅助已开启' : 'AI 辅助已关闭');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+  root.querySelector<HTMLFormElement>('[data-form="role"]')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget as HTMLFormElement;
+    try {
+      await put(`/api/admin/members/${Number((f.elements.namedItem('id') as HTMLInputElement).value)}/role`, { role: (f.elements.namedItem('role') as HTMLSelectElement).value });
+      msg('角色已保存');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
   root.querySelector<HTMLFormElement>('[data-form="ugc-rules"]')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.currentTarget as HTMLFormElement;
@@ -1288,6 +1342,25 @@ root.addEventListener('click', async (ev) => {
   if (ugcSeg) {
     ugcView = ugcSeg.dataset.ugcv as typeof ugcView;
     return void renderUgc();
+  }
+  const wmSeg = t.closest<HTMLElement>('[data-wms]');
+  if (wmSeg) {
+    wmStatus = wmSeg.dataset.wms!;
+    return void renderUgc();
+  }
+  const wmBtn = t.closest<HTMLElement>('[data-wm]');
+  if (wmBtn) {
+    const a = wmBtn.dataset.wm!;
+    if (a === 'delete' && !confirm('删除这条 Webmention？')) return;
+    try {
+      if (a === 'process') await put('/api/admin/webmentions/process', {}, 'POST');
+      else await put(`/api/admin/webmentions/${Number(wmBtn.dataset.id)}`, { action: a }, 'POST');
+      await renderUgc();
+      msg(a === 'process' ? '已验证' : a === 'approve' ? '已通过，站外回应会显示在页面上' : '已处理');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+    return;
   }
   const ugcBtn = t.closest<HTMLElement>('[data-ugc]');
   if (ugcBtn) {

@@ -17,6 +17,8 @@ import { ESSAY_LAYOUT_LABEL, type Essay } from './essay-core';
 import { exifStripHtml, shotNotesHtml } from './essay-view';
 import type { ChangelogEntry, GearItem, NowItem, Repo, ShelfItem, TimelineItem, Work } from './sections';
 export { rssXml, jsonFeed } from './sections';
+// L20：构建期生成 Atom / 每个创作者·话题·项目的订阅源、分享卡片（prerender 用；客户端不引用会被摇树去掉）
+export { atomFeed, buildFeed, feedPath, shareTags, FEED_FILE, FEED_TYPES } from './open-core';
 import { badgeHtml, presetGallery } from './badge-view';
 import { archiveCalendar, relatedPosts, seriesOf } from './post-extras';
 import { dailyWork, dotsPath, mapPoints, project } from './photo-map';
@@ -963,6 +965,11 @@ export function seriesNav(s: { name: string; posts: PostSummary[]; index: number
 }
 
 /** 评论区外壳：列表由浏览器端拉取（comments-client.ts）；表单带蜜罐字段。旧 Worker 没有评论接口时整块隐藏。 */
+/** microformats 的 dt-*：统一成 ISO 8601（解析不了就原样） */
+const isoOr = (v: string) => {
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? v : new Date(t).toISOString();
+};
 export function commentsSection(slug: string): string {
   return `<section class="tile tile--full pcomments js-comments reveal" id="comments" data-slug="${e(slug)}" aria-labelledby="h-comments">
   <h2 class="pcomments__h" id="h-comments">${icon('message')}评论 <span class="pcomments__n js-c-count"></span></h2>
@@ -1103,10 +1110,11 @@ export function postPage(site: SiteData, post: Post): Page {
     : '<p class="empty">这篇文章没有小标题。</p>';
   const main = `<usa-scroll-progress target="#post" label="阅读进度" class="read-progress"></usa-scroll-progress>
 <div class="post-layout${essay ? ' post-layout--essay' : ''}">
-<article class="tile tile--full post reveal${essay ? ' post--essay' : ''}" id="post">
+<article class="tile tile--full post reveal h-entry${essay ? ' post--essay' : ''}" id="post">
+  <div class="post-mf" hidden><span class="p-name">${e(post.title)}</span><a class="u-url" href="${link}">${link}</a><time class="dt-published" datetime="${e(isoOr(post.publishedAt ?? post.createdAt))}">${e(isoOr(post.publishedAt ?? post.createdAt))}</time><span class="p-author h-card"><a class="p-name u-url" href="${url('/about/')}">${e(site.profile.name)}</a></span>${post.summary ? `<span class="p-summary">${e(post.summary)}</span>` : ''}${post.tags.map((t) => `<span class="p-category">${e(t)}</span>`).join('')}</div>
   ${postTools()}
   <usa-double-tap class="post__body" label="双击点赞">
-    <div class="prose" id="post-body">${html}</div>
+    <div class="prose e-content" id="post-body">${html}</div>
   </usa-double-tap>
   ${essay ? essaySection(essay) : ''}
   ${post.notes ? `<div class="post-notes">${shotNotesHtml(post.notes, essay ? '这组照片的拍摄手记' : '拍摄手记', true)}</div>` : ''}
@@ -1130,7 +1138,8 @@ export function postPage(site: SiteData, post: Post): Page {
 </div>
 ${newer || older ? bento(`${pn(newer, '上一篇', 'pn--prev')}${pn(older, '下一篇', 'pn--next')}`, 'bento--pn') : ''}
 ${related.length ? `<h2 class="section-h reveal" id="h-related">${icon('heart')}相关推荐</h2>${bento(related.map((p, i) => postCard(p, i, 'third')).join(''), 'bento--posts')}` : ''}
-${commentsSection(post.slug)}`;
+${commentsSection(post.slug)}
+<section class="tile tile--full open-wm js-open-wm" data-kind="post" data-ref="${e(post.slug)}" hidden></section>`;
   return shell(site, { name: 'post', slug: post.slug }, {
     title: post.title,
     description: post.summary || plainText(post.contentMd),

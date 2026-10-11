@@ -171,6 +171,7 @@ document.addEventListener('blog:dm-unread', (ev) => {
 const DISCOVERY_VIEWS = new Set(['discover', 'topics', 'topic', 'events', 'event', 'collection']);
 const STUDIO_VIEWS = new Set(['projects', 'project', 'features', 'feature', 'mystats']);
 const DM_VIEWS = new Set(['messages', 'msgrequests', 'msgsettings', 'conversation']);
+const OPEN_VIEWS = new Set(['user', 'work', 'topic', 'project', 'me']);
 export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<void> {
   const box = root.querySelector<HTMLElement>('.js-social');
   if (!box) return;
@@ -187,6 +188,8 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     else if (view === 'user') await renderProfile(box, box.dataset.username ?? '', ctx);
     else if (view === 'notifications') await renderNotifications(box, ctx);
     else if (view === 'me') await renderMe(box, ctx);
+    // L20 开放网络：订阅源 / 邮件订阅 / GitHub 卡片 / 站外回应 / MCP 令牌（再分一个包，只在这些页面下载）
+    if (view && OPEN_VIEWS.has(view)) void import('./open-client').then((m) => m.enhance(box, view, ctx)).catch(() => undefined);
   } catch (x) {
     const nf = x instanceof ApiError && x.status === 404;
     const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view)));
@@ -218,10 +221,11 @@ async function renderProfile(box: HTMLElement, username: string, ctx: SocialCtx)
     return;
   }
   const links = [p.website ? { label: new URL(p.website).hostname.replace(/^www\./, ''), url: p.website } : null, ...p.links].filter(Boolean) as { label: string; url: string }[];
-  box.innerHTML = `<article class="soc-profile tile tile--full" aria-labelledby="soc-name">
+  box.innerHTML = `<article class="soc-profile tile tile--full h-card" aria-labelledby="soc-name">
+  <a class="u-url u-uid" href="${userPath(p.username)}" hidden>@${e(p.username)}</a>
   <div class="soc-cover"${cover} aria-hidden="true"></div>
-  <div class="soc-id">${avatar(p, 'soc-av soc-av--xl')}<div class="soc-id__txt"><h1 class="soc-name" id="soc-name">${e(p.nickname)}</h1><p class="muted">@${e(p.username)}${v.followedBy && !v.self ? ' · <span class="soc-chip">关注了你</span>' : ''}</p></div><div class="soc-actions">${actions}</div></div>
-  ${p.bio ? `<p class="soc-bio">${e(p.bio)}</p>` : ''}
+  <div class="soc-id">${avatar(p, p.avatarUrl ? 'soc-av soc-av--xl u-photo' : 'soc-av soc-av--xl')}<div class="soc-id__txt"><h1 class="soc-name p-name" id="soc-name">${e(p.nickname)}</h1><p class="muted">@<span class="p-nickname">${e(p.username)}</span>${v.followedBy && !v.self ? ' · <span class="soc-chip">关注了你</span>' : ''}</p></div><div class="soc-actions">${actions}</div></div>
+  ${p.bio ? `<p class="soc-bio p-note">${e(p.bio)}</p>` : ''}
   ${links.length ? `<ul class="soc-links" aria-label="网站与社交链接">${links.map((l) => `<li><a href="${e(l.url)}" rel="noopener nofollow ugc" target="_blank">${icon('external')}${e(l.label)}</a></li>`).join('')}</ul>` : ''}
   ${p.badges.length ? `<p class="soc-badges">${p.badges.map((b) => memberBadge(b.code, b.label, b.style, b.design)).join(' ')}</p>` : ''}
   <dl class="soc-stats">

@@ -35,6 +35,8 @@ export interface UgcCtx { notify: Notify; navigate?: (href: string) => void }
 interface Card { username: string; nickname: string; avatarUrl: string; bio: string }
 interface Media { url: string; alt: string; width: number; height: number }
 export interface Work {
+  /** L20：作者采用过 AI 辅助建议 */
+  aiAssisted?: boolean;
   id: number;
   type: WorkType;
   author: Card;
@@ -74,7 +76,7 @@ export const ugc = {
   work: (id: number) => request<{ work: Work }>(`/api/social/works/${id}`, { headers: auth() }),
   create: (b: unknown) => send<{ work: Work; status: string }>('/api/social/works', 'POST', b),
   update: (id: number, b: unknown) => send<{ work: Work; status: string }>(`/api/social/works/${id}`, 'PUT', b),
-  publish: (id: number) => send<{ work: Work; status: string }>(`/api/social/works/${id}/publish`, 'POST'),
+  publish: (id: number, body: { aiConfirmed?: boolean } = {}) => send<{ work: Work; status: string }>(`/api/social/works/${id}/publish`, 'POST', body),
   remove: (id: number) => send<{ deleted: boolean }>(`/api/social/works/${id}`, 'DELETE'),
   comments: (id: number) => request<{ comments: WComment[]; nextCursor: string | null }>(`/api/social/works/${id}/comments?limit=50`, { headers: auth() }),
   comment: (id: number, body: string, parentId: number | null) => send<{ comment: WComment; status: string }>(`/api/social/works/${id}/comments`, 'POST', { body, parentId }),
@@ -151,7 +153,7 @@ const credits = (w: Work) => {
   return co.length ? `<span class="muted small ugc-co">与 ${co.map((c) => `<a href="${userPath(c.user.username)}">${e(c.user.nickname)}</a>`).join('、')} 共同创作</span>` : '';
 };
 const byline = (w: Work) =>
-  `<a class="ugc-by" href="${userPath(w.author.username)}">${avatar(w.author)}<span><b>${e(w.author.nickname)}</b><span class="muted small"> @${e(w.author.username)}</span></span></a>${credits(w)}<span class="muted small ugc-meta"><span class="soc-chip">${WORK_TYPE_LABEL[w.type]}</span>${w.visibility !== 'public' ? `<span class="soc-chip soc-chip--soft">${icon('lock')}${VISIBILITY_LABEL[w.visibility]}</span>` : ''}<time datetime="${e(w.publishedAt ?? w.createdAt)}">${ago(w.publishedAt ?? w.createdAt)}</time>${w.editedAt ? '<span>· 已编辑</span>' : ''}</span>`;
+  `<a class="ugc-by p-author h-card" href="${userPath(w.author.username)}">${avatar(w.author)}<span><b class="p-name">${e(w.author.nickname)}</b><span class="muted small"> @${e(w.author.username)}</span></span></a>${credits(w)}<span class="muted small ugc-meta"><span class="soc-chip">${WORK_TYPE_LABEL[w.type]}</span>${w.visibility !== 'public' ? `<span class="soc-chip soc-chip--soft">${icon('lock')}${VISIBILITY_LABEL[w.visibility]}</span>` : ''}<time class="dt-published" datetime="${e(w.publishedAt ?? w.createdAt)}">${ago(w.publishedAt ?? w.createdAt)}</time>${w.editedAt ? '<span>· 已编辑</span>' : ''}${w.aiAssisted ? '<span class="soc-chip soc-chip--ai" title="作者采用了 AI 辅助建议，并在发布前确认过">含 AI 辅助内容</span>' : ''}</span>`;
 export const img = (m: Media, cls = '', eager = false) => `<img class="${cls}" src="${e(imgSrc(m.url))}" alt="${e(m.alt)}"${m.width && m.height ? ` width="${m.width}" height="${m.height}"` : ''} loading="${eager ? 'eager' : 'lazy'}" decoding="async">`;
 const totalReactions = (w: Work) => Object.values(w.counts.reactions).reduce((a, b) => a + (b ?? 0), 0);
 function stateBanner(w: Work): string {
@@ -296,14 +298,15 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
     const on = w.mine.reactions.includes(k);
     return `<button type="button" class="ugc-react js-react" data-k="${k}" aria-pressed="${on}" aria-label="${WORK_REACTION_EMOJI[k]} 回应（${n}）"${me ? '' : ' disabled'}><span aria-hidden="true">${WORK_REACTION_EMOJI[k]}</span><span class="ugc-react__n">${n}</span></button>`;
   }).join('');
-  box.innerHTML = `<article class="ugc-work tile tile--full" aria-labelledby="ugc-title">
+  box.innerHTML = `<article class="ugc-work tile tile--full h-entry" aria-labelledby="ugc-title">
+  <a class="u-url" href="${workPath(w.id)}" hidden>#${w.id}</a>
   <header class="ugc-work__head">${byline(w)}</header>
   ${stateBanner(w)}
-  <h1 class="ugc-work__title" id="ugc-title">${e(w.title || `${w.author.nickname}的${WORK_TYPE_LABEL[w.type]}`)}</h1>
+  <h1 class="ugc-work__title p-name" id="ugc-title">${e(w.title || `${w.author.nickname}的${WORK_TYPE_LABEL[w.type]}`)}</h1>
   ${topicChips(w)}
   ${media}
-  ${w.caption ? `<p class="ugc-caption">${e(w.caption)}</p>` : ''}
-  ${w.body ? `<div class="prose ugc-body">${renderCommentHtml(w.body)}</div>` : ''}
+  ${w.caption ? `<p class="ugc-caption p-summary">${e(w.caption)}</p>` : ''}
+  ${w.body ? `<div class="prose ugc-body e-content">${renderCommentHtml(w.body)}</div>` : ''}
   ${params.length ? `<dl class="ugc-params" aria-label="拍摄参数">${params.map((k) => `<div><dt>${PARAM_LABEL[k]}</dt><dd>${e(w.params[k]!)}</dd></div>`).join('')}</dl>` : ''}
   ${w.notes ? `<section class="ugc-notes" aria-labelledby="ugc-notes-h"><h2 class="soc-h" id="ugc-notes-h">${icon('book')}拍摄手记</h2><div class="prose">${renderCommentHtml(w.notes)}</div></section>` : ''}
   <div class="ugc-actions">
@@ -374,7 +377,9 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
         void ctx.notify('已删除', 'info');
         ctx.navigate?.(url('/feed/?tab=mine'));
       } else if (b.classList.contains('js-publish')) {
-        const r = await ugc.publish(w.id);
+        // L20：草稿采用过 AI 建议 → 发布前明确确认
+        if (w.aiAssisted && !confirm('这篇草稿采用了 AI 建议。确认你已经检查过 AI 生成的部分，再发布？')) return;
+        const r = await ugc.publish(w.id, w.aiAssisted ? { aiConfirmed: true } : {});
         void ctx.notify(r.status === 'pending' ? '已提交，等待审核' : '已发布', 'success');
         await renderWork(box, w.id, ctx);
       } else if (b.classList.contains('js-report')) {
@@ -509,6 +514,8 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     : { type: 'photo', title: '', body: '', caption: '', notes: '', params: {}, media: [], visibility: 'public', topics: [] };
   // L17 话题（关联表，不是自由标签）：最多 3 个；?topic= 预选
   const allTopics = await ugc.topics().then((r) => r.topics).catch(() => [] as { slug: string; name: string }[]);
+  // L20：采用过 AI 建议的内容发布前需要确认（服务端同样校验）
+  let aiUsed = !!editing?.aiAssisted;
   const pre = new URLSearchParams(location.search).get('topic');
   if (!editing && pre && allTopics.some((t) => t.slug === pre)) d.topics = [pre];
   const draw = () => {
@@ -551,6 +558,8 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
   ${field('notes', '拍摄手记', r.notes, 0, 4, '这张照片背后的故事：怎么拍的、当时的天气和心情。')}
   ${allTopics.length ? `<fieldset class="ugc-topicpick"><legend>话题 <span class="muted small">（可选，最多 3 个；会出现在话题页，订阅了话题的人能看到）</span></legend><div class="soc-filters">${allTopics.map((t) => `<label class="ugc-type${d.topics.includes(t.slug) ? ' is-on' : ''}"><input type="checkbox" class="js-topic" value="${e(t.slug)}"${d.topics.includes(t.slug) ? ' checked' : ''}>#${e(t.name)}</label>`).join('')}</div><p class="field__err js-err" data-for="topics" hidden></p></fieldset>` : ''}
   <div class="field"><label class="field__label" for="ugc-vis">谁可以看${editing && editing.mine.can && !editing.mine.can.visibility ? '<span class="muted small">（只有作品所有者可以修改）</span>' : ''}</label><select id="ugc-vis" name="visibility"${editing && editing.mine.can && !editing.mine.can.visibility ? ' disabled' : ''}>${(['public', 'followers', 'private'] as const).map((v) => `<option value="${v}"${d.visibility === v ? ' selected' : ''}>${VISIBILITY_LABEL[v]}</option>`).join('')}</select></div>
+  <div class="js-ai-slot" hidden></div>
+  <div class="field ugc-aiconfirm js-aiconfirm"${aiUsed ? '' : ' hidden'}><label class="soc-check"><input type="checkbox" name="aiConfirmed" id="ugc-aiconfirm"><span>我已检查并按需修改了 AI 建议生成的内容（发布后作品会标注「含 AI 辅助内容」）</span></label><p class="field__err js-err" data-for="aiConfirmed" hidden></p></div>
   <p class="field__err js-err" data-for="" role="alert" hidden></p>
   <div class="ugc-row ugc-submit">${!editing || editing.status === 'draft' ? `<button class="btn btn--soft js-save-draft" type="submit" value="draft">${icon('file')}${editing ? '保存草稿' : '存为草稿'}</button>` : ''}<button class="btn btn--primary js-submit" type="submit" value="publish">${icon('send')}${editing ? (editing.status === 'draft' ? '发布' : '保存修改') : '发布'}</button></div>
 </form>`;
@@ -586,7 +595,24 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
       ctl.focus();
     } else slot.setAttribute('tabindex', '-1'), slot.focus();
   };
+  const mountAi = () => {
+    const slot = box.querySelector<HTMLElement>('.js-ai-slot');
+    const form = box.querySelector<HTMLFormElement>('.js-compose');
+    if (!slot || !form) return;
+    void import('./open-client').then((m) =>
+      m.mountAiPanel(slot, {
+        form,
+        notify: ctx.notify,
+        onAccept: () => {
+          aiUsed = true;
+          const c = box.querySelector<HTMLElement>('.js-aiconfirm');
+          if (c) c.hidden = false;
+        },
+      }),
+    );
+  };
   draw();
+  mountAi();
   box.addEventListener('change', async (ev) => {
     const t = ev.target as HTMLInputElement;
     if (t.name === 'type') {
@@ -595,6 +621,7 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
       const r = TYPE_RULES[d.type];
       if (d.media.length > r.media[1]) d.media = d.media.slice(0, r.media[1]);
       draw();
+      mountAi();
       box.querySelector<HTMLInputElement>(`input[name=type][value=${d.type}]`)?.focus();
       return;
     }
@@ -650,11 +677,15 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
     readForm();
     const c = checkWork(d, { allowDataUrl: DEMO });
     if (!c.ok) return showErr(c.path, c.error);
+    const aiConfirmed = !!box.querySelector<HTMLInputElement>('#ugc-aiconfirm')?.checked;
+    const publishing = !asDraft && (!editing || editing.status !== 'draft' || !asDraft);
+    if (aiUsed && publishing && !aiConfirmed) return showErr('aiConfirmed', '这篇内容采用了 AI 建议：请先检查，并勾选上面的确认');
+    const ai = aiUsed ? { aiAssisted: true, aiConfirmed } : {};
     box.querySelectorAll<HTMLButtonElement>('button[type=submit]').forEach((x) => (x.disabled = true));
     try {
       let res: { work: Work; status: string };
       if (editing) {
-        const body = { ...c.value, topics: d.topics };
+        const body = { ...c.value, topics: d.topics, ...(editing.status === 'draft' ? (aiUsed ? { aiAssisted: true } : {}) : ai) };
         try {
           res = await ugc.update(editing.id, body);
         } catch (x) {
@@ -664,8 +695,8 @@ async function renderCompose(box: HTMLElement, ctx: UgcCtx): Promise<void> {
           if (!(await confirmMediaRemoval(items, submitter ?? box))) throw new ApiError(409, '已取消：图片没有删除，修改未保存', 'cancelled');
           res = await ugc.update(editing.id, { ...body, confirmMediaRemoval: true });
         }
-        if (editing.status === 'draft' && !asDraft) res = await ugc.publish(editing.id);
-      } else res = await ugc.create({ ...c.value, topics: d.topics, draft: asDraft });
+        if (editing.status === 'draft' && !asDraft) res = await ugc.publish(editing.id, aiUsed ? { aiConfirmed } : {});
+      } else res = await ugc.create({ ...c.value, topics: d.topics, draft: asDraft, ...ai });
       void ctx.notify(res.status === 'draft' ? '草稿已保存，只有你能看到' : res.status === 'pending' ? '已提交，等待站长审核后公开' : editing ? '修改已保存' : '发布成功', 'success');
       ctx.navigate?.(workPath(res.work.id));
     } catch (x) {

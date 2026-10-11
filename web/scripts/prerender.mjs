@@ -82,26 +82,38 @@ function absUrl(path) {
 }
 
 /** 每页的 SEO 头：canonical、Open Graph、Twitter 卡片；文章页加 article:* 与 JSON-LD（BlogPosting）。 */
-function headMeta(p, data) {
+/** L20：每个创作者 / 话题 / 项目的订阅源地址（演示版 = 构建时生成的静态文件；正式站 = Worker 动态源） */
+const feedHref = (scope, fmt) => R.feedPath(scope, fmt, { apiBase: DEMO ? null : API_BASE, base: BASE });
+const FEED_MIME = { rss: 'application/rss+xml', atom: 'application/atom+xml', json: 'application/feed+json' };
+const FEED_NAME = { rss: 'RSS', atom: 'Atom', json: 'JSON Feed' };
+function headMeta(p, data, share) {
   const s = data.settings;
   const post = p.route.name === 'post' ? data.extra?.post : null;
   const urlPath = R.url(R.routePath(p.route));
   const canonical = absUrl(urlPath);
-  const image = absUrl(post?.coverUrl || s.heroImage || '');
+  const image = absUrl(post?.coverUrl || share?.image || s.heroImage || '');
+  const title = post ? post.title : (share?.title ?? p.title);
+  const desc = share?.description || p.description;
   const tags = [
     canonical && `<link rel="canonical" href="${esc(canonical)}" />`,
     `<meta property="og:site_name" content="${esc(s.siteTitle)}" />`,
-    `<meta property="og:type" content="${post ? 'article' : 'website'}" />`,
-    `<meta property="og:title" content="${esc(post ? post.title : p.title)}" />`,
-    `<meta property="og:description" content="${esc(p.description)}" />`,
+    `<meta property="og:type" content="${post || share?.type === 'article' ? 'article' : share?.type === 'profile' ? 'profile' : 'website'}" />`,
+    `<meta property="og:title" content="${esc(title)}" />`,
+    `<meta property="og:description" content="${esc(desc)}" />`,
     canonical && `<meta property="og:url" content="${esc(canonical)}" />`,
     image && `<meta property="og:image" content="${esc(image)}" />`,
+    image && share?.imageAlt ? `<meta property="og:image:alt" content="${esc(share.imageAlt)}" />` : '',
     `<meta property="og:locale" content="zh_CN" />`,
     `<meta name="twitter:card" content="${image ? 'summary_large_image' : 'summary'}" />`,
-    `<meta name="twitter:title" content="${esc(post ? post.title : p.title)}" />`,
-    `<meta name="twitter:description" content="${esc(p.description)}" />`,
+    `<meta name="twitter:title" content="${esc(title)}" />`,
+    `<meta name="twitter:description" content="${esc(desc)}" />`,
     image && `<meta name="twitter:image" content="${esc(image)}" />`,
   ];
+  // L20 订阅源自动发现：创作者 / 话题 / 项目页带上各自的源
+  const scope = p.route.name === 'user' ? { kind: 'user', ref: p.route.username } : p.route.name === 'topic' ? { kind: 'topic', ref: p.route.slug } : p.route.name === 'project' ? { kind: 'project', ref: p.route.slug } : null;
+  if (scope && (!DEMO || feedScopes?.[`${scope.kind}s`]?.includes(scope.ref))) for (const f of ['rss', 'atom', 'json']) tags.push(`<link rel="alternate" type="${FEED_MIME[f]}" title="${esc(`${share?.title ?? scope.ref}（${FEED_NAME[f]}）`)}" href="${esc(feedHref(scope, f))}" />`);
+  // 正式站：Webmention 端点（演示站在 GitHub Pages 上没有服务器，不声明端点）
+  if (!DEMO && HAS_SITE_URL) tags.push(`<link rel="webmention" href="${esc(API_BASE ? `${API_BASE}/api/webmention` : absUrl('/api/webmention'))}" />`);
   if (post) {
     const pub = post.publishedAt ?? post.createdAt;
     tags.push(`<meta property="article:published_time" content="${esc(pub)}" />`, `<meta property="article:modified_time" content="${esc(post.updatedAt ?? pub)}" />`);
@@ -123,17 +135,17 @@ function headMeta(p, data) {
     tags.push(`<script type="application/ld+json">${jsonForHtml(ld)}</script>`);
   }
   tags.push(`<link rel="manifest" href="${BASE}manifest.webmanifest" />`, `<meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />`, `<meta name="theme-color" content="#0b111c" media="(prefers-color-scheme: dark)" />`, `<link rel="apple-touch-icon" href="${BASE}icons/icon-192.png" />`);
-  if (HAS_SITE_URL) tags.push(`<link rel="alternate" type="application/rss+xml" title="${esc(s.siteTitle)}" href="${BASE}rss.xml" />`);
+  if (HAS_SITE_URL) tags.push(`<link rel="alternate" type="application/rss+xml" title="${esc(s.siteTitle)}" href="${BASE}rss.xml" />`, `<link rel="alternate" type="application/atom+xml" title="${esc(s.siteTitle)}（Atom）" href="${BASE}atom.xml" />`, `<link rel="alternate" type="application/feed+json" title="${esc(s.siteTitle)}（JSON Feed）" href="${BASE}feed.json" />`);
   return tags.filter(Boolean).join('\n    ');
 }
 
-function page(p, data) {
+function page(p, data, share) {
   const s = data.settings;
   const html = template
     .replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(p.title)}</title>`)
     .replace(/<meta name="description" content="[^"]*"\s*\/?>/, `<meta name="description" content="${esc(p.description)}" />`)
     .replace('data-site-theme="system"', `data-site-theme="${esc(s.theme)}"`)
-    .replace('<!--blog:head-->', headMeta(p, data))
+    .replace('<!--blog:head-->', headMeta(p, data, share))
     .replace('<!--blog:app-->', R.appHtml(data, p))
     // 演示版的数据以访客浏览器为准，不嵌入快照
     .replace('<!--blog:data-->', DEMO ? '' : `<script type="application/json" id="blog-data">${jsonForHtml(data)}</script>`);
@@ -154,6 +166,8 @@ const failures = [];
 const sitemap = [];
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
+/** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
+let feedScopes = null;
 if (API || DEMO) {
   try {
     const [settings, profile, list, tags, cats] = await Promise.all([get('/api/settings'), get('/api/profile'), fetchAllPosts(get), get('/api/tags'), soft('/api/categories', { categories: [] })]);
@@ -170,15 +184,16 @@ if (API || DEMO) {
     };
     for (const k of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos']) extra[k] = (await soft(`/api/content/${k}`, { items: [] })).items;
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
-    const emit = async (route, loadX) => {
+    const emit = async (route, loadX, loadShare) => {
       const label = R.routePath(route);
       try {
         const x = loadX ? await loadX() : {};
+        const share = loadShare ? await loadShare().catch(() => null) : null;
         const want = R.needs(route);
         const ex = Object.fromEntries(Object.entries({ ...extra, ...x }).filter(([k]) => want.includes(k)));
         const p = R.renderRoute(route, site, ex);
         const rel = decodeURIComponent(label).replace(/^\/|\/$/g, '');
-        write(rel, page(p, { ...site, extra: ex }));
+        write(rel, page(p, { ...site, extra: ex }, share));
         count++;
         if (route.name === 'post') postPages++;
         if (route.name === 'home') listPages++;
@@ -198,6 +213,39 @@ if (API || DEMO) {
       const feed = { title: settings.siteTitle, description: settings.siteDescription, siteUrl, posts: list.posts };
       writeFileSync(join(dist, 'rss.xml'), R.rssXml(feed));
       writeFileSync(join(dist, 'feed.json'), R.jsonFeed(feed));
+      // L20：Atom 1.0（全部文章，带作者与更新时间）
+      const owner = { name: profile.name || settings.siteTitle, url: siteUrl };
+      writeFileSync(
+        join(dist, 'atom.xml'),
+        R.atomFeed(
+          { title: settings.siteTitle, description: settings.siteDescription, homeUrl: siteUrl, author: owner },
+          list.posts.map((p) => ({ id: `${siteUrl}posts/${p.slug}/`, url: `${siteUrl}posts/${p.slug}/`, title: p.title, summary: p.summary, published: p.publishedAt ?? p.updatedAt, updated: p.updatedAt, author: owner, tags: [p.category, ...p.tags].filter(Boolean) })),
+          `${siteUrl}atom.xml`,
+          list.posts[0]?.updatedAt,
+        ),
+      );
+      // L20：演示版没有服务器 → 每个公开主页 / 话题 / 公开项目的订阅源在构建时写成静态文件（正式站由 Worker /api/feeds/… 动态生成）
+      if (DEMO && backend?.openFeeds) {
+        const open = backend.openFeeds();
+        feedScopes = open.feedScopes();
+        let n = 0;
+        for (const [kind, refs] of [['user', feedScopes.users], ['topic', feedScopes.topics], ['project', feedScopes.projects]]) {
+          for (const ref of refs) {
+            for (const fmt of ['rss', 'atom', 'json']) {
+              const rel = `feeds/${kind}/${ref}/${R.FEED_FILE[fmt]}`;
+              try {
+                const body = open.feed(kind, ref, fmt, `${siteUrl}${rel}`, siteUrl);
+                mkdirSync(join(dist, 'feeds', kind, ref), { recursive: true });
+                writeFileSync(join(dist, rel), body);
+                n++;
+              } catch (e) {
+                failures.push(`${rel}：${e.message}`);
+              }
+            }
+          }
+        }
+        console.log(`[prerender] 演示版静态订阅源：${n} 个文件（主页 ${feedScopes.users.length}、话题 ${feedScopes.topics.length}、项目 ${feedScopes.projects.length}）`);
+      }
     } else {
       console.warn('[prerender] 未设置 BLOG_SITE_URL（站点的绝对地址），跳过 rss.xml / feed.json。');
     }
@@ -213,29 +261,36 @@ if (API || DEMO) {
       for (let i = 0; i < 10; i++) {
         const r = await get(`/api/social/works?tab=latest&limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
         for (const w of r.works ?? []) {
-          await emit({ name: 'work', id: w.id });
+          await emit({ name: 'work', id: w.id }, null, async () => {
+            const t = w.title || (w.caption || w.body || '').slice(0, 40) || '作品';
+            return { title: `${t} · ${w.author?.nickname ?? ''}`, description: (w.caption || w.body || t).replace(/\s+/g, ' ').slice(0, 160), image: w.media?.[0]?.url ?? '', imageAlt: w.media?.[0]?.alt ?? '', type: 'article' };
+          });
           if (/^[a-z0-9_]{3,20}$/.test(w.author?.username ?? '')) authors.add(w.author.username);
         }
         cursor = r.nextCursor;
         if (!cursor) break;
       }
-      for (const u of authors) await emit({ name: 'user', username: u });
+      for (const u of authors)
+        await emit({ name: 'user', username: u }, null, async () => {
+          const { profile: pr } = await get(`/api/social/users/${u}`);
+          return { title: `${pr.nickname}（@${pr.username}）`, description: pr.bio || `${pr.nickname} 在 ${settings.siteTitle} 的创作者主页`, image: pr.avatarUrl || '', type: 'profile' };
+        });
     } catch (e) {
       console.warn(`[prerender] 跳过社区作品外壳：${e.message}`);
     }
     // L17：话题页 / 活动页的静态外壳（内容在浏览器端加载）；旧 Worker 没有这些接口时跳过。
     try {
       const { topics } = await get('/api/social/topics');
-      for (const t of topics ?? []) if (/^[a-z0-9-]{2,32}$/.test(t.slug)) await emit({ name: 'topic', slug: t.slug });
+      for (const t of topics ?? []) if (/^[a-z0-9-]{2,32}$/.test(t.slug)) await emit({ name: 'topic', slug: t.slug }, null, async () => ({ title: `#${t.name}`, description: t.intro || `话题「${t.name}」下的作品与文章`, image: '', type: 'website' }));
       const { events } = await get('/api/social/events?status=all');
-      for (const ev of events ?? []) if (/^[a-z0-9-]{2,40}$/.test(ev.slug)) await emit({ name: 'event', slug: ev.slug });
+      for (const ev of events ?? []) if (/^[a-z0-9-]{2,40}$/.test(ev.slug)) await emit({ name: 'event', slug: ev.slug }, null, async () => ({ title: ev.title, description: ev.intro || '摄影活动：规则、投稿与精选', image: ev.coverUrl || ev.cover?.url || '', type: 'website' }));
     } catch (e) {
       console.warn(`[prerender] 跳过话题 / 活动外壳：${e.message}`);
     }
     // L18：项目页 / 摄影专题的静态外壳（内容在浏览器端加载）；旧 Worker 没有这些接口时跳过。
     try {
       const { projects } = await get('/api/social/projects');
-      for (const p of projects ?? []) if (/^[a-z0-9-]{1,40}$/.test(p.slug)) await emit({ name: 'project', slug: p.slug });
+      for (const p of projects ?? []) if (/^[a-z0-9-]{1,40}$/.test(p.slug)) await emit({ name: 'project', slug: p.slug }, null, async () => ({ title: p.title, description: p.tagline || `项目「${p.title}」的开发日志、版本与关联作品`, image: p.coverUrl || '', type: 'website' }));
       const { features } = await get('/api/social/features');
       for (const f of features ?? []) if (/^[a-z0-9-]{1,40}$/.test(f.slug)) await emit({ name: 'feature', slug: f.slug });
     } catch (e) {
