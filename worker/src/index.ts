@@ -11,6 +11,7 @@ import * as svc from './service';
 import { routeAdmin as communityAdmin, routePublic as communityPublic } from './community';
 import { routeReactions } from './reactions';
 import { routeAdminComments, routeComments } from './comments';
+import { routeSocial } from './social';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -93,6 +94,13 @@ async function route(req: Request, env: Env, url: URL): Promise<Response> {
 
   // ---------- 社区（好朋友 / 便利贴 / 在线 / 上传 / 节日 / 项目） ----------
   if (m === 'POST') checkOrigin(req, env);
+  // ---------- 社交（L15）：用户主页 / 关注 / 拉黑 / 收藏 / 通知；所有写方法都校验 Origin ----------
+  if (path.startsWith('/api/social/')) {
+    if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
+    const social = await routeSocial(req, env, path, url, () => readJson(req, 16 * 1024));
+    if (social) return social;
+    throw new HttpError(404, 'not_found', '接口不存在');
+  }
   const reactions = await routeReactions(req, env, path, () => readJson(req, 1024));
   if (reactions) return reactions;
   const comments = await routeComments(req, env, path, () => readJson(req, 8 * 1024));

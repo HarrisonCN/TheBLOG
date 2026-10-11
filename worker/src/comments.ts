@@ -5,6 +5,7 @@
 import type { Env } from './env';
 import { HttpError, json } from './http';
 import { ipKey, optionalMember, rateLimit } from './community';
+import { onCommentPublished } from './social';
 import { isCommentAction, resolveParent, validateComment, type CommentStatus, type PostComment } from './comment-core';
 
 const NO_STORE = { 'cache-control': 'no-store' };
@@ -40,6 +41,7 @@ export async function createComment(req: Request, env: Env, slug: string, input:
   const row = await env.DB.prepare('INSERT INTO comments (slug, parent_id, reply_to, name, content, member_id, status, ip_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *')
     .bind(slug, parentId, replyTo, member ? member.name : v.value.name, v.value.content, member?.id ?? null, status, who, new Date().toISOString())
     .first<CommentRow>();
+  if (status === 'approved') await onCommentPublished(env, { id: row!.id, slug, parentId, content: v.value.content, memberId: member?.id ?? null });
   return { comment: rowToComment(row!), status };
 }
 
@@ -60,7 +62,10 @@ export async function moderateComment(env: Env, id: number, action: unknown): Pr
     // 删除顶层评论时连同它的回复一起删
     await env.DB.batch([env.DB.prepare('DELETE FROM comments WHERE parent_id = ?').bind(id), env.DB.prepare('DELETE FROM comments WHERE id = ?').bind(id)]);
   } else {
+    const before = await env.DB.prepare('SELECT id, slug, parent_id, content, member_id, status FROM comments WHERE id = ?').bind(id).first<{ id: number; slug: string; parent_id: number | null; content: string; member_id: number | null; status: CommentStatus }>();
     await env.DB.prepare('UPDATE comments SET status = ? WHERE id = ?').bind(action === 'approve' ? 'approved' : 'hidden', id).run();
+    // 访客评论审核通过后才通知被回复的人（幂等：同楼聚合）
+    if (action === 'approve' && before && before.status !== 'approved') await onCommentPublished(env, { id: before.id, slug: before.slug, parentId: before.parent_id, content: before.content, memberId: before.member_id });
   }
   return { id, action };
 }
