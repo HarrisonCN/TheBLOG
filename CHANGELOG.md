@@ -12,6 +12,14 @@ _L19 · 实时交流：私信与消息请求、隐私开关、已读回执 / 撤
 - **web:** L19 demo mock parity for DMs and event rooms (ce52fd5)
 - **worker:** L19 realtime DMs — conversations, message requests, privacy settings, recall, offline sync, DmHub Durable Object WebSocket push, event rooms (migration 0016) (35d0043)
 
+### 修复 Fixes
+
+- **web:** separate js-dm-link for the nav DM entry (keeps .js-notif-link unique) (0c29e92)
+
+### 文档 Docs
+
+- **changelog:** 1.19.0 (15a39d6)
+
 ### 杂项 Chores
 
 - **release:** 1.19.0 — README L19 (DmHub binding, migrations 0006–0016), release-meta (4b3cc3e)
