@@ -189,7 +189,7 @@ describe('演示 mock API 与 Worker 同一套影集规则', () => {
     expect(full.essay!.photos[0]!.exif.iso).toBe('64');
     expect(full.notes!.place).toBe('长沙');
     const list = (await api.handle('GET', '/api/posts')).body as { posts: PostSummary[] };
-    const s = list.posts.find((p) => p.slug === 'mock-essay') as Record<string, unknown>;
+    const s = list.posts.find((p) => p.slug === 'mock-essay') as unknown as Record<string, unknown>;
     expect(s.kind).toBe('essay');
     expect(s.essay).toBeUndefined();
     const up = (await admin('PATCH', '/api/admin/posts/mock-essay', { kind: 'post', notes: null })).body as Post;
