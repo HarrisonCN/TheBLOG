@@ -45,6 +45,8 @@ export interface DemoDb {
   reactionVotes?: string[];
   /** 文章评论（旧的本地数据没有这个字段） */
   comments?: import('../comment-core').PostComment[];
+  /** L15 社交（用户名 / 关注 / 收藏 / 通知）；旧的本地数据没有这个字段时用种子补齐 */
+  social?: import('./mock-social').SocialState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */
