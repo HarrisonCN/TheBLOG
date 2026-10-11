@@ -244,6 +244,14 @@ async function renderFeed(box: HTMLElement, ctx: UgcCtx): Promise<void> {
 }
 
 // ---------------------------------------------------------------- 作品页
+/** 同一个容器重新渲染时撤掉上一轮的事件监听（避免重复绑定导致一次点击触发多次）。 */
+const LISTENERS = new WeakMap<HTMLElement, AbortController>();
+function freshSignal(box: HTMLElement): AbortSignal {
+  LISTENERS.get(box)?.abort();
+  const ac = new AbortController();
+  LISTENERS.set(box, ac);
+  return ac.signal;
+}
 async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<void> {
   const { work: w } = await ugc.work(id);
   const me = currentMember();
@@ -318,6 +326,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
       bm.querySelector('span')!.textContent = r.bookmarked ? '已收藏' : '收藏';
     }
   };
+  const signal = freshSignal(box);
   box.addEventListener('click', async (ev) => {
     const t = ev.target as HTMLElement;
     const b = t.closest<HTMLButtonElement>('button');
@@ -374,7 +383,7 @@ async function renderWork(box: HTMLElement, id: number, ctx: UgcCtx): Promise<vo
       b.disabled = false;
       void ctx.notify(errMsg(x), 'error');
     }
-  });
+  }, { signal });
   box.querySelector<HTMLFormElement>('.js-cform')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.currentTarget as HTMLFormElement;
