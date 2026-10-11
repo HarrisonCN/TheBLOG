@@ -27,6 +27,8 @@ export const OPS_LIMITS = {
 
 // ============================================================ PII 清洗
 const SECRET_PARAM = /([?&;](?:token|t|code|key|api_key|apikey|password|pass|secret|sig|signature|auth|session|ticket|email)=)[^&#\s"']*/gi;
+/** 正文里的 key=value 形式的凭据（错误消息里常见：`token=…` `password=…`），只认较长、不会误伤普通文字的键名 */
+const SECRET_KV = /((?:^|[\s,(\[{"'])(?:access_token|refresh_token|id_token|token|api_key|apikey|password|passwd|secret|client_secret|signature|session|ticket)\s*=\s*)(?!\[redacted\])[^\s&#"',;)\]}]+/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{6,}/gi;
 const TOKENS = /\b(?:mcp|m|blog|sk|pk|ghp|gho|ghs|github_pat|xox[abpr])_[A-Za-z0-9_-]{8,}/g;
@@ -42,6 +44,7 @@ export function scrubPii(input: string): string {
   if (!input) return '';
   return input
     .replace(SECRET_PARAM, '$1[redacted]')
+    .replace(SECRET_KV, '$1[redacted]')
     .replace(BEARER, '$1 [token]')
     .replace(JWT, '[jwt]')
     .replace(TOKENS, '[token]')

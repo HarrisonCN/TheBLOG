@@ -272,7 +272,7 @@
 }
 
 /* 说明文字里的链接：不只靠颜色区分（axe link-in-text-block） */
-.adm-tile p.muted a { text-decoration: underline; text-underline-offset: 2px; }
+.adm-tile p.muted a, .adm-tile p.small a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------------------------------------------------------------- l14：影集编辑、拍摄手记、嵌入块菜单、Open Library */
 .adm-l14 { display: grid; gap: 0.8rem; }

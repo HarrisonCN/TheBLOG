@@ -66,6 +66,15 @@ describe('ops-core：PII 清洗', () => {
     expect(s).toContain('12:30:45');
     expect(scrubPii(s)).toBe(s); // 幂等
   });
+  it('正文里的 key=value 凭据（token= / password= / api_key=）被替换，普通 key=value 保留，幂等', () => {
+    const s = scrubPii('fetch failed token=abcd1234secret, password = hunter2 (api_key=AKIA123) count=3 t=5 code=E42');
+    for (const leak of ['abcd1234secret', 'hunter2', 'AKIA123']) expect(s).not.toContain(leak);
+    expect(s).toContain('token=[redacted]');
+    expect(s).toContain('count=3');
+    expect(s).toContain('t=5');
+    expect(s).toContain('code=E42');
+    expect(scrubPii(s)).toBe(s);
+  });
   it('URL 只保留路径和参数名；路由归一化数字 id', () => {
     expect(scrubUrl('https://blog.example.com/w/123/?t=abc&utm=x#frag')).toBe('/w/123/?t=[redacted]&utm=…');
     expect(normalizeRoute('/messages/c/42/')).toBe('/messages/c/:id/');
