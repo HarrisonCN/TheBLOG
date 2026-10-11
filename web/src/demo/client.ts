@@ -2,7 +2,8 @@
  * 演示模式的浏览器端适配：把 api.ts 的 request() 转给本地的 DemoBackend。
  * 只在 VITE_DEMO=1 的构建里被（动态）引入，正式构建不会打包这部分代码。
  */
-import { DemoBackend, memoryAudioStore, memoryKV, type AudioStore, type KV, type MockResponse } from './mock-api';
+import { DB_KEY, DemoBackend, memoryAudioStore, memoryKV, type AudioStore, type KV, type MockResponse } from './mock-api';
+import type { DmEvent } from '../dm-core';
 import { DEMO_PASSWORD } from './seed';
 import './demo.css';
 
@@ -46,6 +47,43 @@ function idbAudioStore(): AudioStore {
 }
 
 export const backend = new DemoBackend({ storage: browserStorage(), base: import.meta.env.BASE_URL, audio: idbAudioStore(), fixturePosts: Number(import.meta.env.VITE_DEMO_FIXTURE_POSTS ?? 0) || 0 });
+
+// ---------------------------------------------------------------- L19 演示「实时」
+// 同一浏览器的标签页共用 localStorage：写入后用 BroadcastChannel 通知其他标签页（它们先丢掉内存缓存再读），
+// 本标签页直接回调。每个标签页只把发给「当前标签页身份」的事件交给私信界面。
+const dmBus = typeof BroadcastChannel === 'function' ? new BroadcastChannel('theblog-dm') : null;
+const dmListeners = new Set<(ev: DmEvent) => void>();
+function tabMemberId(): number | null {
+  try {
+    const raw = sessionStorage.getItem('blog-member') ?? localStorage.getItem('blog-member');
+    return raw ? ((JSON.parse(raw) as { member?: { id?: number } }).member?.id ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+function deliver(to: number[], ev: DmEvent): void {
+  const me = tabMemberId();
+  if (me == null) return;
+  // 房间频道（负数 id）：所有登录的标签页都收到，聊天室界面按 conversationId 过滤
+  if (to.length === 1 && to[0]! < 0) {
+    const from = (ev as DmEvent & { from?: number }).from;
+    if (ev.t === 'msg') ev = { ...ev, message: { ...ev.message, mine: from === me } };
+  } else if (!to.includes(me)) return;
+  for (const fn of dmListeners) fn(ev);
+}
+backend.onDmEvent((to, ev) => {
+  dmBus?.postMessage({ to, ev });
+  deliver(to, ev);
+});
+if (dmBus) dmBus.onmessage = (m: MessageEvent<{ to: number[]; ev: DmEvent }>) => {
+  backend.invalidate();
+  deliver(m.data.to, m.data.ev);
+};
+if (typeof window !== 'undefined') window.addEventListener('storage', (ev) => ev.key === DB_KEY && backend.invalidate());
+export function onDemoDm(fn: (ev: DmEvent) => void): () => void {
+  dmListeners.add(fn);
+  return () => dmListeners.delete(fn);
+}
 
 const audioUrls = new Map<string, string>();
 /** 演示站上传的 /api/audio/… → blob: 地址（找不到返回 null）。 */

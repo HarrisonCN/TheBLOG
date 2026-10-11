@@ -19,6 +19,8 @@ import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-so
 import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { MockStudio, studioSeed } from './mock-studio';
+import { dmSeed, MockDm } from './mock-dm';
+import type { DmEvent } from '../dm-core';
 
 export interface KV {
   getItem(key: string): string | null;
@@ -196,8 +198,9 @@ export class DemoBackend {
         this.ugc.purgeAuthor(id);
         this.studio.purge(id);
         this.disc.purge(id);
+        this.dm.purge(id);
       },
-      exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id), ...this.studio.exportFor(id) }),
+      exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id), ...this.studio.exportFor(id), ...this.dm.exportFor(id) }),
     });
     this.ugc = new MockUgc({
       state: () => this.db().ugc ?? ugcSeed(this.base),
@@ -247,8 +250,50 @@ export class DemoBackend {
       optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
       now: () => this.now(),
     });
+    this.dm = new MockDm({
+      state: () => this.db().dm ?? dmSeed(this.now()),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.dm ??= dmSeed(this.now());
+        mutate(db.dm);
+        this.save(db);
+      },
+      social: this.social,
+      ugc: this.ugc,
+      members: () => this.db().members,
+      memberFrom: (h) => this.memberFrom(h),
+      emit: (to, ev) => {
+        for (const fn of this.dmListeners) fn(to, ev);
+      },
+      schedule: (fn, ms) => void setTimeout(fn, ms),
+      isAdmin: () => this.isAuthenticated(),
+      now: () => this.now(),
+    });
   }
   private social: MockSocial;
+  private dm: MockDm;
+  /** L19 演示「实时」：事件监听（client.ts 把它们转发到 BroadcastChannel / 本标签页） */
+  private dmListeners: ((to: number[], ev: DmEvent) => void)[] = [];
+  onDmEvent(fn: (to: number[], ev: DmEvent) => void): () => void {
+    this.dmListeners.push(fn);
+    return () => (this.dmListeners = this.dmListeners.filter((x) => x !== fn));
+  }
+  /** 其他标签页改了 localStorage：丢掉内存缓存，下次读取时重新解析 */
+  invalidate(): void {
+    this.cache = null;
+  }
+  /** 演示：本标签页以虚构示例用户（小林 / Momo）身份登录，用来在两个标签页之间演示私信实时收发。正式站没有这个接口。 */
+  actAs(memberId: number): { token: string; member: PublicMember } {
+    if (memberId !== 1 && memberId !== 2) throw new MockError(403, 'forbidden', '只能切换到示例用户');
+    const m = this.db().members.find((x) => x.id === memberId);
+    if (!m) throw new MockError(404, 'not_found', '示例用户不存在');
+    const token = `member-${m.id}-${Math.random().toString(36).slice(2)}`;
+    const sessions = this.sessions();
+    sessions[token] = m.id;
+    this.storage.setItem(MEMBER_SESSIONS_KEY, JSON.stringify(sessions));
+    this.dm.markActing(memberId);
+    return { token, member: publicMember(this.withDesigns(m)) };
+  }
   private ugc: MockUgc;
   private disc: MockDiscovery;
   private studio: MockStudio;
@@ -338,6 +383,9 @@ export class DemoBackend {
       // ---- L18 EXIF 筛选 / 共同作者 / 修订 / 项目 / 摄影专题 / 数据中心 ----
       const st = this.studio.route(m, path.slice('/api/social'.length), q, body, headers);
       if (st) return st;
+      // ---- L19 私信 / 消息请求 / 活动聊天室 ----
+      const dm = this.dm.route(m, path.slice('/api/social'.length), q, body, headers);
+      if (dm) return dm;
     }
     // ---- L15 社交（/api/social/*）----
     const soc = this.social.route(m, path, q, body, headers);
@@ -416,6 +464,8 @@ export class DemoBackend {
       if (discAdmin) return discAdmin;
       const studioAdmin = this.studio.routeAdmin(m, sub);
       if (studioAdmin) return studioAdmin;
+      const dmAdmin = this.dm.routeAdmin(m, sub, body, (slug) => (this.db().discovery ?? discoverySeed(this.now())).events.find((e) => e.slug === slug)?.title ?? null);
+      if (dmAdmin) return dmAdmin;
       if (sub === '/posts' && m === 'GET') return ok(this.list(q, true));
       if (sub === '/posts' && m === 'POST') return ok(this.create(body), 201);
       let mt: RegExpExecArray | null = /^\/posts\/([^/]+)\/publish$/.exec(sub);
