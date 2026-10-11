@@ -81,7 +81,8 @@ try {
   await client.connect(transport);
   assert(client.getServerVersion()?.name === 'winston-blog', `initialize 成功，协议 ${transport.protocolVersion ?? '(未知)'}`);
   const { tools } = await client.listTools();
-  assert(tools.length === 29, `tools/list 返回 ${tools.length} 个工具`);
+  // 站长令牌 = admin 作用域：29 个站长工具 + L20 的 16 个分级开放工具
+  assert(tools.length === 45, `tools/list 返回 ${tools.length} 个工具（站长令牌 = 全部）`);
 
   const slug = 'e2e-hello-mcp';
   let r = await client.callTool({ name: 'create_post', arguments: { title: 'E2E 初稿', slug, contentMd: '初稿内容', tags: ['e2e'] } });
