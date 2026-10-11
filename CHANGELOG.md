@@ -2,6 +2,20 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.19.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.19.0) — 2026-10-11
+
+_L19 · 实时交流：私信与消息请求、隐私开关、已读回执 / 撤回、离线同步、Durable Object WebSocket 实时推送、活动聊天室_
+
+### 新功能 Features
+
+- **web:** L19 lazy DM UI — inbox, requests, settings, conversation, event room panel, profile DM button, live announcements, demo BroadcastChannel realtime (38287f4)
+- **web:** L19 demo mock parity for DMs and event rooms (ce52fd5)
+- **worker:** L19 realtime DMs — conversations, message requests, privacy settings, recall, offline sync, DmHub Durable Object WebSocket push, event rooms (migration 0016) (35d0043)
+
+### 杂项 Chores
+
+- **release:** 1.19.0 — README L19 (DmHub binding, migrations 0006–0016), release-meta (4b3cc3e)
+
 ## [1.18.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.18.0) — 2026-10-11
 
 _L18 · 摄影与创作工具：摄影专题、EXIF 筛选（含手机）、项目页与开发日志、共同作者与修订历史、创作者数据中心_
