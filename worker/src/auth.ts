@@ -65,7 +65,17 @@ async function recordFailure(env: Env, ip: string, now: number): Promise<void> {
     .run();
 }
 
-export async function handleLogin(req: Request, env: Env): Promise<Response> {
+/** L22：登录钩子 —— 二次验证（开启后密码正确只换来 5 分钟的 preAuth 令牌）与安全记录。 */
+export interface LoginHooks {
+  secondFactor?: (env: Env) => Promise<boolean>;
+  audit?: (kind: string, detail: string) => Promise<void>;
+}
+
+/** preAuth 令牌用 JWT_SECRET 派生的另一把 HMAC 密钥签名：就算被塞进 Cookie 也不会被 readSession 接受。 */
+export const preAuthSecret = (env: Env) => `${env.JWT_SECRET}|admin-2fa`;
+export const PRE_AUTH_TTL = 300;
+
+export async function handleLogin(req: Request, env: Env, hooks: LoginHooks = {}): Promise<Response> {
   requireSecrets(env, 'JWT_SECRET', 'ADMIN_PASSWORD_HASH');
   const now = Math.floor(Date.now() / 1000);
   const ip = clientIp(req);
@@ -74,9 +84,21 @@ export async function handleLogin(req: Request, env: Env): Promise<Response> {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!password || password.length > 256 || !(await verifyPassword(password, env.ADMIN_PASSWORD_HASH))) {
     await recordFailure(env, ip, now);
+    await hooks.audit?.('admin_login_failed', 'password');
     throw new HttpError(401, 'invalid_credentials', '密码错误');
   }
   await env.DB.prepare('DELETE FROM login_attempts WHERE ip = ?').bind(ip).run();
+  if (await hooks.secondFactor?.(env)) {
+    const pre: JwtClaims = { sub: 'admin', iat: now, exp: now + PRE_AUTH_TTL, jti: randomToken(12), csrf: '2fa' };
+    return json({ ok: true, needsTotp: true, preAuth: await signJwt(pre, preAuthSecret(env)) }, { headers: { 'cache-control': 'no-store' } });
+  }
+  await hooks.audit?.('admin_login', 'password');
+  return adminSessionResponse(env);
+}
+
+/** 签发后台会话 Cookie（密码登录或二次验证通过后）。 */
+export async function adminSessionResponse(env: Env): Promise<Response> {
+  const now = Math.floor(Date.now() / 1000);
   const maxAge = ttl(env);
   const claims: JwtClaims = { sub: 'admin', iat: now, exp: now + maxAge, jti: randomToken(12), csrf: randomToken(24) };
   const jwt = await signJwt(claims, env.JWT_SECRET);

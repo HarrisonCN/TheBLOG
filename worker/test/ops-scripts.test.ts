@@ -11,6 +11,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as core from '../src/ops-core';
+import { EXPECTED_MIGRATION as LATEST } from '../src/version';
 
 const repo = join(__dirname, '../..');
 const ops = join(repo, 'scripts/ops');
@@ -56,7 +57,7 @@ describe('scripts/ops/lib.mjs 与 ops-core 一致', () => {
     const items = Array.from({ length: 120 }, (_, i) => ({ key: `k${i}`, at: new Date(Date.UTC(2026, 9, 11) - i * 43200_000).toISOString() }));
     for (const p of [{ daily: 7, weekly: 4, monthly: 3 }, { daily: 0, weekly: 0, monthly: 12 }, { daily: 30, weekly: 0, monthly: 0 }]) expect([...lib.selectRetained(items, p)].sort()).toEqual([...core.selectRetained(items, p)].sort());
     for (const n of ['0018_ops', '0001_init.sql', 'x', null, undefined]) expect(lib.migrationNumber(n)).toBe(core.migrationNumber(n));
-    expect(lib.latestMigration(join(repo, 'worker/migrations'))).toBe('0018_ops');
+    expect(lib.latestMigration(join(repo, 'worker/migrations'))).toBe(LATEST);
   });
   it('bundleHash / entryScript', () => {
     const dist = join(tmp, 'dist-a');
@@ -83,7 +84,7 @@ describe('恢复演练（本地 D1）', () => {
     expect(b.code, b.err).toBe(0);
     const manFile = readdirSync(out).find((f) => f.startsWith('manifest-'))!;
     const man = JSON.parse(readFileSync(join(out, manFile), 'utf8'));
-    expect(man).toMatchObject({ kind: 'theblog-backup', source: 'local', migration: '0018_ops', expectedMigration: '0018_ops' });
+    expect(man).toMatchObject({ kind: 'theblog-backup', source: 'local', migration: LATEST, expectedMigration: LATEST });
     expect(man.tables).toBeGreaterThan(40);
     expect(readdirSync(out).some((f) => f.endsWith('.sql'))).toBe(false); // 只留 .sql.gz
     expect(readFileSync(join(tmp, 'sum-backup.md'), 'utf8')).toContain('Backup');
@@ -91,7 +92,7 @@ describe('恢复演练（本地 D1）', () => {
     const r = await run('restore.mjs', ['--manifest', join(out, manFile), '--local', '--persist-to', dst], { GITHUB_STEP_SUMMARY: join(tmp, 'sum-restore.md') });
     expect(r.code, r.err + r.out).toBe(0);
     const res = JSON.parse(r.out.trim().split('\n').at(-1)!);
-    expect(res).toMatchObject({ ok: true, integrity: 'ok', foreignKeyProblems: 0, migration: '0018_ops.sql' });
+    expect(res).toMatchObject({ ok: true, integrity: 'ok', foreignKeyProblems: 0, migration: `${LATEST}.sql` });
     // 一次查询拿全部计数（每次 wrangler 调用都要启动 workerd，很慢）
     const counts = `SELECT ${['posts', 'profile', 'settings', 'topics', 'error_events', 'd1_migrations', 'members', 'user_posts'].map((t) => `(SELECT COUNT(*) FROM ${t}) AS ${t}`).join(', ')}, (SELECT message FROM error_events WHERE kind = 'drill') AS drill`;
     const a0 = d1(src, counts)[0]!;
@@ -124,7 +125,7 @@ describe('smoke.mjs（假部署）', () => {
   let srv: Server;
   let base = '';
   const dist = join(tmp, 'dist-smoke');
-  const state = { commit: 'feedc0ffee1234567890', version: '1.21.0', migration: '0018_ops', bundle: '' };
+  const state = { commit: 'feedc0ffee1234567890', version: '1.21.0', migration: LATEST, bundle: '' };
   beforeAll(async () => {
     mkdirSync(join(dist, 'assets'), { recursive: true });
     writeFileSync(join(dist, 'assets/main-AbC123.js'), 'export const hi = 1;');
@@ -157,7 +158,7 @@ describe('smoke.mjs（假部署）', () => {
     const m = await smoke(['--expect-migration', 'auto']);
     expect(m.code).toBe(1);
     expect(m.err).toContain('D1 migration level');
-    state.migration = '0018_ops';
+    state.migration = LATEST;
     state.bundle = 'stale';
     const b = await smoke([]);
     expect(b.code).toBe(1);

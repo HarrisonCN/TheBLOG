@@ -514,6 +514,15 @@ export async function exportMe(req: Request, env: Env) {
   const me = await requireMember(req, env);
   await rateLimit(env, 'export', String(me.id), 5, 3600, '导出太频繁，请一小时后再试');
   const p = await ensureProfile(env, me.id);
+  const data = await buildExport(env, me);
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="theblog-${p.username}-export.json"`, ...NO_STORE },
+  });
+}
+
+/** 账号数据归档（L15 导出与 L22 完整导出共用）。 */
+export async function buildExport(env: Env, me: Member): Promise<Record<string, unknown>> {
+  const p = await ensureProfile(env, me.id);
   const all = async <T>(sql: string) => (await env.DB.prepare(sql).bind(me.id).all<T>()).results;
   const data = {
     exportedAt: nowIso(),
@@ -533,9 +542,7 @@ export async function exportMe(req: Request, env: Env) {
     ...(await exportStudio(env, me.id)),
     ...(await exportDm(env, me.id)),
   };
-  return new Response(JSON.stringify(data, null, 2), {
-    headers: { 'content-type': 'application/json; charset=utf-8', 'content-disposition': `attachment; filename="theblog-${p.username}-export.json"`, ...NO_STORE },
-  });
+  return data;
 }
 
 /** 注销：必须回填自己的用户名确认；会员行删除后关系 / 收藏 / 通知随外键级联删除，评论保留为匿名（member_id 置空）。 */
@@ -544,6 +551,16 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
   const p = await ensureProfile(env, me.id);
   const confirm = String((input as { confirm?: unknown } | null)?.confirm ?? '').trim().toLowerCase();
   if (confirm !== p.username) throw new HttpError(400, 'confirm_required', '请输入你的用户名确认注销');
+  await purgeMember(env, me.id);
+  return { deleted: true };
+}
+
+/**
+ * 清除一个账号（L15 立即注销与 L22 冷静期到期后的定时清除共用；策略见 docs/security.md）：
+ * 本人的作品 / 评论 / 回应 / 收藏 / 关注 / 私信 / 上传文件硬删除；博客文章下的评论与举报记录匿名化（member_id 置空）；最后删除会员行（外键级联其余）。
+ */
+export async function purgeMember(env: Env, id: number): Promise<void> {
+  const me = { id };
   await env.DB.batch([
     env.DB.prepare('DELETE FROM user_follows WHERE follower_id = ? OR following_id = ?').bind(me.id, me.id),
     env.DB.prepare('DELETE FROM user_relations WHERE owner_id = ? OR target_id = ?').bind(me.id, me.id),
@@ -566,7 +583,6 @@ export async function deleteMe(req: Request, env: Env, input: unknown) {
     ...purgeDiscovery(env, me.id),
   ]);
   await removeMember(env, me.id);
-  return { deleted: true };
 }
 
 // ============================================================ 路由

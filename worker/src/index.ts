@@ -20,6 +20,7 @@ import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpTok
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
 import { reportUnhandled, routeAdminOps, routeOps, scheduledOps } from './ops';
+import { adminAudit, adminTotpEnabled, handleSecondFactor, routeAdminSecurity, routeSecurity, scheduledSecurity } from './security';
 export { DmHub } from './dm-hub';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
@@ -119,6 +120,13 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
 
   // ---------- 社区（好朋友 / 便利贴 / 在线 / 上传 / 节日 / 项目） ----------
   if (m === 'POST') checkOrigin(req, env);
+  // ---------- L22 账号安全与隐私中心（会员 Bearer；写操作校验 Origin） ----------
+  if (path.startsWith('/api/security/')) {
+    if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
+    const sec = await routeSecurity(req, env, path, url, () => readJson(req, 64 * 1024));
+    if (sec) return sec;
+    throw new HttpError(404, 'not_found', '接口不存在');
+  }
   // ---------- 社交（L15）：用户主页 / 关注 / 拉黑 / 收藏 / 通知；所有写方法都校验 Origin ----------
   if (path.startsWith('/api/social/')) {
     if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
@@ -145,7 +153,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   // ---------- 登录 ----------
   if (path === '/api/auth/login' && m === 'POST') {
     checkOrigin(req, env);
-    return handleLogin(req, env);
+    return handleLogin(req, env, { secondFactor: adminTotpEnabled, audit: adminAudit(req, env) });
+  }
+  // L22：管理员二次验证（登录第二步）
+  if (path === '/api/auth/2fa' && m === 'POST') {
+    checkOrigin(req, env);
+    return handleSecondFactor(req, env, await readJson(req, 4096));
   }
   if (path === '/api/auth/logout' && m === 'POST') {
     checkOrigin(req, env);
@@ -178,6 +191,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L21 运行状态 / 错误事件 / 手动健康检查
     const opsAdmin = await routeAdminOps(req, env, sub, url);
     if (opsAdmin) return opsAdmin;
+    // L22 管理员二次验证
+    const secAdmin = await routeAdminSecurity(req, env, sub, url, () => readJson(req, 4096));
+    if (secAdmin) return secAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
@@ -250,8 +266,9 @@ export default {
     return res;
   },
   // 定时任务（wrangler.jsonc triggers.crons，每 15 分钟）：L20 Webmention 重试验证 + 邮件摘要
+  // L22：security = 清理过期 challenge / 超期安全记录 + 清除冷静期已满的注销账号
   // L21：每次触发先记录健康检查，再跑各个任务；每个任务的最近一次运行写进 ops_runs（状态页显示）
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env) }));
+    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env), security: () => scheduledSecurity(env) }));
   },
 } satisfies ExportedHandler<Env>;
