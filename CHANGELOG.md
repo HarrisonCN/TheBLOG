@@ -18,10 +18,12 @@ _L22 · 账号安全与隐私中心：登录设备与会话管理、Passkey 可�
 
 ### 测试 Tests
 
+- **worker:** give L22 test members names that don't collide with L15 search fixtures (shared D1 across test files) (4486648)
 - **e2e:** assert L22 security endpoints (member 401, admin 2FA status) (b3a4ca0)
 
 ### 文档 Docs
 
+- **changelog:** 1.22.0 (e626c83)
 - **readme:** current unit test counts (worker 338, web 346) (10ec8d2)
 - **security:** passkeys without attestation, session/device data, export, deletion grace and purge policy, privacy panel, admin TOTP (e87472f)
 
