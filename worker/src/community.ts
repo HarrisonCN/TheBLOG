@@ -11,6 +11,7 @@ import { sniffImageType } from './images';
 import { validate } from './service';
 import { isDefaultStyle, validateNoteStyle, type NoteStyle } from './note-style';
 import { legacyDesign, normalizeBadgeDesign, validateBadgeDesign, type BadgeDesign } from './badge-design';
+import { recordLogin } from './security';
 
 const nowIso = () => new Date().toISOString();
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -173,18 +174,21 @@ export async function register(req: Request, env: Env, input: unknown): Promise<
   return { sent: true };
 }
 
-async function issueSession(env: Env, memberId: number): Promise<string> {
+/** 签发会员令牌。L22：带上请求时记录设备 / 网络 / 登录方式，写安全记录，必要时发「新设备 / 新网络登录」提醒（失败不影响登录）。 */
+export async function issueSession(env: Env, memberId: number, req?: Request, method: 'email' | 'google' | 'passkey' = 'email'): Promise<string> {
   const token = `m_${randomToken(32)}`;
+  const hash = await sha256Hex(token);
   await env.DB.prepare('DELETE FROM member_sessions WHERE expires_at < ?').bind(nowSec()).run();
   await env.DB.prepare('INSERT INTO member_sessions (token_hash, member_id, expires_at) VALUES (?, ?, ?)')
-    .bind(await sha256Hex(token), memberId, nowSec() + SESSION_DAYS * 86_400)
+    .bind(hash, memberId, nowSec() + SESSION_DAYS * 86_400)
     .run();
+  if (req) await recordLogin(env, req, memberId, hash, method);
   return token;
 }
 
 export const verifySchema = z.object({ email: z.string().trim().toLowerCase().max(120), code: z.string().trim().regex(/^\d{6}$/, '验证码是 6 位数字') });
 
-export async function verify(env: Env, input: unknown): Promise<{ member: PublicMember; token: string }> {
+export async function verify(env: Env, input: unknown, req?: Request): Promise<{ member: PublicMember; token: string }> {
   needSecret(env);
   const v = validate(verifySchema, input);
   const row = await env.DB.prepare('SELECT * FROM member_otps WHERE email = ?').bind(v.email).first<{ code_hash: string; name: string; bio: string; tries: number; expires_at: number }>();
@@ -203,7 +207,7 @@ export async function verify(env: Env, input: unknown): Promise<{ member: Public
       .first<MemberRow>();
   }
   const member = await getMember(env, m!.id);
-  return { member: toPublic(member), token: await issueSession(env, member.id) };
+  return { member: toPublic(member), token: await issueSession(env, member.id, req, 'email') };
 }
 
 /** 会员接口用 Authorization: Bearer m_xxx（不用 Cookie，所以不需要 CSRF 令牌）。 */
@@ -218,8 +222,13 @@ export async function requireMember(req: Request, env: Env): Promise<Member> {
   if (acting !== undefined) return getMember(env, acting);
   const m = /^Bearer\s+(m_[A-Za-z0-9_-]{16,128})$/i.exec(req.headers.get('authorization') ?? '');
   if (!m) throw new HttpError(401, 'unauthorized', '请先注册 / 登录好朋友账号');
-  const row = await env.DB.prepare('SELECT member_id, expires_at FROM member_sessions WHERE token_hash = ?').bind(await sha256Hex(m[1]!)).first<{ member_id: number; expires_at: number }>();
+  const hash = await sha256Hex(m[1]!);
+  const row = await env.DB.prepare('SELECT member_id, expires_at, last_seen_at FROM member_sessions WHERE token_hash = ?').bind(hash).first<{ member_id: number; expires_at: number; last_seen_at?: number }>();
   if (!row || row.expires_at < nowSec()) throw new HttpError(401, 'unauthorized', '登录已过期，请重新验证邮箱');
+  // L22：会话列表的「最近活跃」—— 最多每 5 分钟写一次
+  if (row.last_seen_at !== undefined && nowSec() - row.last_seen_at > 300) {
+    await env.DB.prepare('UPDATE member_sessions SET last_seen_at = ? WHERE token_hash = ?').bind(nowSec(), hash).run().catch(() => undefined);
+  }
   return getMember(env, row.member_id);
 }
 
@@ -276,7 +285,7 @@ export async function googleCallback(req: Request, env: Env, url: URL): Promise<
   let m = await env.DB.prepare('SELECT * FROM members WHERE google_sub = ? OR email = ? ORDER BY google_sub IS NULL LIMIT 1').bind(g.sub, email).first<MemberRow>();
   if (m) await env.DB.prepare("UPDATE members SET google_sub = ?, avatar_url = ?, provider = CASE WHEN provider = 'email' AND google_sub IS NULL THEN provider ELSE 'google' END WHERE id = ?").bind(g.sub, avatar, m.id).run();
   else m = await env.DB.prepare("INSERT INTO members (email, name, avatar_url, provider, google_sub, joined_at) VALUES (?, ?, ?, 'google', ?, ?) RETURNING *").bind(email, name, avatar, g.sub, nowIso()).first<MemberRow>();
-  const token = await issueSession(env, m!.id);
+  const token = await issueSession(env, m!.id, req, 'google');
   const site = (env.SITE_URL ?? new URL(req.url).origin).replace(/\/+$/, '');
   return new Response(null, {
     status: 302,
@@ -640,7 +649,7 @@ export async function routePublic(req: Request, env: Env, path: string, url: URL
   if ((mt = /^\/api\/notes\/(\d+)\/report$/.exec(path))) return json(await reportNote(req, env, Number(mt[1])), { headers: NO_STORE });
   if (path === '/api/presence') return json(await presence(req, env, await body()), { headers: NO_STORE });
   if (path === '/api/members/register') return json(await register(req, env, await body()), { headers: NO_STORE });
-  if (path === '/api/members/verify') return json(await verify(env, await body()), { headers: NO_STORE });
+  if (path === '/api/members/verify') return json(await verify(env, await body(), req), { headers: NO_STORE });
   if (path === '/api/members/logout') return json(await logoutMember(req, env), { headers: NO_STORE });
   if (path === '/api/members/uploads') return json(await uploadFile(req, env), { status: 201, headers: NO_STORE });
   if (path === '/api/members/voice') return json(await uploadVoice(req, env), { status: 201, headers: NO_STORE });

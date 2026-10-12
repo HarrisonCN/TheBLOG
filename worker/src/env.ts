@@ -50,4 +50,9 @@ export interface Env {
   /** 采样率 0–1（默认 1）：重复出现的同一错误按这个比例记录；新错误总是记录 */
   ERROR_SAMPLE_RATE?: string;
   CLIENT_ERROR_SAMPLE_RATE?: string;
+  // ---------- L22 账号安全（全部可选） ----------
+  /** Passkey 的 RP ID（默认取 SITE_URL 的主机名）。必须是前端页面域名本身或它的上级域名 */
+  WEBAUTHN_RP_ID?: string;
+  /** 允许的 WebAuthn 来源（逗号分隔，默认 SITE_URL 的 origin） */
+  WEBAUTHN_ORIGINS?: string;
 }

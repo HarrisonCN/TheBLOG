@@ -73,7 +73,7 @@ export class MockOps {
       components: comps,
       version: this.h.version,
       commit: 'demo',
-      migration: { latest: '0018_ops', ok: true },
+      migration: { latest: '0019_security', ok: true },
       uptime: { '24h': uptimeOf(rows, now, 86400_000), '7d': uptimeOf(rows, now, 7 * 86400_000), '30d': uptimeOf(rows, now, 30 * 86400_000) },
       days: dailyBars(rows, now, 30),
       lastCheck: { at: last.at, ok: !!last.ok },
@@ -86,7 +86,7 @@ export class MockOps {
   /** 公开：/api/health、/api/version、/api/status、POST /api/errors */
   routePublic(m: string, path: string, body: unknown): R | null {
     const ok = (b: unknown, status = 200): R => ({ status, body: b });
-    const mig = { latest: '0018_ops', count: 13, expected: '0018_ops', ok: true };
+    const mig = { latest: '0019_security', count: 14, expected: '0019_security', ok: true };
     if (path === '/api/health' && m === 'GET') return ok({ ok: true, demo: true, version: this.h.version, commit: 'demo', migration: mig, checks: { d1: 'ok', r2: 'ok', do: 'ok' }, time: this.h.now().toISOString() });
     if (path === '/api/version' && m === 'GET') return ok({ version: this.h.version, commit: 'demo', environment: 'demo', migration: mig });
     if (path === '/api/status' && m === 'GET') return ok(this.status());
@@ -133,7 +133,7 @@ export class MockOps {
       return ok({
         ...this.status(),
         environment: 'demo',
-        migration: { latest: '0018_ops', count: 13, expected: '0018_ops', ok: true },
+        migration: { latest: '0019_security', count: 14, expected: '0019_security', ok: true },
         bindings: { DB: true, IMAGES: true, UPLOADS: false, DM_HUB: true, EMAIL: false, SENTRY_DSN: false },
         sampling: { worker: 1, client: 1 },
         limits: { errorRing: OPS_LIMITS.errorRing, healthRetentionDays: OPS_LIMITS.healthRetentionDays, clientPerMinute: OPS_LIMITS.clientPerMinute, clientPerDay: OPS_LIMITS.clientPerDay },

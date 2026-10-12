@@ -93,6 +93,13 @@ try {
   assert(st.version === rootPkg.version && ['24h', '7d', '30d'].every((k) => k in (st.uptime ?? {})) && Array.isArray(st.days) && st.days.length === 30, 'status 含版本、24h / 7d / 30d 可用率与 30 天条形');
   assert(!/@|\b\d{1,3}(\.\d{1,3}){3}\b|Bearer|mcp_/.test(JSON.stringify(st)), 'status 不含邮箱 / IP / 令牌');
 
+  step('账号安全（L22）：/api/security/*、管理员二次验证');
+  const secRes = await fetch(`${BASE}/api/security/overview`);
+  assert(secRes.status === 401, `未登录访问隐私与安全中心 → 401（${secRes.status}）`);
+  const tfa = await fetch(`${BASE}/api/admin/security/2fa`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+  const tfaBody = await tfa.json();
+  assert(tfa.status === 200 && tfaBody.enabled === false && Array.isArray(tfaBody.events), '二次验证状态：默认未开启，带后台安全记录');
+
   step('MCP SDK 客户端（Streamable HTTP）');
   const client = new Client({ name: 'blog-e2e', version: '1.0.0' });
   const transport = new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${TOKEN}` } } });

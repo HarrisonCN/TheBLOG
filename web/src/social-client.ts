@@ -171,6 +171,8 @@ document.addEventListener('blog:dm-unread', (ev) => {
 const DISCOVERY_VIEWS = new Set(['discover', 'topics', 'topic', 'events', 'event', 'collection']);
 const STUDIO_VIEWS = new Set(['projects', 'project', 'features', 'feature', 'mystats']);
 const DM_VIEWS = new Set(['messages', 'msgrequests', 'msgsettings', 'conversation']);
+/** L22 隐私与安全中心：单独一个小包 */
+const SECURITY_VIEWS = new Set(['security']);
 /** L21 运行状态页：单独一个小包 */
 const OPS_VIEWS = new Set(['status']);
 const OPEN_VIEWS = new Set(['user', 'work', 'topic', 'project', 'me']);
@@ -189,6 +191,8 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     else if (view && DM_VIEWS.has(view)) await (await import('./dm-client')).mountDm(box, view, ctx);
     // L21 运行状态
     else if (view && OPS_VIEWS.has(view)) await (await import('./ops-client')).mountOps(box, view);
+    // L22 隐私与安全中心
+    else if (view && SECURITY_VIEWS.has(view)) await (await import('./security-client')).mountSecurity(box, ctx);
     else if (view === 'user') await renderProfile(box, box.dataset.username ?? '', ctx);
     else if (view === 'notifications') await renderNotifications(box, ctx);
     else if (view === 'me') await renderMe(box, ctx);
@@ -196,7 +200,7 @@ export async function mountSocial(root: HTMLElement, ctx: SocialCtx): Promise<vo
     if (view && OPEN_VIEWS.has(view)) void import('./open-client').then((m) => m.enhance(box, view, ctx)).catch(() => undefined);
   } catch (x) {
     const nf = x instanceof ApiError && x.status === 404;
-    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view) || OPS_VIEWS.has(view)));
+    const isWork = view === 'work' || view === 'compose' || (!!view && (DISCOVERY_VIEWS.has(view) || STUDIO_VIEWS.has(view) || DM_VIEWS.has(view) || OPS_VIEWS.has(view) || SECURITY_VIEWS.has(view)));
     box.innerHTML = `<div class="soc-gate tile tile--full">${icon(nf ? 'user' : 'close')}<h2>${nf ? (isWork ? '内容不存在' : '没有这个用户') : '加载失败'}</h2><p class="muted">${e(nf ? (isWork ? '可能已被删除，或者你没有权限查看。' : '可能是用户名写错了，或者对方不想被你看到。') : errMsg(x))}</p><a class="btn btn--soft" href="${url('/')}">回到首页</a></div>`;
   } finally {
     box.removeAttribute('aria-busy');
@@ -412,7 +416,7 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
     return `<div class="soc-linkrow"><label><span class="visually-hidden">链接 ${i + 1} 名称</span><input name="ll${i}" maxlength="24" placeholder="名称" value="${e(l?.label ?? '')}"></label><label><span class="visually-hidden">链接 ${i + 1} 地址</span><input name="lu${i}" type="url" maxlength="200" placeholder="https://…" value="${e(l?.url ?? '')}"></label></div>`;
   });
   const chk = (name: string, on: boolean, label: string, hint = '') => `<label class="soc-check"><input type="checkbox" name="${name}"${on ? ' checked' : ''}><span>${label}${hint ? `<small class="muted">${hint}</small>` : ''}</span></label>`;
-  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm" href="${url('/messages/')}">${icon('message')}私信</a><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a></div></section>
+  box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm" href="${url('/messages/')}">${icon('message')}私信</a><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a><a class="btn btn--ghost btn--sm" href="${url('/me/security/')}">${icon('lock')}隐私与安全</a></div></section>
 <section class="tile tile--half soc-find" aria-labelledby="soc-find-h"><h2 class="soc-h" id="soc-find-h">${icon('search')}找人</h2><form class="js-find" role="search"><label for="soc-q" class="visually-hidden">按用户名或昵称搜索</label><div class="soc-find__row"><input id="soc-q" name="q" maxlength="40" placeholder="用户名或昵称" autocomplete="off"><button class="btn btn--primary btn--sm" type="submit">搜索</button></div></form><ul class="soc-users js-find-res" aria-live="polite"></ul></section>
 <section class="tile tile--half" aria-labelledby="soc-bm-h"><h2 class="soc-h" id="soc-bm-h">${icon('bookmark')}云端收藏</h2><p class="muted small">在任何设备登录都能看到。文章卡片上的书签按钮会自动同步。</p><ul class="soc-bms js-bms"><li class="muted">加载中…</li></ul><button class="btn btn--ghost btn--sm js-bm-more" type="button" hidden>加载更多</button></section>
 <section class="tile tile--full" aria-labelledby="soc-prof-h"><h2 class="soc-h" id="soc-prof-h">${icon('edit')}资料</h2>
@@ -444,8 +448,8 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
 <div class="js-studio-me" hidden></div>
 <section class="tile tile--half" aria-labelledby="soc-bl-h"><h2 class="soc-h" id="soc-bl-h">${icon('ban')}拉黑与静音</h2><div class="js-rel"><p class="muted">加载中…</p></div></section>
 <section class="tile tile--half soc-danger" aria-labelledby="soc-acc-h"><h2 class="soc-h" id="soc-acc-h">${icon('lock')}账号数据</h2>
-  <p class="muted small">导出你的资料、关注、收藏、评论与通知（JSON）。</p><button class="btn btn--soft btn--sm js-export" type="button">${icon('download')}导出我的数据</button>
-  <details class="soc-del"><summary>注销账号</summary><form class="soc-form js-delete"><p class="small">注销后资料、关注、收藏和通知会被删除，评论保留为匿名。此操作不可撤销。</p><label>输入你的用户名 <b>${e(p.username)}</b> 确认<input name="confirm" autocomplete="off" autocapitalize="off" spellcheck="false"></label><button class="btn btn--danger btn--sm" type="submit">${icon('trash')}永久注销</button></form></details>
+  <p class="muted small">导出你的资料、关注、收藏、评论与通知（JSON）。完整导出（含作品、私信、安全记录与媒体清单）和带 7 天冷静期的注销在 <a href="${url('/me/security/?tab=data')}">隐私与安全中心</a>。</p><button class="btn btn--soft btn--sm js-export" type="button">${icon('download')}导出我的数据</button>
+  <p class="small">注销账号在 <a href="${url('/me/security/?tab=data')}">隐私与安全中心 → 数据与注销</a>：申请后有 7 天冷静期，期间可以撤销。</p>
 </section>`;
   bindMe(box, ctx);
   // L17：我的合集 / 订阅的话题 / 活动投稿（按需加载）
@@ -578,21 +582,6 @@ function bindMe(box: HTMLElement, ctx: SocialCtx): void {
       void ctx.notify('已导出', 'success');
     } catch (x) {
       void ctx.notify(errMsg(x), 'error');
-    }
-  });
-  // 注销
-  const del = box.querySelector<HTMLFormElement>('.js-delete')!;
-  del.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    try {
-      await social.deleteMe(val(del, 'confirm'));
-      localStorage.removeItem('blog-member');
-      document.dispatchEvent(new CustomEvent('blog:member'));
-      void ctx.notify('账号已注销', 'info');
-      ctx.navigate ? ctx.navigate(url('/')) : location.assign(url('/'));
-    } catch (x) {
-      void ctx.notify(errMsg(x), 'error');
-      del.querySelector<HTMLElement>('input')?.focus();
     }
   });
 }

@@ -57,6 +57,8 @@ export interface DemoDb {
   /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */
   open?: import('./mock-open').OpenState;
   ops?: import('./mock-ops').OpsState;
+  /** L22 账号安全：会话 / Passkey / 安全记录 / 注销冷静期 / 管理员二次验证 */
+  security?: import('./mock-security').SecurityState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

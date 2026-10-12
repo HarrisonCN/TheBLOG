@@ -22,6 +22,7 @@ import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
 import { MockOps, opsSeed } from './mock-ops';
+import { MockSecurity, securitySeed } from './mock-security';
 import type { DmEvent } from '../dm-core';
 
 export interface KV {
@@ -284,6 +285,22 @@ export class DemoBackend {
       now: () => this.now(),
       version: String(import.meta.env.VITE_APP_VERSION ?? ''),
     });
+    this.security = new MockSecurity({
+      state: () => this.db().security ?? securitySeed(),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.security ??= securitySeed();
+        mutate(db.security);
+        this.save(db);
+      },
+      social: this.social,
+      dm: () => this.dm,
+      memberFrom: (h) => this.memberFrom(h),
+      tokens: () => this.sessions(),
+      setTokens: (t) => this.storage.setItem(MEMBER_SESSIONS_KEY, JSON.stringify(t)),
+      publicMember: (id) => publicMember(this.withDesigns(this.db().members.find((x) => x.id === id)!)),
+      now: () => this.now(),
+    });
     this.open = new MockOpen({
       state: () => this.db().open ?? openSeed(this.now(), this.base),
       commit: (mutate) => {
@@ -315,6 +332,7 @@ export class DemoBackend {
   }
   private open: MockOpen;
   private ops!: MockOps;
+  private security!: MockSecurity;
   /** 构建期（prerender）：生成静态订阅源 */
   openFeeds(): MockOpen {
     return this.open;
@@ -394,6 +412,12 @@ export class DemoBackend {
     this.cache = null;
   }
 
+  private adminSession(): string {
+    const token = `demo-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    this.storage.setItem(SESSION_KEY, token);
+    return token;
+  }
+
   isAuthenticated(): boolean {
     return !!this.csrf();
   }
@@ -431,6 +455,12 @@ export class DemoBackend {
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
       const o = this.open.routePublic(m, path, q, body, headers);
       if (o) return o;
+      throw new MockError(404, 'not_found', '接口不存在');
+    }
+    // ---- L22 账号安全与隐私中心 ----
+    if (path.startsWith('/api/security/')) {
+      const sec = await this.security.route(m, path, q, body, headers, (id) => this.issueMemberToken(id));
+      if (sec) return sec;
       throw new MockError(404, 'not_found', '接口不存在');
     }
     // ---- L16 用户投稿（/api/social/works…、uploads、reports）----
@@ -505,10 +535,18 @@ export class DemoBackend {
     }
     if (path === '/api/auth/login' && m === 'POST') {
       const pw = (body as { password?: unknown } | null)?.password;
-      if (pw !== DEMO_PASSWORD) throw new MockError(401, 'invalid_credentials', `密码错误（演示密码是 ${DEMO_PASSWORD}）`);
-      const token = `demo-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-      this.storage.setItem(SESSION_KEY, token);
-      return ok({ ok: true, csrfToken: token });
+      if (pw !== DEMO_PASSWORD) {
+        this.security.adminPasswordFailed();
+        throw new MockError(401, 'invalid_credentials', `密码错误（演示密码是 ${DEMO_PASSWORD}）`);
+      }
+      // L22：开启了二次验证 → 只给 preAuth，第二步 /api/auth/2fa 才签发会话
+      const pre = this.security.adminPasswordOk();
+      if (pre) return ok(pre);
+      return ok({ ok: true, csrfToken: this.adminSession() });
+    }
+    if (path === '/api/auth/2fa' && m === 'POST') {
+      await this.security.secondFactor(body);
+      return ok({ ok: true, csrfToken: this.adminSession() });
     }
     if (path === '/api/auth/logout' && m === 'POST') {
       this.storage.removeItem(SESSION_KEY);
@@ -532,6 +570,8 @@ export class DemoBackend {
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);
       if (opsAdmin) return opsAdmin;
+      const secAdmin = await this.security.routeAdmin(m, sub, q, body);
+      if (secAdmin) return secAdmin;
       const discAdmin = this.disc.routeAdmin(m, sub, body);
       if (discAdmin) return discAdmin;
       const studioAdmin = this.studio.routeAdmin(m, sub);
@@ -1122,11 +1162,18 @@ export class DemoBackend {
       db.members.push(m);
       this.save(db);
     }
-    const token = `member-${m.id}-${Math.random().toString(36).slice(2)}`;
-    const sessions = this.sessions();
-    sessions[token] = m.id;
-    this.storage.setItem(MEMBER_SESSIONS_KEY, JSON.stringify(sessions));
+    const token = this.issueMemberToken(m.id);
+    this.security.onLogin(token, m.id, 'email');
     return { member: publicMember(this.withDesigns(m)), token };
+  }
+
+  /** 签发会员令牌（邮箱验证码 / Passkey 登录共用） */
+  private issueMemberToken(memberId: number): string {
+    const token = `member-${memberId}-${Math.random().toString(36).slice(2)}`;
+    const sessions = this.sessions();
+    sessions[token] = memberId;
+    this.storage.setItem(MEMBER_SESSIONS_KEY, JSON.stringify(sessions));
+    return token;
   }
 
   private sessions(): Record<string, number> {

@@ -149,3 +149,4 @@
 .soc-wcard b { color: var(--heading); overflow-wrap: anywhere; }
 .soc-wcard:hover b, .soc-wcard:focus-visible b { text-decoration: underline; }
 
+.soc-danger p a { text-decoration: underline; }

@@ -2,6 +2,35 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.22.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.22.0) — 2026-10-12
+
+_L22 · 账号安全与隐私中心：登录设备与会话管理、Passkey 可选登录、隐私权限面板、完整数据导出、7 天冷静期注销、安全记录与登录提醒、管理员二次验证_
+
+### 新功能 Features
+
+- **web:** L22 隐私与安全中心 /me/security/ (devices, passkeys, privacy + block list, full export, 7-day deletion grace, security log), 用 Passkey 登录, admin 二次验证 (otpauth link, manual key, uqr QR), demo mock + unit tests (8649ba9)
+- **security:** L22 worker — migration 0019, sessions/devices, passkeys (usernameless), security log, full export, 7-day deletion grace + purge cron, privacy panel, admin TOTP + recovery codes (008aadf)
+- **security:** RS256 passkeys, assertion signature verify, network prefix, recovery codes, otpauth URI (core + soft-authenticator test helper) (883978a)
+
+### 修复 Fixes
+
+- **security:** pass ArrayBuffer-backed views to WebCrypto so the shared core typechecks under the DOM lib (7cea6c9)
+
+### 测试 Tests
+
+- **worker:** give L22 test members names that don't collide with L15 search fixtures (shared D1 across test files) (4486648)
+- **e2e:** assert L22 security endpoints (member 401, admin 2FA status) (b3a4ca0)
+
+### 文档 Docs
+
+- **changelog:** 1.22.0 (e626c83)
+- **readme:** current unit test counts (worker 338, web 346) (10ec8d2)
+- **security:** passkeys without attestation, session/device data, export, deletion grace and purge policy, privacy panel, admin TOTP (e87472f)
+
+### 杂项 Chores
+
+- **release:** 1.22.0 — README L22 (security center, API, migration 0019, docs/security.md), release-meta (2866948)
+
 ## [1.21.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.21.0) — 2026-10-11
 
 _L21 · 生产稳定性与运维：健康检查 / 版本 / 公开状态页、错误监控（PII 清洗、采样、可选 Sentry）、定时任务记录、D1 每日备份与恢复演练、一键回滚、部署后冒烟检查、运维手册_

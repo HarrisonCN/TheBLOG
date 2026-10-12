@@ -313,3 +313,34 @@
 .adm-ops-err__msg { margin: 0.35rem 0 0.2rem; word-break: break-word; }
 .adm-ops-err__stack { margin: 0.4rem 0 0; max-height: 14rem; overflow: auto; font-size: 0.78rem; white-space: pre-wrap; word-break: break-all; }
 .adm-ops-err summary { cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; font-size: 0.85rem; }
+
+/* ---- L22 二次验证 ---- */
+.js-adm-sec { display: grid; gap: 0.8rem; }
+.adm-sec-h { display: flex; align-items: center; gap: 0.45rem; margin: 0; font-size: 1.05rem; color: var(--heading); }
+.adm-sec-h .icon { color: var(--accent); }
+.adm-sec-h3 { margin: 0.8rem 0 0; font-size: 0.98rem; color: var(--heading); }
+.adm-sec-state { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0; padding: 0.7rem 0.9rem; border-radius: 12px; background: var(--soft); }
+.adm-sec-state.is-on .icon { color: var(--accent); }
+.adm-sec-steps { display: grid; gap: 1rem; margin: 0; padding-left: 1.3rem; }
+.adm-sec-steps p { margin: 0 0 0.5rem; }
+.adm-qr { display: block; width: min(220px, 70vw); height: auto; border-radius: 8px; box-shadow: 0 0 0 1px var(--hairline); }
+.adm-sec-key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.adm-sec-key code { padding: 0.35rem 0.6rem; border-radius: 8px; background: var(--soft); font-size: 1rem; letter-spacing: 0.04em; overflow-wrap: anywhere; color: var(--heading); }
+.adm-sec-form { display: grid; gap: 0.35rem; max-width: 34rem; }
+.adm-sec-form label { font-weight: 600; font-size: 0.92rem; color: var(--heading); }
+.adm-sec-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.adm-sec-row input { flex: 1 1 10rem; min-width: 0; min-height: 40px; padding: 0 0.7rem; border: 1px solid var(--hairline); border-radius: 10px; background: var(--tile); color: var(--fg); font: inherit; letter-spacing: 0.08em; }
+.adm-sec-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.adm-sec-row .btn { min-height: 40px; }
+.adm-sec-codes { display: grid; gap: 0.5rem; padding: 0.9rem 1rem; border-radius: 12px; background: var(--soft); box-shadow: inset 0 0 0 1px var(--hairline); }
+.adm-sec-codes:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.adm-sec-codes p { margin: 0; }
+.adm-sec-codes__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.3rem 1rem; margin: 0; padding-left: 1.4rem; }
+.adm-sec-codes__list code { color: var(--heading); }
+.adm-sec-codes .btn { justify-self: start; }
+.adm-sec-evs { display: grid; margin: 0; padding: 0; list-style: none; }
+.adm-sec-evs li { display: grid; gap: 0.1rem; padding: 0.45rem 0; border-bottom: 1px solid var(--hairline); }
+.adm-sec-evs li:last-child { border-bottom: 0; }
+.adm-sec-evs b { color: var(--heading); font-weight: 600; }
+.adm-contents { display: contents; }
+.adm-sec-steps a { text-decoration: underline; text-underline-offset: 3px; }
