@@ -49,7 +49,7 @@ describe('sessions, devices and login alerts', () => {
   let A: U;
   let phone: string;
   it('records device label / method for each login; first login gives no alert', async () => {
-    A = await join('sec-a@example.com', 'sec_alice', '10.22.1.10');
+    A = await join('sec-a@example.com', 'sec_ash', '10.22.1.10');
     const s = await J(await get('/api/security/sessions', A.token));
     expect(s.sessions).toHaveLength(1);
     expect(s.sessions[0]).toMatchObject({ device: 'Chrome · macOS', method: 'email', current: true });
@@ -131,7 +131,7 @@ describe('passkeys (WebAuthn, ES256 + RS256)', () => {
     return post('/api/security/passkeys/login/verify', undefined, { challengeId: opt.challengeId, ...as }, { 'cf-connecting-ip': '10.22.2.50', 'user-agent': IPHONE });
   }
   it('registers ES256 and RS256 passkeys; rejects a wrong origin and a reused challenge', async () => {
-    B = await join('sec-b@example.com', 'sec_bob', '10.22.2.10');
+    B = await join('sec-b@example.com', 'sec_bea', '10.22.2.10');
     const r1 = await register('ES256', '我的 iPhone');
     expect(r1.status).toBe(201);
     expect((await J(r1)).passkey).toMatchObject({ label: '我的 iPhone', alg: 'ES256' });
@@ -189,7 +189,7 @@ describe('passkeys (WebAuthn, ES256 + RS256)', () => {
     expect((await passkeyLogin(keys.RS256!)).status).toBe(401);
   });
   it("cannot touch someone else's passkey", async () => {
-    const C = await join('sec-c@example.com', 'sec_carol', '10.22.3.10');
+    const C = await join('sec-c@example.com', 'sec_cy', '10.22.3.10');
     const id = (await J(await get('/api/security/passkeys', B.token))).passkeys[0].id;
     expect((await send('DELETE', `/api/security/passkeys/${id}`, C.token)).status).toBe(404);
   });
