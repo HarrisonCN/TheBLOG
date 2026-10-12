@@ -254,3 +254,21 @@ describe('L22 演示 mock：管理员二次验证（TOTP + 恢复码）', () => 
     expect((await adminLogin()).csrfToken).toBeTruthy();
   });
 });
+
+describe('pages sanity guard', () => {
+  // pages.yml fails the deploy if any of these names appear anywhere in web/dist — keep them out of shipped source.
+  it('web/src never mentions server secret names', async () => {
+    const { readdirSync, statSync } = await import('node:fs');
+    const root = fileURLToPath(new URL('../src/', import.meta.url));
+    const bad: string[] = [];
+    const walk = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = dir + f;
+        if (statSync(p).isDirectory()) walk(p + '/');
+        else if (/CLOUDFLARE|ADMIN_PASSWORD_HASH|JWT_SECRET/.test(readFileSync(p, 'utf8'))) bad.push(p.slice(root.length));
+      }
+    };
+    walk(root);
+    expect(bad).toEqual([]);
+  });
+});
