@@ -60,7 +60,7 @@ export async function hotp(secret: Uint8Array, counter: number, digits = 6): Pro
     msg[i] = c & 255;
     c = Math.floor(c / 256);
   }
-  const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const key = await crypto.subtle.importKey('raw', new Uint8Array(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
   const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
   const off = h[h.length - 1]! & 15;
   const bin = ((h[off]! & 0x7f) << 24) | (h[off + 1]! << 16) | (h[off + 2]! << 8) | h[off + 3]!;
@@ -202,17 +202,17 @@ export function coseToJwk(m: Map<unknown, unknown>): JsonWebKey {
 
 /** 校验 WebAuthn 断言签名：签名对象是 authenticatorData || SHA-256(clientDataJSON)。ES256 签名是 DER，RS256 是 PKCS#1 v1.5。 */
 export async function verifyAssertion(jwk: JsonWebKey, signature: Uint8Array, authData: Uint8Array, clientDataJSON: Uint8Array): Promise<boolean> {
-  const cdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON));
+  const cdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(clientDataJSON)));
   const data = new Uint8Array(authData.length + cdHash.length);
   data.set(authData, 0);
   data.set(cdHash, authData.length);
   try {
     if (jwk.kty === 'RSA') {
       const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
-      return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, data);
+      return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, new Uint8Array(signature), data);
     }
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-    return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(signature), data);
+    return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, new Uint8Array(derToRaw(signature)), data);
   } catch {
     return false;
   }

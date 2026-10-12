@@ -41,12 +41,12 @@ export async function softAuthenticator(alg: 'ES256' | 'RS256' = 'ES256'): Promi
     const kp = (await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
     const jwk = (await crypto.subtle.exportKey('jwk', kp.publicKey)) as JsonWebKey;
     const cose = cborEncode(new Map<unknown, unknown>([[1, 3], [3, -257], [-1, unb64u(jwk.n!)], [-2, unb64u(jwk.e!)]]));
-    return { alg, credId, signCount: 0, cose, sign: async (d) => new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', kp.privateKey, d)) };
+    return { alg, credId, signCount: 0, cose, sign: async (d) => new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', kp.privateKey, new Uint8Array(d))) };
   }
   const kp = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
   const jwk = (await crypto.subtle.exportKey('jwk', kp.publicKey)) as JsonWebKey;
   const cose = cborEncode(new Map<unknown, unknown>([[1, 2], [3, -7], [-1, 1], [-2, unb64u(jwk.x!)], [-3, unb64u(jwk.y!)]]));
-  return { alg, credId, signCount: 0, cose, sign: async (d) => rawToDer(new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, d))) };
+  return { alg, credId, signCount: 0, cose, sign: async (d) => rawToDer(new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new Uint8Array(d)))) };
 }
 
 const rpHash = async (rpId: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(rpId)));
