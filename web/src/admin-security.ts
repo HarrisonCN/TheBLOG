@@ -56,7 +56,7 @@ ${codes ? codesHtml(codes) : ''}
       main = `<p class="adm-sec-state">${icon('lock')}<span>二次验证未开启。开启后，就算后台密码泄露，没有你的手机也登录不了。</span></p>
 <button class="btn btn--primary btn--sm" type="button" data-sec="setup">${icon('plus')}开启二次验证</button>`;
     }
-    box.innerHTML = `<h2 class="adm-sec-h">${icon('lock')}管理员二次验证（TOTP）</h2>${main}${s.demo ? '<p class="muted small">演示站：密钥只保存在这个浏览器里；真实站点用 JWT_SECRET 派生的密钥加密后存进 D1。</p>' : ''}<h3 class="adm-sec-h3">后台安全记录</h3>${evs}`;
+    box.innerHTML = `<h2 class="adm-sec-h">${icon('lock')}管理员二次验证（TOTP）</h2>${main}${s.demo ? '<p class="muted small">演示站：密钥只保存在这个浏览器里；真实站点用服务器端密钥派生的加密密钥加密后存进 D1。</p>' : ''}<h3 class="adm-sec-h3">后台安全记录</h3>${evs}`;
     box.setAttribute('aria-busy', 'false');
   };
   const run = async (fn: () => Promise<void>, focusSel?: string) => {

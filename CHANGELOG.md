@@ -14,6 +14,7 @@ _L22 · 账号安全与隐私中心：登录设备与会话管理、Passkey 可�
 
 ### 修复 Fixes
 
+- **web:** keep server secret names out of the shipped admin 2FA copy (Pages sanity guard) + unit test guard
 - **security:** pass ArrayBuffer-backed views to WebCrypto so the shared core typechecks under the DOM lib (7cea6c9)
 
 ### 测试 Tests
