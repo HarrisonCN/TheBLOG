@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const api = process.env.BLOG_DEV_API ?? 'http://127.0.0.1:8787';
 
@@ -10,6 +11,8 @@ export default defineConfig(({ mode }) => {
     base: demo ? (process.env.BLOG_BASE ?? '/TheBLOG/') : '/',
     define: {
       'import.meta.env.VITE_DEMO': JSON.stringify(demo ? '1' : process.env.VITE_DEMO ?? '0'),
+      // L21：版本号（前端错误上报的 release、演示站 /api/version）；只在发版时变化，不放 commit（commit 写在 dist/build.json，避免每次提交都改变包内容）
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(JSON.parse(readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf8')).version),
       // 测试 / E2E 构建：演示数据后追加 n 篇夹具文章（正式演示站不设置 = 0）
       'import.meta.env.VITE_DEMO_FIXTURE_POSTS': JSON.stringify(demo ? String(Number(process.env.DEMO_FIXTURE_POSTS ?? 0) || 0) : '0'),
     },

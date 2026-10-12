@@ -6,7 +6,7 @@
  */
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash, pbkdf2Sync, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -75,6 +75,24 @@ try {
   }
   assert(true, 'Worker 已就绪');
 
+  step('运维接口（L21）：/api/health、/api/version、/api/status');
+  const rootPkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  const latestMig = readdirSync(join(root, 'worker', 'migrations')).filter((f) => /^\d{4}_.+\.sql$/.test(f)).sort().at(-1);
+  const health = await (await fetch(`${BASE}/api/health`)).json();
+  assert(health.ok === true && health.checks?.d1 === 'ok', `health ok，D1 ${health.checks?.d1}`);
+  const verRes = await fetch(`${BASE}/api/version`);
+  const ver = await verRes.json();
+  assert(verRes.status === 200 && ver.version === rootPkg.version, `version = package.json（${ver.version}）`);
+  assert(typeof ver.commit === 'string' && ver.commit.length > 0, `version 带 commit（${ver.commit}）`);
+  assert(ver.migration?.latest === latestMig.replace(/\.sql$/, '') || ver.migration?.latest === latestMig, `version 报告最新迁移 ${ver.migration?.latest}（磁盘上 ${latestMig}）`);
+  assert(ver.migration?.ok === true, '迁移级别 = 期望');
+  const stRes = await fetch(`${BASE}/api/status`);
+  const st = await stRes.json();
+  const keys = (st.components ?? []).map((c) => c.key).join(',');
+  assert(stRes.status === 200 && keys === 'api,d1,r2,do,cron', `status 组件 ${keys}`);
+  assert(st.version === rootPkg.version && ['24h', '7d', '30d'].every((k) => k in (st.uptime ?? {})) && Array.isArray(st.days) && st.days.length === 30, 'status 含版本、24h / 7d / 30d 可用率与 30 天条形');
+  assert(!/@|\b\d{1,3}(\.\d{1,3}){3}\b|Bearer|mcp_/.test(JSON.stringify(st)), 'status 不含邮箱 / IP / 令牌');
+
   step('MCP SDK 客户端（Streamable HTTP）');
   const client = new Client({ name: 'blog-e2e', version: '1.0.0' });
   const transport = new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), { requestInit: { headers: { Authorization: `Bearer ${TOKEN}` } } });
@@ -127,6 +145,8 @@ try {
   assert(rss.includes(`<link>https://blog.example.com/posts/${slug}/</link>`), 'rss.xml 含 MCP 发布的文章（绝对链接）');
   assert(JSON.parse(readFileSync(join(webDir, 'dist', 'feed.json'), 'utf8')).items.length > 0, 'feed.json 有效');
   assert(readFileSync(join(webDir, 'dist', '_headers'), 'utf8').includes('https://api.github.com'), 'CSP 允许读取 GitHub 公开 API（开源页星标）');
+  const bi = JSON.parse(readFileSync(join(webDir, 'dist', 'build.json'), 'utf8'));
+  assert(bi.version === rootPkg.version && /^[0-9a-f]{64}$/.test(bi.bundleHash ?? ''), `dist/build.json 版本 ${bi.version}、bundle ${String(bi.bundleHash).slice(0, 12)}`);
   console.log('\n✅ E2E 全部通过');
 } catch (e) {
   console.error('\n❌ E2E 失败：', e.message);

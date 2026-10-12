@@ -19,6 +19,7 @@ import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
+import { reportUnhandled, routeAdminOps, routeOps, scheduledOps } from './ops';
 export { DmHub } from './dm-hub';
 
 const PUBLIC_CACHE = { 'cache-control': 'public, max-age=30, s-maxage=60' };
@@ -83,9 +84,14 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     throw new HttpError(404, 'not_found', '接口不存在');
   }
 
+  // ---------- L21 运维：健康检查 / 版本 / 公开状态 / 客户端错误上报 ----------
+  if (path === '/api/health' || path === '/api/version' || path === '/api/status' || path === '/api/errors') {
+    const ops = await routeOps(req, env, path);
+    if (ops) return ops;
+  }
+
   // ---------- 公开接口 ----------
   if (m === 'GET' || m === 'HEAD') {
-    if (path === '/api/health') return json({ ok: true }, { headers: NO_STORE });
     if (path === '/api/posts') {
       const { cursor, q } = pageParams(url, listQuerySchema.omit({ status: true }));
       return json(await svc.listPosts(env, { ...q, cursor }), { headers: PUBLIC_CACHE });
@@ -169,6 +175,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L20 Webmention 审核 / 外发、站点角色、AI 开关
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
+    // L21 运行状态 / 错误事件 / 手动健康检查
+    const opsAdmin = await routeAdminOps(req, env, sub, url);
+    if (opsAdmin) return opsAdmin;
     if (sub === '/posts' && m === 'GET') {
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
@@ -230,7 +239,9 @@ export default {
     try {
       res = await route(req, env, url, ctx);
     } catch (e) {
-      res = errorResponse(e);
+      // L21：未处理异常（以及 5xx 的 HttpError）→ 结构化日志 + 错误事件（waitUntil，不拖慢响应）
+      if (!(e instanceof HttpError) || e.status >= 500) reportUnhandled(env, req, e, ctx);
+      res = errorResponse(e, true);
     }
     // WebSocket 升级（L19 私信实时层）：101 响应原样返回，不能重新包装（会丢掉 webSocket）
     if (res.status === 101) return res;
@@ -238,8 +249,9 @@ export default {
     for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
     return res;
   },
-  // L20 定时任务（wrangler.jsonc triggers.crons）：Webmention 重试验证 + 邮件摘要
+  // 定时任务（wrangler.jsonc triggers.crons，每 15 分钟）：L20 Webmention 重试验证 + 邮件摘要
+  // L21：每次触发先记录健康检查，再跑各个任务；每个任务的最近一次运行写进 ops_runs（状态页显示）
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledOpen(env));
+    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env) }));
   },
 } satisfies ExportedHandler<Env>;

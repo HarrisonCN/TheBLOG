@@ -8,7 +8,7 @@
 -- 执行：
 --   npx wrangler d1 migrations apply blog --remote
 -- 完整性检查（执行后）：
---   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA integrity_check;"
+--   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA quick_check;"
 -- Durable Object：wrangler.jsonc 里的 durable_objects 绑定 DM_HUB 与 migrations（tag "dm-v1"，new_sqlite_classes ["DmHub"]）
 -- 随 `wrangler deploy` 生效；没有这个绑定时私信照常可用，浏览器自动退回轮询（/api/social/dm/sync）。
 -- 回滚（只影响 L19 新数据，旧表与旧数据不受影响）：

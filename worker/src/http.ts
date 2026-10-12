@@ -16,11 +16,12 @@ export function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data), { ...init, headers });
 }
 
-export function errorResponse(err: unknown): Response {
+export function errorResponse(err: unknown, logged = false): Response {
   if (err instanceof HttpError) {
     return json({ error: { code: err.code, message: err.message, details: err.details } }, { status: err.status, headers: err.headers });
   }
-  console.error('unhandled error', err);
+  // L21：index.ts 已经写了清洗过的结构化日志时不再重复打印原始错误（原始错误可能带个人信息）
+  if (!logged) console.error('unhandled error', err);
   return json({ error: { code: 'internal', message: '服务器内部错误' } }, { status: 500 });
 }
 

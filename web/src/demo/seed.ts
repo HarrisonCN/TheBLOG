@@ -56,6 +56,7 @@ export interface DemoDb {
   dm?: import('./mock-dm').DmState;
   /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */
   open?: import('./mock-open').OpenState;
+  ops?: import('./mock-ops').OpsState;
 }
 
 /** 演示后台的公开密码（只用于本地演示，不对应任何真实账号）。 */

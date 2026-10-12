@@ -39,4 +39,15 @@ export interface Env {
   AI_API_URL?: string;
   AI_API_KEY?: string;
   AI_MODEL?: string;
+  // ---------- L21 运维（全部可选） ----------
+  /** 部署时注入：wrangler deploy --var GIT_SHA:<commit> --var APP_VERSION:<version>（deploy.yml 自动做）；未设置时 commit = dev */
+  GIT_SHA?: string;
+  APP_VERSION?: string;
+  /** 环境名（写进错误事件 / Sentry），默认 production */
+  OPS_ENV?: string;
+  /** 可选：Sentry 兼容 DSN（https://<key>@<host>/<project>）。设置后错误同时以 envelope 转发（fetch，无 SDK）；不设置只存 D1 */
+  SENTRY_DSN?: string;
+  /** 采样率 0–1（默认 1）：重复出现的同一错误按这个比例记录；新错误总是记录 */
+  ERROR_SAMPLE_RATE?: string;
+  CLIENT_ERROR_SAMPLE_RATE?: string;
 }

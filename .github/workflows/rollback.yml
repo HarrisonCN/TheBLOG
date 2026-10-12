@@ -1,0 +1,100 @@
+name: Rollback
+
+# L21：手动回滚（Actions → Rollback → Run workflow）。默认只演练（execute = false，摘要里写出会做什么）。
+#   Worker：wrangler rollback [version-id]（不填 = 上一个版本）
+#   Pages ：回到当前之前最近一次成功的生产部署（或填 pages_deployment）
+#   D1    ：不回滚 —— 迁移只向前；需要撤销结构变更时写补偿迁移（docs/ops.md）。
+# 执行后跑 smoke：Worker 健康 + D1 可用；回滚 Pages 时检查 /build.json 的 commit = 回滚目标的 commit。
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 回滚什么
+        type: choice
+        options: [worker, pages, both]
+        default: both
+      reason:
+        description: 原因（写进 Worker 版本说明和摘要）
+        type: string
+        required: true
+      worker_version:
+        description: （可选）Worker version id，不填 = 上一个版本
+        type: string
+        required: false
+      pages_deployment:
+        description: （可选）Pages deployment id，不填 = 上一次成功的生产部署
+        type: string
+        required: false
+      execute:
+        description: 真的执行（不勾选 = 只演练）
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Gate (rollback only when Cloudflare credentials exist)
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ Rollback: SKIPPED — no Cloudflare credentials, nothing was changed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  rollback:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PAGES_PROJECT: ${{ vars.PAGES_PROJECT || 'winston-blog' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Rollback
+        id: rb
+        env:
+          TARGET: ${{ inputs.target }}
+          REASON: ${{ inputs.reason }}
+          WV: ${{ inputs.worker_version }}
+          PD: ${{ inputs.pages_deployment }}
+          EXECUTE: ${{ inputs.execute }}
+        run: |
+          set -- --target "$TARGET" --reason "$REASON"
+          [ -n "$WV" ] && set -- "$@" --worker-version "$WV"
+          [ -n "$PD" ] && set -- "$@" --pages-deployment "$PD"
+          [ "$EXECUTE" = "true" ] && set -- "$@" --execute
+          node scripts/ops/rollback.mjs "$@"
+      - name: Smoke after rollback
+        if: inputs.execute
+        env:
+          PAGES_COMMIT: ${{ steps.rb.outputs.pages_commit }}
+        run: |
+          set -- --api "${{ vars.WORKER_URL || vars.BLOG_ORIGIN }}" --expect-migration none --tries 10
+          if [ "${{ inputs.target }}" != "worker" ]; then
+            set -- "$@" --site "${{ vars.BLOG_ORIGIN }}"
+            [ -n "$PAGES_COMMIT" ] && set -- "$@" --expect-site-commit "$PAGES_COMMIT"
+          fi
+          node scripts/ops/smoke.mjs "$@"

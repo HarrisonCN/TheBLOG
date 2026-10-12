@@ -7,7 +7,7 @@
 -- 执行：
 --   npx wrangler d1 migrations apply blog --remote
 -- 完整性检查（执行后）：
---   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA integrity_check;"
+--   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA quick_check;"
 -- 定时任务：wrangler.jsonc 的 triggers.crons（每 15 分钟）负责重试待验证的 Webmention、发送到期的邮件摘要；不配置时
 --   Webmention 仍会在收到时异步验证（ctx.waitUntil），站长也可以在后台手动「立即验证」。
 -- 回滚（只影响 L20 新数据，旧表与旧数据不受影响）：

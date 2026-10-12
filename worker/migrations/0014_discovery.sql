@@ -7,7 +7,7 @@
 -- 执行：
 --   npx wrangler d1 migrations apply blog --remote
 -- 完整性检查（执行后）：
---   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA integrity_check; SELECT slug FROM topics;"
+--   npx wrangler d1 execute blog --remote --command "PRAGMA foreign_key_check; PRAGMA quick_check; SELECT slug FROM topics;"
 -- 回滚（只影响 L17 新数据，旧表与旧数据不受影响）：
 --   1) 把 Worker 回退到 1.16.0（wrangler rollback 或重新部署 v1.16.0 tag）；
 --   2) DROP TABLE event_votes, event_entries, events, collection_items, collections, topic_subscriptions, post_topics,
