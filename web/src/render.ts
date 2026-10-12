@@ -92,6 +92,7 @@ export type Route =
   | { name: 'features' }
   | { name: 'feature'; slug: string }
   | { name: 'mystats' }
+  | { name: 'security' }
   | { name: 'messages' }
   | { name: 'msgrequests' }
   | { name: 'msgsettings' }
@@ -132,6 +133,7 @@ const STATIC: Record<string, Route['name']> = {
   '/projects': 'projects',
   '/f': 'features',
   '/me/stats': 'mystats',
+  '/me/security': 'security',
   '/messages': 'messages',
   '/messages/requests': 'msgrequests',
   '/messages/settings': 'msgsettings',
@@ -231,6 +233,8 @@ export function routePath(r: Route): string {
       return `/f/${r.slug}/`;
     case 'mystats':
       return '/me/stats/';
+    case 'security':
+      return '/me/security/';
     case 'messages':
       return '/messages/';
     case 'msgrequests':
@@ -1469,7 +1473,7 @@ export function joinPage(site: SiteData): Page {
 </form>
 <div class="join__otp js-join-otp" hidden><p>验证码已发送到 <b class="js-join-email"></b>，请输入 6 位数字<span class="js-demo-otp"></span>。</p><usa-otp length="6" label="邮箱验证码" class="js-otp"></usa-otp><p class="js-otp-msg muted" role="status"></p></div>
 <div class="join__done js-join-done" hidden><usa-check kind="success" size="64" label="已登录"></usa-check><h2 class="join__done-h">欢迎你，<span class="js-join-name"></span>！</h2><p class="js-join-badges join__badges"></p><div class="join__designs js-join-designs"></div><p>现在可以去 <a href="${url('/mailbox/')}">信箱</a> 给我传文件或留语音，或者去 <a href="${url('/guestbook/#wall')}">便签墙</a> 贴一张。</p><button class="btn btn--soft btn--sm js-logout" type="button">${icon('logout')}退出登录</button></div>
-<div class="join__google"><p class="muted">或者</p><button class="btn btn--ghost js-google" type="button">${icon('globe')}用 Google 登录（可选公开头像）</button><p class="muted small">只有你同意后才会读取 Google 名字和头像；演示站不会真的连接 Google。</p></div></div>`, { cls: 'join-main', rows: 2 })}
+<div class="join__google"><p class="muted">或者</p><button class="btn btn--soft js-passkey-login" type="button" hidden>${icon('lock')}用 Passkey 登录</button><button class="btn btn--ghost js-google" type="button">${icon('globe')}用 Google 登录（可选公开头像）</button><p class="muted small">只有你同意后才会读取 Google 名字和头像；演示站不会真的连接 Google。</p></div></div>`, { cls: 'join-main', rows: 2 })}
 ${tile('third', `${kicker('award', '专属徽章')}<p class="muted">站长会给好朋友发徽章，编号刻在徽章上。拿到徽章后可以自己搭配样式：</p>${presetGallery('FRIEND-0001')}`, { cls: 'badge-tile' })}
 ${tile('third', `${kicker('eye', '隐私')}<p class="muted">邮箱不会公开。访客默认匿名，头像只在你同意后显示。</p>${more(url('/privacy/'), '隐私说明')}`)}`),
   });
@@ -1585,6 +1589,7 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
     case 'features':
     case 'feature':
     case 'mystats':
+    case 'security':
     case 'messages':
     case 'msgrequests':
     case 'msgsettings':
@@ -1596,9 +1601,9 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
   }
 }
 
-export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats' | 'messages' | 'msgrequests' | 'msgsettings' | 'conversation' | 'status';
+export type SocialRouteName = 'user' | 'notifications' | 'me' | 'feed' | 'compose' | 'work' | 'discover' | 'topics' | 'topic' | 'events' | 'event' | 'collection' | 'projects' | 'project' | 'features' | 'feature' | 'mystats' | 'security' | 'messages' | 'msgrequests' | 'msgsettings' | 'conversation' | 'status';
 /** 所有交给 social-client 按需渲染的路由 */
-export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats', 'messages', 'msgrequests', 'msgsettings', 'conversation', 'status'];
+export const SOCIAL_ROUTES: readonly SocialRouteName[] = ['user', 'notifications', 'me', 'feed', 'compose', 'work', 'discover', 'topics', 'topic', 'events', 'event', 'collection', 'projects', 'project', 'features', 'feature', 'mystats', 'security', 'messages', 'msgrequests', 'msgsettings', 'conversation', 'status'];
 /**
  * L15 社交页（用户主页 / 通知 / 我的）：只渲染外壳和加载占位，内容由按需加载的 social-client.ts 填充
  * （社交代码不进首屏包；需要登录态，不预渲染个人数据）。
@@ -1615,6 +1620,7 @@ export function socialPage(site: SiteData, route: Extract<Route, { name: SocialR
     projects: ['创作者项目', '好朋友们正在做的项目：开发日志、版本和关联作品'],
     features: ['摄影专题', '用一组照片和文字讲一个完整的故事'],
     mystats: ['我的数据', '只有你能看到：按天汇总的浏览与互动，不记录访客身份'],
+    security: ['隐私与安全中心', '登录设备、Passkey、隐私权限、数据导出与注销、安全记录'],
     messages: ['私信', '和互相关注的好朋友一对一聊天'],
     msgrequests: ['消息请求', '还没有互相关注的人发来的消息，接受后才能回复'],
     msgsettings: ['私信设置', '谁可以给你发私信、已读回执与在线状态'],

@@ -1,0 +1,55 @@
+/* L22 隐私与安全中心（按需加载，随 security-client.ts 一起下载）。沿用 TheBLOG 的 tile / btn / 令牌与 social.css 的表单控件。 */
+.sec { display: grid; gap: 0.6rem; }
+.sec .soc-h { margin-bottom: 0; }
+.sec-tabs { display: flex; gap: 0.25rem; overflow-x: auto; padding: 0.25rem; border-radius: 14px; background: var(--soft); scrollbar-width: none; }
+.sec-tabs::-webkit-scrollbar { display: none; }
+.sec-tab { display: inline-flex; flex: none; align-items: center; gap: 0.35rem; min-height: 40px; padding: 0 0.85rem; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+.sec-tab:hover { color: var(--heading); }
+.sec-tab[aria-selected="true"] { background: var(--tile); color: var(--heading); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), inset 0 0 0 1px var(--hairline); }
+.sec-tab[aria-selected="true"] .icon { color: var(--accent); }
+.sec-tab:focus-visible, .sec-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sec-panel { display: grid; gap: 0.75rem; padding-top: 0.5rem; border-radius: 8px; }
+.sec-panel[hidden] { display: none; }
+.sec-panel > p { margin: 0; }
+.sec-panel > .btn { justify-self: start; }
+.sec-list, .sec-evs { display: grid; margin: 0; padding: 0; list-style: none; }
+.sec-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.7rem 0; border-bottom: 1px solid var(--hairline); }
+.sec-item:last-child { border-bottom: 0; }
+.sec-item__main { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; min-width: 0; flex: 1 1 260px; }
+.sec-item__main b { color: var(--heading); overflow-wrap: anywhere; }
+.sec-item__main .small { flex-basis: 100%; }
+.sec-item__act, .sec-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.sec-item .btn, .sec-actions .btn, .sec-form .btn { min-height: 40px; }
+.sec-chip { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; background: var(--soft); box-shadow: inset 0 0 0 1px var(--hairline); color: var(--heading); font-size: 0.78rem; }
+.sec-chip--ok { background: var(--accent-soft); color: var(--accent-strong); box-shadow: none; }
+:root[data-theme="dark"] .sec-chip--ok { color: var(--heading); }
+.sec-form { display: grid; gap: 0.6rem; }
+.sec-form fieldset { display: grid; gap: 0.35rem; margin: 0; padding: 0; border: 0; }
+.sec-form legend { margin-bottom: 0.3rem; color: var(--heading); font-weight: 700; font-size: 0.92rem; }
+.sec-form label[for] { color: var(--heading); font-weight: 600; font-size: 0.9rem; }
+.sec-form input[type="text"], .sec-form input:not([type]) { min-height: 40px; padding: 0 0.7rem; border: 1px solid var(--hairline); border-radius: 10px; background: var(--tile); color: var(--fg); font: inherit; }
+.sec-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sec-form > .btn { justify-self: start; }
+.sec-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.sec-row input { flex: 1 1 200px; min-width: 0; }
+.sec-h3 { margin: 0.6rem 0 0; color: var(--heading); font-size: 0.98rem; }
+.sec-note { margin: 0; padding: 0.7rem 0.9rem; border-radius: 10px; background: var(--soft); }
+.sec-pending { display: grid; gap: 0.4rem; padding: 0.9rem 1rem; border-radius: 12px; background: color-mix(in srgb, #e5484d 10%, var(--tile)); box-shadow: inset 0 0 0 1px color-mix(in srgb, #e5484d 35%, transparent); }
+.sec-pending p { margin: 0; }
+.sec-pending b { color: var(--heading); }
+.sec-pending .btn { justify-self: start; }
+.sec-ev { display: grid; grid-template-columns: auto 1fr; gap: 0.6rem; align-items: start; padding: 0.55rem 0; border-bottom: 1px solid var(--hairline); }
+.sec-ev:last-child { border-bottom: 0; }
+.sec-ev > div { display: grid; gap: 0.1rem; min-width: 0; }
+.sec-ev b { color: var(--heading); font-weight: 600; }
+.sec-ev__ic { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--soft); color: var(--accent); }
+.sec-ev.is-warn .sec-ev__ic { background: color-mix(in srgb, #e5484d 14%, var(--tile)); color: #b4232f; }
+:root[data-theme="dark"] .sec-ev.is-warn .sec-ev__ic { color: #ff9aa2; }
+.sec-empty { padding: 0.6rem 0; }
+.join__passkey { display: grid; justify-items: center; gap: 0.3rem; margin-top: 0.4rem; }
+@media (max-width: 520px) {
+  .sec-tab { padding: 0 0.65rem; font-size: 0.88rem; }
+  .sec-item .btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) { .sec-tab { transition: none; } }
+.sec-panel p a { text-decoration: underline; }

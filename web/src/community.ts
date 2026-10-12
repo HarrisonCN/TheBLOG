@@ -345,6 +345,24 @@ function bindJoin(root: HTMLElement, ctx: Ctx): void {
       msg.textContent = errMsg(e);
     }
   });
+  // L22：用 Passkey 登录（浏览器支持时才显示；WebAuthn 代码在按需加载的 security-client 里）
+  const pk = root.querySelector<HTMLButtonElement>('.js-passkey-login');
+  if (pk && 'PublicKeyCredential' in window && !currentMember()) pk.hidden = false;
+  root.querySelector('.js-logout')?.addEventListener('click', () => pk && (pk.hidden = !('PublicKeyCredential' in window)));
+  pk?.addEventListener('click', async () => {
+    pk.disabled = true;
+    try {
+      const r = (await (await import('./security-client')).passkeyLogin()) as { member: PublicMember; token: string };
+      localStorage.setItem(MEMBER_KEY, JSON.stringify(r));
+      pk.hidden = true;
+      showDone(r.member);
+      void ctx.notify('已用 Passkey 登录', 'success');
+    } catch (e) {
+      void ctx.notify(errMsg(e), 'error');
+    } finally {
+      pk.disabled = false;
+    }
+  });
   root.querySelector('.js-google')?.addEventListener('click', () => {
     if (DEMO) return void ctx.notify('演示站不会连接 Google。正式站点会跳转到 Google 授权页，并由你决定是否公开头像。', 'info');
     location.href = `${API_BASE}/api/members/google/start`;

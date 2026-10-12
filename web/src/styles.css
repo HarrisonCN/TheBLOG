@@ -608,6 +608,7 @@ a.album:hover { color: #fff; }
 .join__done h3, .join__done-h { margin: 0; color: var(--heading); font-size: 1.25rem; }
 .join__google { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid var(--hairline); display: grid; gap: 0.4rem; justify-items: start; }
 .join__google p { margin: 0; }
+.join__google .btn[hidden] { display: none; }
 .upload { display: grid; gap: 0.8rem; }
 .upload__drop { position: relative; display: grid; place-items: center; min-height: 140px; border: 2px dashed color-mix(in srgb, var(--accent) 45%, var(--hairline)); border-radius: 20px; color: var(--muted); cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
 .upload__drop:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }

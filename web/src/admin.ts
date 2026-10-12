@@ -36,7 +36,7 @@ const SITE_HOME = import.meta.env.BASE_URL || '/';
 const SOCIAL_KEYS: SocialIcon[] = ['github', 'wechat', 'xiaohongshu', 'weibo', 'bilibili', 'zhihu', 'instagram', 'x', 'youtube', 'email', 'rss', 'link'];
 
 // ============================================================ 状态与请求
-type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | 'discovery' | 'ops' | SectionKey;
+type View = 'dash' | 'posts' | 'editor' | 'categories' | 'settings' | 'profile' | 'friends' | 'gallery' | 'favorites' | 'projects' | 'playlist' | 'guestbook' | 'notes' | 'festivals' | 'members' | 'inbox' | 'comments' | 'ugc' | 'discovery' | 'ops' | 'security' | SectionKey;
 const root = document.getElementById('admin')!;
 let csrf = '';
 let view: View = 'dash';
@@ -49,7 +49,7 @@ const NAV: { group: string; items: [View, string, string][] }[] = [
   { group: '站点', items: [['settings', 'settings', '展示设置'], ['profile', 'user', '个人资料'], ['friends', 'link', '友链'], ['gallery', 'image', '画廊'], ['favorites', 'star', '收藏'], ['projects', 'box', '项目'], ['playlist', 'music', '音乐歌单']] },
   { group: '栏目', items: SECTION_KEYS.map((k) => [k, SECTION_SPECS[k].icon, SECTION_SPECS[k].label] as [View, string, string]) },
   { group: '社区', items: [['ugc', 'flag', '社区审核'], ['discovery', 'camera', '发现与活动'], ['comments', 'message', '评论审核'], ['guestbook', 'message', '留言审核'], ['notes', 'pin', '便利贴'], ['festivals', 'sparkles', '节日'], ['members', 'users', '好朋友与徽章'], ['inbox', 'mail', '上传与语音']] },
-  { group: '运维', items: [['ops', 'chart', '运行状态']] },
+  { group: '运维', items: [['ops', 'chart', '运行状态'], ['security', 'lock', '二次验证']] },
 ];
 const TITLE: Record<View, string> = Object.fromEntries(NAV.flatMap((g) => g.items.map(([v, , l]) => [v, l]))) as Record<View, string>;
 
@@ -126,7 +126,7 @@ function mount(content: string): void {
 
 // ============================================================ 登录
 function renderLogin(note = ''): void {
-  root.innerHTML = `${backdrop()}<form class="tile adm-login" id="login-form">
+  root.innerHTML = `${backdrop()}<main class="adm-contents"><form class="tile adm-login" id="login-form">
   <div class="adm-login__cover" aria-hidden="true"></div>
   <span class="adm-brand__logo adm-brand__logo--lg">${icon('lock')}</span>
   <h1>博客后台</h1>
@@ -136,7 +136,7 @@ function renderLogin(note = ''): void {
   <button class="btn btn--primary btn--block" type="submit">${icon('lock')}登录</button>
   <p class="adm-msg${note ? ' is-on' : ''}" role="status">${e(note)}</p>
   <a class="adm-login__back" href="${e(SITE_HOME)}">${icon('arrowLeft')}返回博客首页</a>
-</form>`;
+</form></main>`;
   void defineUsed(root);
   const form = root.querySelector<HTMLFormElement>('#login-form')!;
   if (DEMO) {
@@ -152,14 +152,57 @@ function renderLogin(note = ''): void {
     const password = (form.elements.namedItem('password') as HTMLInputElement).value;
     msg('登录中…');
     try {
-      const r = await request<{ csrfToken: string }>('/api/auth/login', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) });
-      csrf = r.csrfToken;
+      const r = await request<{ csrfToken?: string; needsTotp?: boolean; preAuth?: string }>('/api/auth/login', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) });
+      // L22：开启了二次验证 → 第二步输入验证器里的 6 位码（或恢复码）
+      if (r.needsTotp && r.preAuth) return renderSecondFactor(r.preAuth);
+      csrf = r.csrfToken ?? '';
       view = 'dash';
       void go();
     } catch (err) {
       msg(errText(err), true);
     }
   });
+}
+
+/** L22 登录第二步：TOTP 或一次性恢复码（preAuth 5 分钟有效、只能用一次） */
+function renderSecondFactor(preAuth: string): void {
+  root.innerHTML = `${backdrop()}<main class="adm-contents"><form class="tile adm-login" id="totp-form">
+  <div class="adm-login__cover" aria-hidden="true"></div>
+  <span class="adm-brand__logo adm-brand__logo--lg">${icon('lock')}</span>
+  <h1>二次验证</h1>
+  <p class="muted">打开身份验证器 App，输入 6 位验证码；手机不在身边时可以输入一个恢复码。</p>
+  <div class="field"><label for="totp">验证码或恢复码</label><input id="totp" name="code" autocomplete="one-time-code" inputmode="text" required maxlength="20" autocapitalize="characters" spellcheck="false"></div>
+  <button class="btn btn--primary btn--block" type="submit">${icon('check')}验证并登录</button>
+  <p class="adm-msg" role="status"></p>
+  <button class="btn btn--ghost btn--sm adm-login__back" type="button" id="totp-back">${icon('arrowLeft')}重新输入密码</button>
+</form></main>`;
+  void defineUsed(root);
+  const form = root.querySelector<HTMLFormElement>('#totp-form')!;
+  const input = form.querySelector<HTMLInputElement>('#totp')!;
+  input.focus();
+  root.querySelector('#totp-back')?.addEventListener('click', () => renderLogin());
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    msg('验证中…');
+    try {
+      const r = await request<{ csrfToken: string }>('/api/auth/2fa', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ preAuth, code: input.value.trim() }) });
+      csrf = r.csrfToken;
+      view = 'dash';
+      void go();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'preauth_expired') return renderLogin(err.message);
+      msg(errText(err), true);
+      input.select();
+    }
+  });
+}
+
+/** L22 后台「二次验证」：按需加载 admin-security（含二维码生成） */
+async function renderSecurityAdmin(): Promise<void> {
+  mount(tile('full', `<div class="js-adm-sec" aria-busy="true"><p class="muted">加载中…</p></div>`));
+  const box = root.querySelector<HTMLElement>('.js-adm-sec')!;
+  const m = await import('./admin-security');
+  await m.mountAdminSecurity(box, { fetch: adminFetch, msg, errText });
 }
 
 // ============================================================ 路由
@@ -185,6 +228,7 @@ async function go(next?: View): Promise<void> {
       case 'ugc': return await renderUgc();
       case 'discovery': return await renderDiscoveryAdmin();
       case 'ops': return await renderOpsAdmin();
+      case 'security': return await renderSecurityAdmin();
       case 'inbox': return await renderInbox();
       default: if (isSectionKey(view)) return await renderSection(view);
     }

@@ -40,7 +40,7 @@ describe('L21 演示 mock 运维接口', () => {
   it('health / version / status：版本号来自 package.json，虚构历史有 3 次失败，标明演示数据', async () => {
     const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'));
     const h = B(await api.handle('GET', '/api/health'));
-    expect(h).toMatchObject({ ok: true, demo: true, migration: { latest: '0018_ops', ok: true } });
+    expect(h).toMatchObject({ ok: true, demo: true, migration: { latest: '0019_security', ok: true } });
     expect(B(await api.handle('GET', '/api/version')).version).toBe(pkg.version);
     const s = B(await api.handle('GET', '/api/status'));
     expect(s.demo).toBe(true);
