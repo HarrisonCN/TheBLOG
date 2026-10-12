@@ -186,7 +186,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 294 个 + web 335 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 338 个 + web 346 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
