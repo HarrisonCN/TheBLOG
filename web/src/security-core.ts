@@ -1,6 +1,7 @@
 // L22 账号安全与隐私中心 —— 纯函数核心（不碰 D1 / 网络）。worker/src 与 web/src 各一份，内容必须逐字相同（测试会比对）。
 // 内容：Base32 + TOTP（管理员二次验证，RFC 4648 / 4226 / 6238）、User-Agent → 设备名（会话列表，不保存原始 UA）、
-// 登录异常判断、注销冷静期、最小 CBOR 解码 + COSE(ES256) → JWK、WebAuthn clientDataJSON / authenticatorData 校验、DER → raw 签名。
+// 登录异常判断、注销冷静期、最小 CBOR 解码 + COSE(ES256 / RS256) → JWK、WebAuthn clientDataJSON / authenticatorData 校验、DER → raw 签名、
+// 断言签名校验、网络前缀（IPv4 /24、IPv6 /48，只用来判断「新网络」，再加盐哈希后才落库）、恢复码、otpauth:// URI。
 
 export const SECURITY_LIMITS = {
   /** 申请注销后的冷静期（天），期间登录可撤销 */
@@ -184,13 +185,37 @@ export function cborDecode(buf: Uint8Array, pos = 0): { value: unknown; end: num
   }
 }
 
-/** COSE_Key → JWK。只接受 ES256（kty 2 EC2, alg -7, crv 1 P-256）。 */
+/** COSE_Key → JWK。只接受 ES256（kty 2 EC2, alg -7, crv 1 P-256）和 RS256（kty 3 RSA, alg -257, n ≥ 2048 位）。 */
 export function coseToJwk(m: Map<unknown, unknown>): JsonWebKey {
-  if (m.get(1) !== 2 || m.get(3) !== -7 || m.get(-1) !== 1) throw new Error('only ES256 (P-256) passkeys are supported');
+  if (m.get(1) === 3 && m.get(3) === -257) {
+    const n = m.get(-1);
+    const e = m.get(-2);
+    if (!(n instanceof Uint8Array) || !(e instanceof Uint8Array) || n.length < 256 || e.length < 1 || e.length > 8) throw new Error('bad RSA key');
+    return { kty: 'RSA', alg: 'RS256', n: b64url(n), e: b64url(e), ext: true };
+  }
+  if (m.get(1) !== 2 || m.get(3) !== -7 || m.get(-1) !== 1) throw new Error('only ES256 (P-256) or RS256 passkeys are supported');
   const x = m.get(-2);
   const y = m.get(-3);
   if (!(x instanceof Uint8Array) || !(y instanceof Uint8Array) || x.length !== 32 || y.length !== 32) throw new Error('bad EC2 coordinates');
   return { kty: 'EC', crv: 'P-256', x: b64url(x), y: b64url(y), ext: true };
+}
+
+/** 校验 WebAuthn 断言签名：签名对象是 authenticatorData || SHA-256(clientDataJSON)。ES256 签名是 DER，RS256 是 PKCS#1 v1.5。 */
+export async function verifyAssertion(jwk: JsonWebKey, signature: Uint8Array, authData: Uint8Array, clientDataJSON: Uint8Array): Promise<boolean> {
+  const cdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON));
+  const data = new Uint8Array(authData.length + cdHash.length);
+  data.set(authData, 0);
+  data.set(cdHash, authData.length);
+  try {
+    if (jwk.kty === 'RSA') {
+      const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+      return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, data);
+    }
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+    return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(signature), data);
+  } catch {
+    return false;
+  }
 }
 
 function b64url(b: Uint8Array): string {
@@ -265,4 +290,41 @@ export function derToRaw(der: Uint8Array): Uint8Array {
   raw.set(r, 0);
   raw.set(s, 32);
   return raw;
+}
+
+// ---------------------------------------------------------------- 网络前缀 / 恢复码 / otpauth
+/** 「同一个网络」的粗粒度：IPv4 取 /24，IPv6 取 /48；其它（unknown）原样。调用方再加盐哈希，原始 IP 不落库。 */
+export function networkOf(ip: string): string {
+  const v = (ip || '').trim();
+  const m4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v);
+  if (m4) return `${m4[1]}.${m4[2]}.${m4[3]}.0/24`;
+  if (v.includes(':') && /^[0-9a-f:]+$/i.test(v)) {
+    const [head = '', tail = ''] = v.toLowerCase().split('::');
+    const h = head ? head.split(':') : [];
+    const t = v.includes('::') ? (tail ? tail.split(':') : []) : [];
+    const full = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+    return `${full.slice(0, 3).map((x) => x.replace(/^0+(?=.)/, '')).join(':')}::/48`;
+  }
+  return 'unknown';
+}
+
+/** 一次性恢复码：10 位 Base32（50 位熵），显示为 XXXXX-XXXXX。 */
+export function newRecoveryCodes(n = 10): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = base32Encode(crypto.getRandomValues(new Uint8Array(7))).slice(0, 10);
+    out.push(`${c.slice(0, 5)}-${c.slice(5)}`);
+  }
+  return out;
+}
+
+/** 用户输入的恢复码 → 规范形式（大写、去掉空格和连字符）；格式不对返回 null。 */
+export function normalizeRecoveryCode(input: string): string | null {
+  const s = (input || '').toUpperCase().replace(/[\s-]/g, '');
+  return /^[A-Z2-7]{10}$/.test(s) ? s : null;
+}
+
+export function otpauthUri(secretB32: string, account: string, issuer: string): string {
+  const label = encodeURIComponent(`${issuer}:${account}`);
+  return `otpauth://totp/${label}?secret=${secretB32}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=${SECURITY_LIMITS.totpStep}`;
 }

@@ -1,6 +1,7 @@
 // L22 账号安全与隐私中心：纯函数核心（worker/src/security-core.ts，web/src 同名副本逐字相同）。
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { assertion, b64u, cborEncode, rawToDer, softAuthenticator, unb64u } from './webauthn-helpers';
 import { join } from 'node:path';
 import {
   SECURITY_LIMITS,
@@ -13,6 +14,11 @@ import {
   describeDevice,
   hotp,
   loginAlert,
+  networkOf,
+  newRecoveryCodes,
+  normalizeRecoveryCode,
+  otpauthUri,
+  verifyAssertion,
   parseAuthData,
   totpVerify,
   verifyClientData,
@@ -89,31 +95,6 @@ describe('account deletion with a grace period', () => {
 });
 
 // ---------------------------------------------------------------- WebAuthn（Passkey）
-function cborEncode(v: unknown): Uint8Array {
-  const out: number[] = [];
-  const head = (major: number, n: number) => {
-    if (n < 24) out.push((major << 5) | n);
-    else if (n < 256) out.push((major << 5) | 24, n);
-    else out.push((major << 5) | 25, n >> 8, n & 255);
-  };
-  const walk = (x: unknown): void => {
-    if (typeof x === 'number') { if (x >= 0) head(0, x); else head(1, -1 - x); }
-    else if (typeof x === 'string') { const b = enc.encode(x); head(3, b.length); out.push(...b); }
-    else if (x instanceof Uint8Array) { head(2, x.length); out.push(...x); }
-    else if (Array.isArray(x)) { head(4, x.length); x.forEach(walk); }
-    else if (x instanceof Map) { head(5, x.size); for (const [k, val] of x) { walk(k); walk(val); } }
-    else throw new Error('unsupported');
-  };
-  walk(v);
-  return new Uint8Array(out);
-}
-const b64u = (b: Uint8Array) => Buffer.from(b).toString('base64url');
-function rawToDer(raw: Uint8Array): Uint8Array {
-  const int = (b: Uint8Array) => { let i = 0; while (i < b.length - 1 && b[i] === 0) i++; let s = [...b.slice(i)]; if (s[0]! & 0x80) s = [0, ...s]; return [0x02, s.length, ...s]; };
-  const body = [...int(raw.slice(0, 32)), ...int(raw.slice(32))];
-  return new Uint8Array([0x30, body.length, ...body]);
-}
-
 describe('CBOR / COSE', () => {
   it('decodes maps with negative keys, byte strings, text and arrays', () => {
     const m = new Map<unknown, unknown>([[1, 2], [-1, 1], ['fmt', 'none'], [-2, new Uint8Array([1, 2, 3])], ['a', [1, 300]]]);
@@ -124,9 +105,11 @@ describe('CBOR / COSE', () => {
     expect([...(d.get(-2) as Uint8Array)]).toEqual([1, 2, 3]);
     expect(d.get('a')).toEqual([1, 300]);
   });
-  it('rejects truncated input and unsupported (non-ES256) keys', () => {
+  it('rejects truncated input, unsupported algorithms (EdDSA) and malformed RSA keys', () => {
     expect(() => cborDecode(new Uint8Array([0x5a]))).toThrow();
-    expect(() => coseToJwk(new Map<unknown, unknown>([[1, 3], [3, -257]]))).toThrow(/ES256/);
+    expect(() => coseToJwk(new Map<unknown, unknown>([[1, 1], [3, -8]]))).toThrow(/ES256/);
+    expect(() => coseToJwk(new Map<unknown, unknown>([[1, 3], [3, -257]]))).toThrow(/RSA/);
+    expect(() => coseToJwk(new Map<unknown, unknown>([[1, 3], [3, -257], [-1, new Uint8Array(128)], [-2, new Uint8Array([1, 0, 1])]]))).toThrow(/RSA/);
   });
 });
 
@@ -177,6 +160,48 @@ describe('WebAuthn assertion pieces (ES256)', () => {
     expect((await parseAuthData(auth, 'evil.example')).ok).toBe(false);
     expect((await parseAuthData(new Uint8Array([...rpHash, 0x04, 0, 0, 0, 6]), rpId)).ok).toBe(false);
     expect((await parseAuthData(new Uint8Array(10), rpId)).ok).toBe(false);
+  });
+});
+
+describe('verifyAssertion: ES256 and RS256 end-to-end', () => {
+  for (const alg of ['ES256', 'RS256'] as const) {
+    it(`${alg}: good signature verifies; tampered data / other key fails`, async () => {
+      const a = await softAuthenticator(alg);
+      const jwk = coseToJwk(cborDecode(a.cose).value as Map<unknown, unknown>);
+      expect(jwk.kty).toBe(alg === 'RS256' ? 'RSA' : 'EC');
+      const r = await assertion(a, { rpId: 'blog.example.com', origin: 'https://blog.example.com', challenge: 'xyz' });
+      const ad = unb64u(r.authenticatorData);
+      const cd = unb64u(r.clientDataJSON);
+      expect(await verifyAssertion(jwk, unb64u(r.signature), ad, cd)).toBe(true);
+      expect(await verifyAssertion(jwk, unb64u(r.signature), ad, enc.encode('{"x":1}'))).toBe(false);
+      const other = await softAuthenticator(alg);
+      const otherJwk = coseToJwk(cborDecode(other.cose).value as Map<unknown, unknown>);
+      expect(await verifyAssertion(otherJwk, unb64u(r.signature), ad, cd)).toBe(false);
+      expect(await verifyAssertion(jwk, new Uint8Array([1, 2, 3]), ad, cd)).toBe(false);
+    });
+  }
+});
+
+describe('network prefix, recovery codes, otpauth URI', () => {
+  it('networkOf keeps only /24 (IPv4) or /48 (IPv6)', () => {
+    expect(networkOf('203.0.113.77')).toBe('203.0.113.0/24');
+    expect(networkOf('2001:db8:abcd:12::1')).toBe('2001:db8:abcd::/48');
+    expect(networkOf('2001:db8::1')).toBe('2001:db8:0::/48');
+    expect(networkOf('unknown')).toBe('unknown');
+    expect(networkOf('')).toBe('unknown');
+  });
+  it('recovery codes are unique XXXXX-XXXXX and normalise case/spacing', () => {
+    const codes = newRecoveryCodes();
+    expect(codes).toHaveLength(10);
+    expect(new Set(codes).size).toBe(10);
+    for (const c of codes) expect(c).toMatch(/^[A-Z2-7]{5}-[A-Z2-7]{5}$/);
+    expect(normalizeRecoveryCode(codes[0]!.toLowerCase().replace('-', ' '))).toBe(codes[0]!.replace('-', ''));
+    expect(normalizeRecoveryCode('short')).toBeNull();
+    expect(normalizeRecoveryCode('ABCDE-FGH1J')).toBeNull();
+  });
+  it('otpauth URI carries issuer, secret and period', () => {
+    const u = otpauthUri('GEZDGNBV', 'admin', 'TheBLOG');
+    expect(u).toBe('otpauth://totp/TheBLOG%3Aadmin?secret=GEZDGNBV&issuer=TheBLOG&algorithm=SHA1&digits=6&period=30');
   });
 });
 
