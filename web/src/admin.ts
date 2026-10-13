@@ -206,8 +206,18 @@ async function renderSecurityAdmin(): Promise<void> {
 }
 
 // ============================================================ 路由
+/** L23：告诉前台「本浏览器登录过后台」，前台据此确认站长身份后显示「站长后台」入口（只是提示，权限仍由服务端判断） */
+function setAdminHint(on: boolean): void {
+  try {
+    if (on) localStorage.setItem('blog-admin-hint', '1');
+    else localStorage.removeItem('blog-admin-hint');
+  } catch {
+    /* ignore */
+  }
+}
 async function go(next?: View): Promise<void> {
   if (next) view = next;
+  setAdminHint(true);
   history.replaceState(null, '', `#${view}`);
   try {
     switch (view) {
@@ -1417,6 +1427,7 @@ root.addEventListener('click', async (ev) => {
   if (t.closest('#logout')) {
     await request('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => undefined);
     csrf = '';
+    setAdminHint(false);
     return renderLogin('已退出');
   }
   if (t.closest('#theme-toggle')) {

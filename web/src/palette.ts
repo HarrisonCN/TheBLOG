@@ -7,6 +7,7 @@
 import { icon } from './icons';
 import { group, markHits, pushRecent, rank, RECENT_KEY, type Match, type PaletteItem } from './palette-core';
 import type { SearchDoc, SiteData } from './types';
+import type { PaletteEntry } from './site-map';
 
 export interface PaletteCtx {
   site: () => SiteData;
@@ -16,7 +17,8 @@ export interface PaletteCtx {
   postPath: (slug: string) => string;
   tagPath: (t: string) => string;
   categoryPath: (c: string) => string;
-  nav: { label: string; icon: string; href?: string; children?: { label: string; icon: string; href?: string }[] }[];
+  /** 栏目与条目（来自栏目注册表 site-map.ts，已按当前身份过滤） */
+  entries: () => PaletteEntry[];
   run: (action: string) => void;
   isPost: () => boolean;
 }
@@ -51,6 +53,7 @@ export function paletteHtml(): string {
   <div class="search__panel palette__panel">
     <div class="search__head">${icon('search')}<input type="text" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" placeholder="搜索文章、页面、标签，或输入命令…" aria-label="搜索与命令" autocomplete="off" spellcheck="false" enterkeyhint="go"><kbd class="palette__esc" aria-hidden="true">Esc</kbd><button class="icon-btn js-search-close" type="button" aria-label="关闭">${icon('close')}</button></div>
     <div class="search__results" id="search-results" role="listbox" aria-label="结果"></div>
+    <div class="palette__more" id="search-more"></div>
     <div class="palette__foot" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd>选择</span><span><kbd>↵</kbd>打开</span><span><kbd>Esc</kbd>关闭</span><span class="palette__shortcut"></span></div>
   </div>
 </div>`;
@@ -68,15 +71,16 @@ export function createPalette(ctx: PaletteCtx) {
     const site = ctx.site();
     const items: PaletteItem[] = [];
     const seen = new Set<string>();
-    const addPage = (label: string, ic: string, href: string | undefined, parent?: string) => {
-      const key = `${label}|${href}`;
-      if (!href || seen.has(key)) return;
+    const tools: PaletteEntry[] = [];
+    for (const n of ctx.entries()) {
+      if (n.action) {
+        tools.push(n);
+        continue;
+      }
+      const key = `${n.title}|${n.href}`;
+      if (!n.href || seen.has(key)) continue;
       seen.add(key);
-      items.push({ id: `page:${label}:${href}`, kind: 'page', title: label, sub: parent ? `${parent} › ${label}` : '栏目', href: ctx.url(href), icon: ic, keywords: href.replace(/[/%]/g, ' ') });
-    };
-    for (const n of ctx.nav) {
-      addPage(n.label, n.icon, n.href);
-      for (const c of n.children ?? []) addPage(c.label, c.icon, c.href, n.label);
+      items.push({ id: `page:${n.id}`, kind: 'page', title: n.title, sub: n.sub, href: ctx.url(n.href), icon: n.icon, keywords: n.keywords });
     }
     for (const c of site.categories) items.push({ id: `cat:${c.category}`, kind: 'category', title: c.category, sub: `${c.count} 篇文章`, href: ctx.categoryPath(c.category), icon: 'folder' });
     for (const t of site.tags) items.push({ id: `tag:${t.tag}`, kind: 'tag', title: `#${t.tag}`, sub: `${t.count} 篇文章`, href: ctx.tagPath(t.tag), icon: 'tag', keywords: t.tag });
@@ -90,6 +94,8 @@ export function createPalette(ctx: PaletteCtx) {
     ];
     if (ctx.isPost()) acts.unshift(['share', 'send', '分享本文（海报 / 二维码）', 'share poster qr 分享 海报 二维码']);
     for (const [a, ic, title, kw] of acts) items.push({ id: `act:${a}`, kind: 'action', title, action: a, icon: ic, keywords: kw, sub: '操作' });
+    // 工具栏目里的动作（音乐、阅读设置……）；和上面重复的不再列
+    for (const t of tools) if (t.action !== 'palette' && !acts.some(([a]) => a === t.action)) items.push({ id: `act:${t.action}`, kind: 'action', title: t.title, action: t.action, icon: t.icon, keywords: t.keywords, sub: t.sub });
     return items;
   }
 
@@ -147,8 +153,11 @@ export function createPalette(ctx: PaletteCtx) {
       ? `<a class="palette__full" href="${esc(ctx.url(`/search/?q=${encodeURIComponent(query)}`))}">${icon('search')}在搜索页全文搜索「${esc(query)}」</a>`
       : '';
     out.innerHTML = flat.length
-      ? `${query ? `<p class="search__count">找到 ${flat.length} 个结果${docs ? '' : '（正文索引加载中…）'}</p>` : ''}${body}${fallback}`
-      : `<p class="search__hint">没有找到与「${esc(query)}」相关的内容。</p>${fallback}`;
+      ? `${query ? `<p class="search__count">找到 ${flat.length} 个结果${docs ? '' : '（正文索引加载中…）'}</p>` : ''}${body}`
+      : `<p class="search__hint">没有找到与「${esc(query)}」相关的内容。</p>`;
+    // 「去搜索页全文搜索」放在 listbox 外面（listbox 里只能有选项）
+    const more = document.getElementById('search-more');
+    if (more) more.innerHTML = fallback;
     syncActive(false);
   }
 
@@ -254,6 +263,9 @@ export function createPalette(ctx: PaletteCtx) {
         ev.preventDefault();
         f[next]!.focus();
       }
+    });
+    document.getElementById('search-more')?.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.palette__full')) close(false); // 交给全局路由
     });
     const results = document.getElementById('search-results')!;
     results.addEventListener('click', (ev) => {

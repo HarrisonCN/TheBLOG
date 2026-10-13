@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.23.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.23.0) — 2026-10-13
+
+_L23 · 栏目整理：栏目注册表统一导航 / 菜单 / ⌘K / sitemap / 我的，新开 社区 / 工具 / 账号与安全 三个栏目（各有落地页），新增全部栏目、影集与系列连载列表，登录 / 站长条目按身份显示_
+
+### 新功能 Features
+
+- **web:** 栏目整理 — section registry as single source of truth for nav, drawer, ⌘K, explore tile, sitemap and /me/ (8b9074e)
+
+### 修复 Fixes
+
+- **web:** ⌘K a11y — full-text search link outside the listbox, AA contrast for hits and the selected option's subtitle (c34e88a)
+
+### 文档 Docs
+
+- section map (docs/sections.md) and README for 1.23.0 栏目整理 (e0a8b2e)
+
+### 杂项 Chores
+
+- **release:** 1.23.0 — version bump, release-meta (1.22.0 frozen at 5a7d847) (cffe0b4)
+
 ## [1.22.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.22.0) — 2026-10-12
 
 _L22 · 账号安全与隐私中心：登录设备与会话管理、Passkey 可选登录、隐私权限面板、完整数据导出、7 天冷静期注销、安全记录与登录提醒、管理员二次验证_

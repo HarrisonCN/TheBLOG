@@ -6,6 +6,7 @@
  * - 订阅表单（邮箱 → 成为好朋友；纯静态，不提交到任何第三方）
  * - 顶栏的好朋友登录状态
  */
+import { applyAudience } from './audience';
 import { currentMember } from './community';
 import { flashResult } from './result-icon';
 import { icon } from './icons';
@@ -171,6 +172,7 @@ function openSocPop(a: HTMLAnchorElement, ctx: Ctx): void {
 
 // ---------------------------------------------------------------- 登录状态
 export function paintMember(): void {
+  applyAudience();
   const me = currentMember();
   document.querySelectorAll<HTMLAnchorElement>('.js-me').forEach((a) => {
     a.classList.toggle('is-member', !!me);

@@ -7,6 +7,7 @@ import './motion-ui.css';
 import './l12.css';
 import './music-tab.css';
 import './l14.css';
+import './ia.css';
 import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
@@ -20,7 +21,7 @@ import { pageInPlace } from './list-pager';
 import { upgradeToastIcon } from './result-icon';
 import {
   appHtml, backdrop, drawer, errorMain, navIndex, festivalBanner, loadingMain, navbar, needs, pageRegion, parseRoute as parsePath, renderRoute, setBasePath, setMarkdownRenderer,
-  stripBase, url, postPath, tagPath, categoryPath, latestParts, NAV, SOCIAL_ROUTES, type Extra, type Page, type Route,
+  stripBase, url, postPath, tagPath, categoryPath, latestParts, SOCIAL_ROUTES, type Extra, type Page, type Route,
 } from './render';
 import { DEFAULT_PROFILE, DEFAULT_SETTINGS, normalizeSettings, type Post, type PostSummary, type SearchDoc, type SiteData } from './types';
 import { activeFestival, type Festival } from './demo/community-types';
@@ -32,6 +33,8 @@ import { bindComments } from './comments-client';
 import { bindFootnotes, bindLightbox, bindPhotoMap } from './post-media';
 import { installMusicTab, musicTabHtml } from './music-tab';
 import { applyReadingSettings, bindReadingSettings, bindSpeech, loadReadingSettings, stopSpeech } from './reading-tools';
+import { paletteEntries } from './site-map';
+import { applyAudience, audience, refreshAdmin } from './audience';
 import { bindReactions, installPostDelegation, enhanceCode, enhanceHeadings, paintContinue, trackReading } from './post-client';
 
 setMarkdownRenderer(renderSafe);
@@ -181,6 +184,7 @@ function afterPaint(page: Page, full: boolean): void {
   setMeta(page);
   document.documentElement.dataset.page = page.route.name;
   updateNavCurrent(page.route);
+  applyAudience();
   document.querySelectorAll('.nav__kbd').forEach((k) => (k.textContent = shortcutLabel()));
   const rt = document.getElementById('rt') ?? app;
   void defineUsed(full ? app : rt);
@@ -293,6 +297,11 @@ document.addEventListener('click', (ev) => {
     return;
   }
   if (t.closest('.js-share')) return void openShare();
+  const ia = t.closest<HTMLElement>('.js-ia-action');
+  if (ia) {
+    closeDrawer();
+    return void runAction(ia.dataset.action ?? '');
+  }
   const a = t.closest('a');
   if (!a || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
   if (a.target === '_blank' || a.hasAttribute('download')) return;
@@ -407,7 +416,7 @@ const palette = createPalette({
   postPath,
   tagPath,
   categoryPath,
-  nav: NAV,
+  entries: () => paletteEntries(audience()),
   isPost: () => current?.route.name === 'post',
   run: (a) => runAction(a),
 });
@@ -458,7 +467,30 @@ function runAction(a: string): void {
       return void (location.href = url('/rss.xml'));
     case 'share':
       return void openShare();
+    // L23 工具栏目
+    case 'palette':
+      return openSearch();
+    case 'music': {
+      const tab = document.querySelector<HTMLButtonElement>('.js-mtab');
+      if (tab && tab.getAttribute('aria-expanded') !== 'true') tab.click();
+      tab?.focus({ preventScroll: true });
+      return;
+    }
+    case 'reading': {
+      if (current?.route.name === 'post') return openReading();
+      const p = site.posts[0];
+      if (p) void go(postPath(p.slug)).then(openReading);
+      return;
+    }
   }
+}
+/** 打开文章页的阅读设置面板（工具栏目 →「阅读设置与朗读」） */
+function openReading(): void {
+  const b = document.querySelector<HTMLButtonElement>('.js-rs-toggle');
+  if (!b) return;
+  b.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  if (b.getAttribute('aria-expanded') !== 'true') b.click();
+  b.focus({ preventScroll: true });
 }
 
 // ---------------------------------------------------------------- 右键菜单
@@ -791,6 +823,7 @@ async function boot(): Promise<void> {
     firstPaint(page);
     mountChrome(true);
     syncSocialChrome(false);
+    void refreshAdmin();
   } catch (e) {
     if (!current) {
       firstPaint({ ...renderRoute({ name: 'notfound' }, site), route, main: errorMain((e as Error).message), title: `加载失败 · ${site.settings.siteTitle}` });
