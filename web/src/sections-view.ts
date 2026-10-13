@@ -7,6 +7,7 @@ import { escapeHtml as e, safeHref } from './markdown';
 import { icon } from './icons';
 import { bento, formatDate, hashHue, img, kicker, more, pageHead, postPath, shell, tagCloud, tile, url, type Extra, type Page } from './render';
 import type { PostSummary, SiteData } from './types';
+import { exploreTile } from './site-map-view';
 import {
   activityHeatmap, CHANGE_TYPE, GEAR_CATEGORIES, NOW_KIND, REPO_STATUS, SHELF_KIND, SHELF_STATUS, shelfStatusLabel, sortByDateDesc, TIMELINE_KIND,
   type ChangelogEntry, type GearItem, type HeatCell, type NowItem, type Repo, type ShelfItem, type TimelineItem, type Work,
@@ -124,18 +125,6 @@ function shelfTile(shelf: ShelfItem[]): string {
     { cls: 'shelf-tile' },
   );
 }
-function exploreTile(): string {
-  const items: [string, string, string][] = [
-    ['/gear/', 'camera', '器材'],
-    ['/timeline/', 'history', '时间线'],
-    ['/stats/', 'chart', '数据'],
-    ['/search/', 'search', '搜索'],
-    ['/subscribe/', 'rss', '订阅'],
-    ['/opensource/', 'code', '开源'],
-  ];
-  return tile('third', `${kicker('sparkles', '逛逛别的栏目')}<nav class="explore" aria-label="更多栏目">${items.map(([h, ic, l]) => `<a href="${url(h)}">${icon(ic)}<span>${l}</span></a>`).join('')}</nav>`, { cls: 'explore-tile' });
-}
-
 /** 首页第二组瓷砖（只在第 1 页）。 */
 export function homeSections(site: SiteData, x: Extra): string {
   const tiles = [nowTile(x.now ?? []), worksTile(x.works ?? []), heatTile(site, x.changelog ?? []), reposTile(x.repos ?? []), changelogTile(x.changelog ?? []), shelfTile(x.shelf ?? []), exploreTile()].join('');

@@ -3,6 +3,8 @@
  * 用户主页、关注 / 拉黑 / 静音、用户发现、通知中心、个人设置（资料 / 隐私 / 通知偏好 / 收藏 / 拉黑名单 / 数据导出与注销）、
  * 云端收藏同步与登录后合并本地收藏。接口：/api/social/*（演示站由浏览器内 mock 实现）。
  */
+import { meHub } from './site-map-view';
+import { audience } from './audience';
 import './social.css';
 import { ApiError, API_BASE, request } from './api';
 import { currentMember } from './community';
@@ -417,6 +419,7 @@ async function renderMe(box: HTMLElement, ctx: SocialCtx): Promise<void> {
   });
   const chk = (name: string, on: boolean, label: string, hint = '') => `<label class="soc-check"><input type="checkbox" name="${name}"${on ? ' checked' : ''}><span>${label}${hint ? `<small class="muted">${hint}</small>` : ''}</span></label>`;
   box.innerHTML = `<section class="tile tile--full soc-me__head">${avatar(p, 'soc-av soc-av--lg')}<div><h2 class="soc-name">${e(p.nickname)}</h2><p class="muted">@<span class="js-me-username">${e(p.username)}</span> · 粉丝 ${p.counts.followers} · 关注 ${p.counts.following}</p></div><div class="soc-actions"><a class="btn btn--soft btn--sm" href="${url('/messages/')}">${icon('message')}私信</a><a class="btn btn--soft btn--sm js-my-page" href="${userPath(p.username)}">${icon('user')}查看我的主页</a><a class="btn btn--ghost btn--sm" href="${url('/notifications/')}">${icon('bell')}通知</a><a class="btn btn--ghost btn--sm" href="${url('/join/')}">${icon('verified')}徽章与登录</a><a class="btn btn--ghost btn--sm" href="${url('/me/security/')}">${icon('lock')}隐私与安全</a></div></section>
+${meHub(audience())}
 <section class="tile tile--half soc-find" aria-labelledby="soc-find-h"><h2 class="soc-h" id="soc-find-h">${icon('search')}找人</h2><form class="js-find" role="search"><label for="soc-q" class="visually-hidden">按用户名或昵称搜索</label><div class="soc-find__row"><input id="soc-q" name="q" maxlength="40" placeholder="用户名或昵称" autocomplete="off"><button class="btn btn--primary btn--sm" type="submit">搜索</button></div></form><ul class="soc-users js-find-res" aria-live="polite"></ul></section>
 <section class="tile tile--half" aria-labelledby="soc-bm-h"><h2 class="soc-h" id="soc-bm-h">${icon('bookmark')}云端收藏</h2><p class="muted small">在任何设备登录都能看到。文章卡片上的书签按钮会自动同步。</p><ul class="soc-bms js-bms"><li class="muted">加载中…</li></ul><button class="btn btn--ghost btn--sm js-bm-more" type="button" hidden>加载更多</button></section>
 <section class="tile tile--full" aria-labelledby="soc-prof-h"><h2 class="soc-h" id="soc-prof-h">${icon('edit')}资料</h2>

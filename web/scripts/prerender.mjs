@@ -164,6 +164,10 @@ let postPages = 0;
 let listPages = 0;
 const failures = [];
 const sitemap = [];
+/** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
+const SITEMAP = R.sitemapRoutes();
+const INDEX = new Set(SITEMAP.index);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -197,7 +201,7 @@ if (API || DEMO) {
         count++;
         if (route.name === 'post') postPages++;
         if (route.name === 'home') listPages++;
-        if (route.name !== 'notfound' && route.name !== 'notifications' && route.name !== 'me' && route.name !== 'compose' && route.name !== 'mystats' && !String(route.name).startsWith('msg') && route.name !== 'messages') sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
+        if (route.name === 'home' || route.name === 'post' || INDEX.has(route.name) || DETAIL_INDEX.has(route.name)) sitemap.push({ loc: R.url(label), lastmod: route.name === 'post' ? (ex.post?.updatedAt ?? ex.post?.publishedAt ?? null) : null, prio: route.name === 'home' && route.page === 1 ? '1.0' : route.name === 'post' ? '0.8' : '0.5' });
       } catch (e) {
         failures.push(`${label}：${e.message}`);
         if (!STRICT) console.warn(`[prerender] ⚠ 跳过失败页 ${label}：${e.message}`);
@@ -206,7 +210,8 @@ if (API || DEMO) {
     const per = Math.max(1, settings.postsPerPage);
     const pages = Math.max(1, Math.ceil(list.total / per));
     for (let n = 1; n <= pages; n++) await emit({ name: 'home', page: n });
-    for (const name of ['archives', 'tags', 'categories', 'gallery', 'favorites', 'guestbook', 'links', 'about', 'privacy', 'join', 'mailbox', ...R.SECTION_ROUTES, 'notifications', 'me', 'feed', 'compose', 'discover', 'topics', 'events', 'projects', 'features', 'mystats', 'security', 'messages', 'msgrequests', 'msgsettings', 'status']) await emit({ name });
+    // L23：固定路由与 sitemap 都来自栏目注册表（site-map.ts）：新增栏目 / 条目自动预渲染
+    for (const name of SITEMAP.render) await emit({ name });
     // 订阅源：RSS 2.0 + JSON Feed（全部文章；需要站点的绝对地址：演示版固定为 GitHub Pages，正式站点读 BLOG_SITE_URL）
     const siteUrl = HAS_SITE_URL ? SITE_URL : '';
     if (siteUrl) {

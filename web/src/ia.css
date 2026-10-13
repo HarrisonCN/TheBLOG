@@ -1,0 +1,47 @@
+/* L23「栏目整理」：栏目落地页 / 全部栏目 / 快捷入口卡片 + 导航与菜单里的动作按钮 */
+.menu__drop .menu__item, .menu__drop .menu__all { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.75rem; border-radius: 10px; white-space: nowrap; font: inherit; font-size: 0.9rem; color: var(--fg); background: transparent; border: 0; cursor: pointer; text-align: left; }
+.menu__drop .menu__item .icon, .menu__drop .menu__all .icon { color: var(--muted); }
+.menu__drop .menu__item:hover, .menu__drop .menu__all:hover { background: var(--accent-soft); color: var(--accent); }
+.menu__drop .menu__item:hover .icon, .menu__drop .menu__all:hover .icon { color: var(--accent); }
+.menu__drop .menu__all { font-weight: 600; color: var(--heading); border-bottom: 1px solid var(--hairline); border-radius: 10px 10px 4px 4px; margin-bottom: 2px; }
+.menu__drop [hidden], .drawer__subs [hidden] { display: none; }
+.drawer__subs .drawer__sub { color: var(--muted); font: inherit; font-size: 0.88rem; background: none; border: 0; padding: 0; cursor: pointer; }
+.drawer__subs .drawer__sub:hover { color: var(--accent); }
+/* 9 个栏目：1280 也放得下（登录后多出通知 / 私信两个图标也不挤到字标）；更窄时收进菜单 */
+@media (max-width: 1440px) {
+  .nav__menus { margin-left: 0.5rem; gap: 0.1rem; }
+  .menu__link { padding: 0.5rem 0.5rem; }
+  .nav__search { width: 176px; }
+}
+@media (max-width: 1000px) {
+  .nav__menus { display: none; }
+  .nav__toggle { display: grid; }
+}
+
+.ia-tile { display: grid; align-content: start; gap: 0.7rem; }
+.ia-lead { margin: 0; color: var(--fg); max-width: 60ch; }
+.ia-note { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0; padding: 0.6rem 0.8rem; border-radius: 12px; background: var(--accent-soft); color: var(--heading); font-size: 0.9rem; }
+.ia-note .icon { flex: none; margin-top: 0.15rem; color: var(--accent); }
+.ia-note[hidden], .ia-item[hidden] { display: none; }
+.ia-h { display: flex; align-items: center; gap: 0.6rem; margin: 0; font-size: 1.15rem; }
+.ia-h a { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--heading); }
+.ia-h a .icon { color: var(--accent); }
+.ia-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.ia-grid--compact { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
+.ia-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.75rem; width: 100%; height: 100%; padding: 0.8rem 0.9rem; border-radius: 16px; border: 1px solid var(--hairline); background: var(--tile-strong); color: var(--heading); font: inherit; text-align: left; cursor: pointer; transition: background-color 0.25s, transform 0.25s var(--ease), border-color 0.25s; }
+.ia-card:hover { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); transform: translateY(-2px); color: var(--heading); }
+.ia-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ia-card__ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 1.25rem; }
+.ia-card__txt { display: grid; gap: 0.15rem; min-width: 0; }
+.ia-card__txt b { font-weight: 700; font-size: 0.95rem; }
+.ia-card__txt small { color: var(--muted); font-size: 0.8rem; line-height: 1.45; }
+.ia-card__go { color: var(--muted); }
+.ia-series { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.3rem; }
+.ia-series a { color: var(--heading); }
+.ia-series a:hover { color: var(--accent); }
+.ia-hub .ia-card { padding: 0.6rem 0.75rem; }
+.ia-hub .ia-card__ic { width: 34px; height: 34px; font-size: 1.1rem; }
+@media (prefers-reduced-motion: reduce) {
+  .ia-card, .ia-card:hover { transition: none; transform: none; }
+}
+.ia-note a { color: var(--heading); text-decoration: underline; text-underline-offset: 2px; }

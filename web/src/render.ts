@@ -23,6 +23,10 @@ import { badgeHtml, presetGallery } from './badge-view';
 import { archiveCalendar, relatedPosts, seriesOf } from './post-extras';
 import { dailyWork, dotsPath, mapPoints, project } from './photo-map';
 import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
+import { sectionIndex } from './site-map';
+// L23：预渲染 / sitemap 的固定路由来自栏目注册表
+export { sitemapRoutes } from './site-map';
+import { drawerGroups, essaysPage, navMenus, sectionLanding, sectionsPage, seriesPage } from './site-map-view';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
@@ -98,7 +102,22 @@ export type Route =
   | { name: 'msgsettings' }
   | { name: 'conversation'; id: number }
   | { name: 'status' }
+  | { name: 'community' }
+  | { name: 'tools' }
+  | { name: 'account' }
+  | { name: 'sections' }
+  | { name: 'essays' }
+  | { name: 'series' }
   | { name: 'notfound' };
+
+/** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
+const ROUTE_NAME_SET: Record<Route['name'], 1> = {
+  home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
+  now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
+  work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, notfound: 1,
+};
+export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
 const STATIC: Record<string, Route['name']> = {
   '/archives': 'archives',
@@ -138,6 +157,13 @@ const STATIC: Record<string, Route['name']> = {
   '/messages/requests': 'msgrequests',
   '/messages/settings': 'msgsettings',
   '/status': 'status',
+  // L23 栏目整理：新栏目落地页 + 全部栏目 + 影集 / 系列列表（只加新路由）
+  '/community': 'community',
+  '/tools': 'tools',
+  '/account': 'account',
+  '/sections': 'sections',
+  '/essays': 'essays',
+  '/series': 'series',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -373,92 +399,9 @@ export function needs(r: Route): (keyof Extra)[] {
   }
 }
 
-interface NavItem {
-  label: string;
-  icon: string;
-  href?: string;
-  match?: Route['name'][];
-  children?: NavItem[];
-}
-/** 顶部导航：首页 / 文章 / 专题 / 摄影 / 技术 / 关于。每个栏目下拉里放原来的二级页面，所有栏目都能从这里到达。 */
-export const NAV: NavItem[] = [
-  { label: '首页', icon: 'home', href: '/', match: ['home'] },
-  {
-    label: '文章',
-    icon: 'book',
-    href: '/archives/',
-    match: ['archives', 'post', 'search', 'stats', 'subscribe'],
-    children: [
-      { label: '归档', icon: 'archive', href: '/archives/' },
-      { label: '搜索', icon: 'search', href: '/search/' },
-      { label: '数据', icon: 'chart', href: '/stats/' },
-      { label: 'RSS 订阅', icon: 'rss', href: '/subscribe/' },
-    ],
-  },
-  {
-    label: '专题',
-    icon: 'folder',
-    href: '/categories/',
-    match: ['categories', 'category', 'tags', 'tag', 'shelf', 'favorites'],
-    children: [
-      { label: '分类专题', icon: 'folder', href: '/categories/' },
-      { label: '标签', icon: 'tag', href: '/tags/' },
-      { label: '书影音', icon: 'library', href: '/shelf/' },
-      { label: '收藏与项目', icon: 'star', href: '/favorites/' },
-    ],
-  },
-  {
-    label: '摄影',
-    icon: 'camera',
-    href: '/works/',
-    match: ['works', 'gallery', 'album', 'gear', 'map', 'features', 'feature'],
-    children: [
-      { label: '作品集', icon: 'aperture', href: '/works/' },
-      { label: '摄影专题', icon: 'book', href: '/f/' },
-      { label: '照片地图', icon: 'mapPin', href: '/map/' },
-      { label: '画廊', icon: 'image', href: '/gallery/' },
-      { label: '器材', icon: 'camera', href: '/gear/' },
-    ],
-  },
-  {
-    label: '技术',
-    icon: 'code',
-    href: '/opensource/',
-    match: ['opensource', 'changelog', 'projects', 'project', 'status'],
-    children: [
-      { label: '开源项目', icon: 'code', href: '/opensource/' },
-      { label: '创作者项目', icon: 'briefcase', href: '/projects/' },
-      { label: '更新日志', icon: 'list', href: '/changelog/' },
-      { label: '技术文章', icon: 'book', href: '/categories/%E5%89%8D%E7%AB%AF/' },
-    ],
-  },
-  {
-    label: '关于',
-    icon: 'user',
-    href: '/about/',
-    match: ['about', 'privacy', 'now', 'timeline', 'guestbook', 'links', 'join', 'mailbox', 'feed', 'work', 'compose', 'discover', 'topics', 'topic', 'events', 'event', 'collection'],
-    children: [
-      { label: '关于我', icon: 'user', href: '/about/' },
-      { label: '发现社区', icon: 'sparkles', href: '/discover/' },
-      { label: '社区动态', icon: 'users', href: '/feed/' },
-      { label: '摄影活动', icon: 'camera', href: '/events/' },
-      { label: '此刻', icon: 'clock', href: '/now/' },
-      { label: '时间线', icon: 'history', href: '/timeline/' },
-      { label: '留言与便签', icon: 'message', href: '/guestbook/' },
-      { label: '友链', icon: 'link', href: '/links/' },
-      { label: '成为好朋友', icon: 'heart', href: '/join/' },
-      { label: '信箱', icon: 'mail', href: '/mailbox/' },
-      { label: '隐私说明', icon: 'eye', href: '/privacy/' },
-    ],
-  },
-];
-
-function navActive(item: NavItem, route: Route): boolean {
-  return !!item.match?.includes(route.name);
-}
-/** 当前路由对应的顶级菜单序号（没有则 -1） */
+/** 当前路由对应的顶级栏目序号（没有则 -1）。栏目与条目都来自栏目注册表 site-map.ts。 */
 export function navIndex(route: Route): number {
-  return NAV.findIndex((it) => navActive(it, route));
+  return sectionIndex(route.name);
 }
 
 /** 站点字标：站点名 + 一句话标语（衬线体）。 */
@@ -468,12 +411,7 @@ function brand(site: SiteData, cls = 'brand'): string {
 
 /** 顶部导航：字标、栏目（下划线表示当前）、搜索胶囊（⌘K）、深浅色、好朋友登录。 */
 export function navbar(site: SiteData, route: Route): string {
-  const items = NAV.map((it) => {
-    const cur = navActive(it, route) ? ' aria-current="page"' : '';
-    if (!it.children) return `<div class="menu"${cur}><a class="menu__link" href="${url(it.href!)}">${it.label}</a></div>`;
-    return `<div class="menu menu--group"${cur}><a class="menu__link" href="${url(it.href!)}" aria-haspopup="true">${it.label}</a>
-  <div class="menu__drop" role="menu">${it.children.map((c) => `<a role="menuitem" href="${url(c.href!)}">${icon(c.icon)}<span>${c.label}</span></a>`).join('')}</div></div>`;
-  }).join('');
+  const items = navMenus(navIndex(route));
   return `<header class="nav" id="nav">
   <div class="nav__bar wrap">
     ${brand(site)}
@@ -493,11 +431,7 @@ export function navbar(site: SiteData, route: Route): string {
 
 /** 手机端菜单：从右侧滑出的面板。 */
 export function drawer(site: SiteData): string {
-  const groups = NAV.map(
-    (it) => `<div class="drawer__group"><a class="drawer__link" href="${url(it.href!)}">${icon(it.icon)}<span>${it.label}</span></a>${
-      it.children ? `<div class="drawer__subs">${it.children.map((c) => `<a href="${url(c.href!)}">${e(c.label)}</a>`).join('')}</div>` : ''
-    }</div>`,
-  ).join('');
+  const groups = drawerGroups();
   return `<div class="drawer" id="drawer" hidden>
   <div class="drawer__mask js-drawer-close"></div>
   <aside class="drawer__panel" aria-label="菜单">
@@ -1572,6 +1506,16 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return subscribePage(site);
     case 'map':
       return mapPage(site, x.works ?? []);
+    case 'community':
+    case 'tools':
+    case 'account':
+      return sectionLanding(site, route);
+    case 'sections':
+      return sectionsPage(site, route);
+    case 'essays':
+      return essaysPage(site, route);
+    case 'series':
+      return seriesPage(site, route);
     case 'user':
     case 'notifications':
     case 'me':
