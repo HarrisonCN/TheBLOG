@@ -44,4 +44,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ia-card, .ia-card:hover { transition: none; transform: none; }
 }
+/* 命令面板命中高亮在选中项的浅蓝底上也要够对比度；面板底部的全文搜索链接 */
+.palette mark { color: var(--accent-strong); }
+.palette__more:empty { display: none; }
+.palette__more { padding: 0 0.6rem 0.4rem; }
 .ia-note a { color: var(--heading); text-decoration: underline; text-underline-offset: 2px; }
+.palette__opt[aria-selected="true"] .palette__sub { color: var(--fg); }

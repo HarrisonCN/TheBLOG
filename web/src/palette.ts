@@ -53,6 +53,7 @@ export function paletteHtml(): string {
   <div class="search__panel palette__panel">
     <div class="search__head">${icon('search')}<input type="text" role="combobox" aria-expanded="true" aria-controls="search-results" aria-autocomplete="list" placeholder="搜索文章、页面、标签，或输入命令…" aria-label="搜索与命令" autocomplete="off" spellcheck="false" enterkeyhint="go"><kbd class="palette__esc" aria-hidden="true">Esc</kbd><button class="icon-btn js-search-close" type="button" aria-label="关闭">${icon('close')}</button></div>
     <div class="search__results" id="search-results" role="listbox" aria-label="结果"></div>
+    <div class="palette__more" id="search-more"></div>
     <div class="palette__foot" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd>选择</span><span><kbd>↵</kbd>打开</span><span><kbd>Esc</kbd>关闭</span><span class="palette__shortcut"></span></div>
   </div>
 </div>`;
@@ -152,8 +153,11 @@ export function createPalette(ctx: PaletteCtx) {
       ? `<a class="palette__full" href="${esc(ctx.url(`/search/?q=${encodeURIComponent(query)}`))}">${icon('search')}在搜索页全文搜索「${esc(query)}」</a>`
       : '';
     out.innerHTML = flat.length
-      ? `${query ? `<p class="search__count">找到 ${flat.length} 个结果${docs ? '' : '（正文索引加载中…）'}</p>` : ''}${body}${fallback}`
-      : `<p class="search__hint">没有找到与「${esc(query)}」相关的内容。</p>${fallback}`;
+      ? `${query ? `<p class="search__count">找到 ${flat.length} 个结果${docs ? '' : '（正文索引加载中…）'}</p>` : ''}${body}`
+      : `<p class="search__hint">没有找到与「${esc(query)}」相关的内容。</p>`;
+    // 「去搜索页全文搜索」放在 listbox 外面（listbox 里只能有选项）
+    const more = document.getElementById('search-more');
+    if (more) more.innerHTML = fallback;
     syncActive(false);
   }
 
@@ -259,6 +263,9 @@ export function createPalette(ctx: PaletteCtx) {
         ev.preventDefault();
         f[next]!.focus();
       }
+    });
+    document.getElementById('search-more')?.addEventListener('click', (ev) => {
+      if ((ev.target as HTMLElement).closest('.palette__full')) close(false); // 交给全局路由
     });
     const results = document.getElementById('search-results')!;
     results.addEventListener('click', (ev) => {
