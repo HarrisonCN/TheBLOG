@@ -2,6 +2,7 @@
  * 文章末尾的「系列连载」与「相关文章」、归档日历：纯函数，浏览器 / 预渲染 / 测试共用。
  */
 import type { PostSummary } from './types';
+import { related } from './search-core';
 
 const pub = (p: PostSummary) => p.publishedAt ?? p.createdAt;
 
@@ -26,25 +27,13 @@ export function seriesOf(all: PostSummary[], post: Pick<PostSummary, 'slug' | 's
 }
 
 /**
- * 相关文章：标签 Jaccard 相似度 ×3 + 同分类 +1 + 同系列 +0.5（但同系列的文章已经在系列导航里，默认排除），
- * 相同分数时更新的在前。没有任何交集的不推荐。
+ * 相关文章（L26 起交给 search-core.related）：标签 Jaccard ×3 + 同分类 +1 + 同系列 +0.5（同系列的文章已经在系列导航里，默认排除），
+ * 零分不推荐；再做 MMR 多样性重排（同一系列最多 2 篇、标签太像的往后排）。相同分数时更新的在前。
  */
 export function relatedPosts(all: PostSummary[], post: Pick<PostSummary, 'slug' | 'tags' | 'category' | 'series'>, n = 3, opts: { excludeSeries?: boolean } = {}): PostSummary[] {
-  const excludeSeries = opts.excludeSeries ?? true;
-  const tags = new Set(post.tags);
-  const series = (post.series ?? '').trim();
-  return all
-    .filter((p) => p.slug !== post.slug && !(excludeSeries && series && (p.series ?? '').trim() === series))
-    .map((p) => {
-      const shared = p.tags.filter((t) => tags.has(t)).length;
-      const union = new Set([...p.tags, ...post.tags]).size || 1;
-      const score = (shared / union) * 3 + (p.category && p.category === post.category ? 1 : 0) + (series && (p.series ?? '').trim() === series ? 0.5 : 0);
-      return { p, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || (pub(a.p) < pub(b.p) ? 1 : -1))
-    .slice(0, n)
-    .map((x) => x.p);
+  const bySlug = new Map(all.map((p) => [p.slug, p]));
+  const items = all.map((p) => ({ id: p.slug, tags: p.tags, section: p.category, series: p.series ?? null, date: pub(p) }));
+  return related(items, { id: post.slug, tags: post.tags, section: post.category, series: post.series ?? null }, n, opts).map((x) => bySlug.get(x.id)!);
 }
 
 export interface ArchiveYear {

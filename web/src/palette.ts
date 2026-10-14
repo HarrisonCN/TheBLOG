@@ -1,11 +1,13 @@
 /**
- * ⌘K / Ctrl K 命令面板：一处搜索文章、页面、分类、标签，并执行常用操作。
+ * ⌘K / Ctrl K 命令面板：一处搜索文章、页面、分类、标签，并执行常用操作（L26 起文章排名与搜索页同一套 search-core）。
  * - 模糊匹配（palette-core.ts），↑↓ 选择、Enter 打开、Esc 关闭、Tab 不会跑出对话框；
  * - 空输入时显示「最近」+ 常用页面与操作；没有结果时可以去全文搜索页；
  * - 读屏：input[role=combobox] + listbox / option + aria-activedescendant。
  */
 import { icon } from './icons';
-import { group, markHits, pushRecent, rank, RECENT_KEY, type Match, type PaletteItem } from './palette-core';
+import { blend, fuzzy, group, markHits, pushRecent, rank, RECENT_KEY, type Match, type PaletteItem } from './palette-core';
+import { buildIndex, search as coreSearch, type SearchIndex } from './search-core';
+import { postDocs } from './search-docs';
 import type { SearchDoc, SiteData } from './types';
 import type { PaletteEntry } from './site-map';
 
@@ -99,6 +101,18 @@ export function createPalette(ctx: PaletteCtx) {
     return items;
   }
 
+  // L26：和搜索页同一套排名（search-core）。索引按 docs 身份缓存
+  let coreIdx: { src: SearchDoc[] | null; idx: SearchIndex } | null = null;
+  function coreMatches(query: string): { item: PaletteItem; score: number; hits: number[] }[] {
+    const site = ctx.site();
+    const src = docs ?? site.posts.map((p) => ({ slug: p.slug, title: p.title, summary: p.summary, tags: p.tags, category: p.category, text: p.summary }));
+    if (!coreIdx || coreIdx.src !== (docs ?? null)) coreIdx = { src: docs ?? null, idx: buildIndex(postDocs(src, site.posts)) };
+    const items = new Map(postItems().map((it) => [it.id, it]));
+    return coreSearch(coreIdx.idx, query, {}, 12)
+      .map((h) => ({ item: items.get(`post:${h.doc.id}`)!, score: h.score, hits: fuzzy(query, h.doc.title)?.hits ?? [] }))
+      .filter((m) => m.item);
+  }
+
   function postItems(): PaletteItem[] {
     const site = ctx.site();
     const list: SearchDoc[] = docs ?? site.posts.map((p) => ({ slug: p.slug, title: p.title, summary: p.summary, tags: p.tags, category: p.category, text: p.summary }));
@@ -141,7 +155,7 @@ export function createPalette(ctx: PaletteCtx) {
         { label: '操作', items: acts },
       ];
     } else {
-      groups = group(rank([...postItems(), ...staticItems()], query, 24));
+      groups = group(blend(rank([...postItems(), ...staticItems()], query, 24), coreMatches(query), 24));
     }
     flat = groups.flatMap((g) => g.items);
     if (active >= flat.length) active = 0;

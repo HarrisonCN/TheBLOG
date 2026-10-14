@@ -1,3 +1,4 @@
+import { buildIndex, MAX_QUERY, search as coreSearch, suggest, type SearchDoc } from './search-core';
 import type { Env } from './env';
 import { HttpError } from './http';
 import {
@@ -234,6 +235,21 @@ export async function listCategories(env: Env): Promise<{ category: string; coun
 export async function searchIndex(env: Env): Promise<{ slug: string; title: string; summary: string; tags: string[]; category: string | null; text: string }[]> {
   const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow>();
   return (results ?? []).map((r) => ({ slug: r.slug, title: r.title, summary: r.summary, tags: parseTags(r.tags), category: r.category || null, text: plainText(r.content_md).slice(0, 3000) }));
+}
+
+/** L26：GET /api/search —— 与前端同一套 search-core 排名（已发布文章，内存索引；D1 FTS5 = SKIPPED-verifiable）。 */
+export async function searchPosts(env: Env, q: string, filters: { tag?: string | null; year?: string | null }): Promise<{ hits: { slug: string; title: string; summary: string; tags: string[]; category: string | null; series: string | null; publishedAt: string | null; score: number }[]; total: number; suggestions: string[] }> {
+  const query = (q ?? '').trim().slice(0, MAX_QUERY);
+  if (!query) return { hits: [], total: 0, suggestions: [] };
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow & { series: string | null }>();
+  const docs: SearchDoc[] = (results ?? []).map((r) => ({ id: r.slug, kind: 'post', title: r.title, summary: r.summary, text: plainText(r.content_md).slice(0, 3000), tags: parseTags(r.tags), section: r.category || null, series: (r.series ?? '').trim() || null, date: r.published_at ?? null, href: `/posts/${r.slug}/` }));
+  const index = buildIndex(docs);
+  const hits = coreSearch(index, query, { tag: filters.tag ?? null, year: filters.year && /^\d{4}$/.test(filters.year) ? filters.year : null }, 50);
+  return {
+    hits: hits.map((h) => ({ slug: h.doc.id, title: h.doc.title, summary: h.doc.summary, tags: h.doc.tags, category: h.doc.section ?? null, series: h.doc.series ?? null, publishedAt: h.doc.date ?? null, score: h.score })),
+    total: hits.length,
+    suggestions: hits.length ? [] : suggest(index, query, 5),
+  };
 }
 
 export function plainText(md: string): string {

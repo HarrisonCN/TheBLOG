@@ -7,6 +7,7 @@ import { escapeHtml as e, safeHref } from './markdown';
 import { icon } from './icons';
 import { bento, formatDate, hashHue, img, kicker, more, pageHead, postPath, shell, tagCloud, tile, url, type Extra, type Page } from './render';
 import type { PostSummary, SiteData } from './types';
+import { SEARCH_KIND_LABEL, SEARCH_KINDS } from './search-core';
 import { exploreTile } from './site-map-view';
 import {
   activityHeatmap, CHANGE_TYPE, GEAR_CATEGORIES, NOW_KIND, REPO_STATUS, SHELF_KIND, SHELF_STATUS, shelfStatusLabel, sortByDateDesc, TIMELINE_KIND,
@@ -393,18 +394,23 @@ ${tile('full', `${kicker('tag', '标签')}${tagCloud(site.tags, 60)}`, { cls: 't
 
 // ================================================================ 搜索
 export function searchPage(site: SiteData): Page {
+  // L26：文章 / 作品 / 影集 / 用户 / 话题联合搜索；类型、标签、年份筛选都写进 URL（?q=&type=&tag=&year=）
+  const kinds: [string, string][] = [['all', '全部'], ...SEARCH_KINDS.map((k): [string, string] => [k, SEARCH_KIND_LABEL[k]])];
+  const years = [...new Set(site.posts.map((p) => (p.publishedAt ?? p.createdAt ?? '').slice(0, 4)).filter((y) => /^\d{4}$/.test(y)))].sort().reverse();
   return shell(site, { name: 'search' }, {
     title: '搜索',
-    description: '搜索全站文章',
-    top: pageHead('搜索', `在 ${site.total} 篇文章里找找`),
+    description: '搜索全站文章、作品、影集、创作者与话题',
+    top: pageHead('搜索', `在 ${site.total} 篇文章，以及作品、影集、创作者和话题里找找`),
     main: bento(
       `${tile(
         'full',
         `<form class="sp-form js-search-page" role="search" action="${url('/search/')}" method="get"><label class="visually-hidden" for="sp-q">搜索关键词</label>${icon('search')}<input id="sp-q" name="q" type="search" maxlength="80" placeholder="输入关键词，例如：夜景、动效、MCP" autocomplete="off" enterkeyhint="search"><button class="btn" type="submit">搜索</button></form>
+<div class="sp-filters"><div class="sp-kinds" role="group" aria-label="按类型筛选">${kinds.map(([k, label], i) => `<button type="button" class="chip sp-kind js-sp-kind" data-kind="${k}" aria-pressed="${i === 0}">${e(label)}<span class="sp-kind__n js-sp-kn" data-kind="${k}"></span></button>`).join('')}</div>
+<div class="sp-selects"><label class="sp-sel"><span>标签</span><select id="sp-tag" class="js-sp-tag"><option value="">全部标签</option>${site.tags.slice(0, 40).map((t) => `<option value="${e(t.tag)}">#${e(t.tag)}</option>`).join('')}</select></label><label class="sp-sel"><span>年份</span><select id="sp-year" class="js-sp-year"><option value="">全部年份</option>${years.map((y) => `<option value="${y}">${y}</option>`).join('')}</select></label><button type="button" class="btn btn--ghost btn--sm js-sp-reset" hidden>清除筛选</button></div></div>
 <div class="sp-chips">${site.tags.slice(0, 12).map((t) => `<button type="button" class="chip js-sp-chip" data-q="${e(t.tag)}">#${e(t.tag)}</button>`).join('')}</div>`,
         { cls: 'sp-tile' },
       )}
-${tile('full', `<p class="sp-status muted js-sp-status" role="status" aria-live="polite">输入关键词开始搜索；支持多个词（空格分隔）。</p><ol class="sp-results js-sp-results"></ol>`, { cls: 'sp-res-tile' })}`,
+${tile('full', `<p class="sp-status muted js-sp-status" role="status" aria-live="polite">输入关键词开始搜索；支持多个词（空格分隔），中文按词组匹配。</p><div class="sp-facets js-sp-facets" hidden></div><ol class="sp-results js-sp-results"></ol><div class="sp-suggest js-sp-suggest" hidden></div>`, { cls: 'sp-res-tile' })}`,
     ),
   });
 }

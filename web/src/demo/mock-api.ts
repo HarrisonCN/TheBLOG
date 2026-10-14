@@ -24,6 +24,7 @@ import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
 import { MockOps, opsSeed } from './mock-ops';
 import { EditorError, MockEditor, editorSeed } from './mock-editor';
 import { MockSecurity, securitySeed } from './mock-security';
+import { buildIndex, MAX_QUERY, search as coreSearch, suggest } from '../search-core';
 import type { DmEvent } from '../dm-core';
 
 export interface KV {
@@ -517,6 +518,7 @@ export class DemoBackend {
       if (path === '/api/tags') return ok({ tags: this.tags() });
       if (path === '/api/categories') return ok({ categories: this.categories() });
       if (path === '/api/search-index') return ok({ posts: this.searchIndex() });
+      if (path === '/api/search') return ok(this.searchApi(q.get('q') ?? '', q.get('tag'), q.get('year')));
       const mc = /^\/api\/content\/([a-z]+)$/.exec(path);
       if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] ?? [] });
       const mr = /^\/api\/posts\/([^/]+)\/reactions$/.exec(path);
@@ -988,6 +990,20 @@ export class DemoBackend {
     const counts = new Map<string, number>();
     for (const p of this.db().posts) if (p.status === 'published' && p.category) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
     return [...counts].map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count || (a.category < b.category ? -1 : 1));
+  }
+
+  /** 与 Worker 的 GET /api/search 相同（L26，search-core 同一套排名）。 */
+  private searchApi(q: string, tag: string | null, year: string | null) {
+    const query = q.trim().slice(0, MAX_QUERY);
+    if (!query) return { hits: [], total: 0, suggestions: [] };
+    const pub = this.db().posts.filter((p) => p.status === 'published').sort(byOrder);
+    const index = buildIndex(pub.map((p) => ({ id: p.slug, kind: 'post' as const, title: p.title, summary: p.summary, text: plain(p.contentMd).slice(0, 3000), tags: p.tags, section: p.category || null, series: (p.series ?? '').trim() || null, date: p.publishedAt ?? null, href: `/posts/${p.slug}/` })));
+    const hits = coreSearch(index, query, { tag, year: year && /^\d{4}$/.test(year) ? year : null }, 50);
+    return {
+      hits: hits.map((h) => ({ slug: h.doc.id, title: h.doc.title, summary: h.doc.summary, tags: h.doc.tags, category: h.doc.section ?? null, series: h.doc.series ?? null, publishedAt: h.doc.date ?? null, score: h.score })),
+      total: hits.length,
+      suggestions: hits.length ? [] : suggest(index, query, 5),
+    };
   }
 
   private searchIndex(): SearchDoc[] {

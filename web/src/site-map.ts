@@ -78,7 +78,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     entries: [
       { id: 'archives', label: '归档', icon: 'archive', desc: '按年月浏览全部文章，带归档日历', href: '/archives/', routes: ['archives', 'post'], keywords: 'archive 文章 归档 日历' },
       { id: 'series', label: '系列连载', icon: 'list', desc: '按系列从第一篇读起', href: '/series/', routes: ['series', 'seriesdetail'], keywords: 'series 系列 连载' },
-      { id: 'search', label: '搜索', icon: 'search', desc: '标题、标签与正文全文搜索', href: '/search/', routes: ['search'], keywords: 'search 搜索 全文' },
+      { id: 'search', label: '搜索', icon: 'search', desc: '文章、作品、影集、创作者与话题联合搜索，可按类型 / 标签 / 年份筛选', href: '/search/', routes: ['search'], keywords: 'search 搜索 全文 筛选 作品 用户 话题' },
       { id: 'stats', label: '数据', icon: 'chart', desc: '写作热力图、字数与发布节奏', href: '/stats/', routes: ['stats'], keywords: 'stats 数据 热力图' },
       { id: 'scheduled', label: '即将发布', icon: 'clock', desc: '已经写好、定了发布时间的文章', href: '/scheduled/', routes: ['scheduled'], keywords: 'scheduled upcoming 定时 即将发布 预告' },
       { id: 'preview', label: '发布预览', icon: 'eye', desc: '用正式文章页的样子预览写作台里的草稿', href: '/preview/', routes: ['preview'], audience: 'admin', index: false, keywords: 'preview draft 预览 草稿 写作台' },

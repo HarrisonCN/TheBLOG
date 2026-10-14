@@ -122,3 +122,18 @@ export function pushRecent(list: PaletteItem[], item: PaletteItem, max = 6): Pal
   const clean: PaletteItem = { id: item.id, kind: item.kind === 'recent' ? 'post' : item.kind, title: item.title, sub: item.sub, href: item.href, action: item.action, icon: item.icon };
   return [clean, ...list.filter((x) => x.id !== item.id)].slice(0, max);
 }
+
+/**
+ * L26：⌘K 与搜索页用同一套排名。core 是 search-core 对文章的命中（已转成面板条目），
+ * 按 id 与模糊匹配合并：同一条取较高分；core 分数换算到模糊匹配的量级（标题直中 ≈ 100+）。
+ */
+export function blend(fuzzyMatches: Match[], core: { item: PaletteItem; score: number; hits: number[] }[], limit = 24): Match[] {
+  const by = new Map<string, Match>();
+  for (const m of fuzzyMatches) by.set(m.item.id, m);
+  for (const c of core) {
+    const s = 60 + c.score * 6 + KIND_WEIGHT[c.item.kind];
+    const cur = by.get(c.item.id);
+    if (!cur || cur.score < s) by.set(c.item.id, { item: c.item, score: s, hits: cur?.hits.length ? cur.hits : c.hits });
+  }
+  return [...by.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+}
