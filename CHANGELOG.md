@@ -2,6 +2,27 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.25.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.25.0) — 2026-10-14
+
+_L25 · 系列与影集 2.0：系列详情页（封面、简介、已完结 / 连载中、篇目、本机阅读进度与继续读第 N 篇、打印样式）、月度合集（每月文章 / 影集 / 作品自动成页，按上海时间分月）、影集章节与跳转_
+
+### 新功能 Features
+
+- **series:** 章节标题 field per photo in the admin essay editor (c6851a2)
+- **series:** L25 系列与影集 2.0 — series detail pages with local reading progress, monthly digest (/monthly/), photo essay chapters, print stylesheet (994cf88)
+
+### 测试 Tests
+
+- **series:** L25 系列与影集 2.0 — series grouping/progress, Asia/Shanghai monthly grouping, chapter anchors, routes + registry (fail-before) (c9cc36a)
+
+### 文档 Docs
+
+- L25 系列与影集 2.0 (docs/series.md), sections map, ROADMAP, README (38eff10)
+
+### 杂项 Chores
+
+- **release:** 1.25.0 — version bump, release-meta (1.24.0 frozen at 9904f77) (a8ab13a)
+
 ## [1.24.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.24.0) — 2026-10-14
 
 _L24 · 内容编辑器 2.0：块大纲（移动 / 插入 / 删除 / 发布前检查）、自动保存与草稿恢复（修订号冲突）、定时发布与「即将发布」页、内容模板、媒体库（替代文字 + 640 / 1280 / 1920 多尺寸）、发布预览_

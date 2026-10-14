@@ -127,7 +127,7 @@ export function seriesPage(site: SiteData, route: Route): Page {
   const block = (g: { name: string; posts: PostSummary[] }) =>
     tile(
       'half',
-      `${kicker('list', `系列 · ${g.posts.length} 篇`)}<h2 class="ia-h">${e(g.name)}</h2><ol class="ia-series">${g.posts.map((p) => `<li><a href="${postPath(p.slug)}">${e(p.title)}</a></li>`).join('')}</ol><a class="tile__more" href="${postPath(g.posts[0]!.slug)}">从第一篇读起${icon('arrowRight')}</a>`,
+      `${kicker('list', `系列 · ${g.posts.length} 篇`)}<h2 class="ia-h"><a href="${url(`/series/${encodeURIComponent(g.name)}/`)}">${e(g.name)}</a></h2><ol class="ia-series">${g.posts.map((p) => `<li><a href="${postPath(p.slug)}">${e(p.title)}</a></li>`).join('')}</ol><a class="tile__more" href="${postPath(g.posts[0]!.slug)}">从第一篇读起${icon('arrowRight')}</a>`,
       { cls: 'ia-tile' },
     );
   return shell(site, route, {

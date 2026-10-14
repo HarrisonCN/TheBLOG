@@ -53,6 +53,7 @@ export function photoRowHtml(p: EssayPhoto, i: number): string {
     </div></div>
   <div class="adm-grid2">
     <div class="field"><label for="${id}-caption">图注</label><input id="${id}-caption" data-ep-f="caption" maxlength="200" value="${e(p.caption)}"></div>
+    <div class="field"><label for="${id}-chapter">章节标题（可选，从这张开始新的一章）</label><input id="${id}-chapter" data-ep-f="chapter" maxlength="40" value="${e(p.chapter ?? '')}"></div>
     <div class="field"><label for="${id}-alt">替代文字（给读屏用）</label><input id="${id}-alt" data-ep-f="alt" maxlength="120" value="${e(p.alt)}"></div>
   </div>
   <div class="field"><label for="${id}-credit">署名（他人照片才填）</label><input id="${id}-credit" data-ep-f="credit" maxlength="200" value="${e(p.credit)}"></div>
@@ -91,7 +92,7 @@ export function readPhotos(form: HTMLElement): EssayPhoto[] {
     for (const k of EXIF_KEYS) exif[k] = val(li.querySelector(`[data-ep-x="${k}"]`));
     const n = emptyNote();
     for (const k of SHOT_NOTE_KEYS) n[k] = val(li.querySelector(`[data-ep-n="${k}"]`));
-    return { src: f('src'), alt: f('alt'), caption: f('caption'), credit: f('credit'), width: Number(f('width')) || 0, height: Number(f('height')) || 0, exif, notes: SHOT_NOTE_KEYS.some((k) => n[k]) ? n : null };
+    return { src: f('src'), alt: f('alt'), caption: f('caption'), credit: f('credit'), width: Number(f('width')) || 0, height: Number(f('height')) || 0, exif, notes: SHOT_NOTE_KEYS.some((k) => n[k]) ? n : null, ...(f('chapter') ? { chapter: f('chapter') } : {}) };
   });
 }
 

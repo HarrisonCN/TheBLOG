@@ -1,0 +1,43 @@
+/* L25 系列与影集 2.0：系列详情、月度合集、影集章节 */
+.series-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.2rem 0 0.8rem; }
+.series-intro { margin: 0; color: var(--fg); flex: 1 1 16rem; }
+.series-chip--done { background: var(--soft); color: var(--heading); border: 1px solid var(--hairline); }
+.series-progress { display: grid; gap: 0.55rem; padding: 0.9rem 1rem; border-radius: var(--radius-sm); background: var(--soft); border: 1px solid var(--hairline); }
+.series-progress__bar { height: 8px; border-radius: 999px; background: var(--hairline); overflow: hidden; }
+.series-progress__bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.4s ease; }
+.series-progress__txt { margin: 0; font-size: 0.92rem; color: var(--fg); }
+.series-progress__go { justify-self: start; display: inline-flex; align-items: center; gap: 0.4rem; }
+.series-parts { list-style: none; margin: 0.8rem 0; padding: 0; display: grid; gap: 0.5rem; }
+.series-part { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.6rem 0.7rem; border-radius: 12px; background: var(--tile); }
+.series-part__n { flex: none; display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--soft); color: var(--heading); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.series-part[data-state='read'] .series-part__n { background: var(--accent); color: var(--accent-fg); }
+.series-part__a { flex: 1; min-width: 0; color: var(--fg); text-decoration: none; display: grid; gap: 0.15rem; }
+.series-part__a b { color: var(--heading); font-family: var(--serif); }
+.series-part__a small { color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+.series-part__a:hover b, .series-part__a:focus-visible b { text-decoration: underline; }
+.series-part__st { flex: none; font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--soft); color: var(--heading); white-space: nowrap; }
+.series-print { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
+.month-grid { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); }
+.month-card__a { display: grid; border-radius: 14px; overflow: hidden; background: var(--tile); color: var(--fg); text-decoration: none; border: 1px solid var(--hairline); }
+.month-card__img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.month-card__txt { display: grid; gap: 0.15rem; padding: 0.6rem 0.8rem; }
+.month-card__txt b { color: var(--heading); font-family: var(--serif); }
+.month-card__txt small { color: var(--muted); }
+.month-nav { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+.month-nav__a { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.8rem; border-radius: 12px; background: var(--soft); color: var(--fg); text-decoration: none; }
+.month-nav__a small { display: block; font-size: 0.72rem; color: var(--muted); }
+.month-nav__all { color: var(--heading); }
+.month-works { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(min(46%, 10rem), 1fr)); }
+.month-works a { display: grid; gap: 0.3rem; color: var(--fg); text-decoration: none; font-size: 0.85rem; }
+.month-works__img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; display: block; }
+/* 影集章节 */
+.essay__chapters { margin: 0 0 1rem; }
+.essay__chapters ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.essay__chapters a { display: inline-flex; align-items: baseline; gap: 0.2rem; padding: 0.35rem 0.75rem; border-radius: 999px; background: var(--soft); color: var(--heading); text-decoration: none; font-size: 0.9rem; border: 1px solid var(--hairline); }
+.essay__chapters small { color: var(--muted); }
+.essay__ch { margin: 0.4rem 0 0.6rem; font-family: var(--serif); font-size: 1.2rem; color: var(--heading); scroll-margin-top: 5rem; }
+.essay--grid .essay__item--ch, .essay--diptych .essay__item--ch { grid-column: 1 / -1; }
+@media print {
+  .page--series .site-header, .page--series .site-footer, .page--series .series-progress, .page--series .series-print, .page--series .drawer, .page--series .music-tab { display: none !important; }
+  .page--series .series-part { break-inside: avoid; background: none; border: 1px solid #ccc; }
+}

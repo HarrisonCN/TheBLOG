@@ -77,7 +77,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     desc: '全部文章、系列连载、搜索与订阅',
     entries: [
       { id: 'archives', label: '归档', icon: 'archive', desc: '按年月浏览全部文章，带归档日历', href: '/archives/', routes: ['archives', 'post'], keywords: 'archive 文章 归档 日历' },
-      { id: 'series', label: '系列连载', icon: 'list', desc: '按系列从第一篇读起', href: '/series/', routes: ['series'], keywords: 'series 系列 连载' },
+      { id: 'series', label: '系列连载', icon: 'list', desc: '按系列从第一篇读起', href: '/series/', routes: ['series', 'seriesdetail'], keywords: 'series 系列 连载' },
       { id: 'search', label: '搜索', icon: 'search', desc: '标题、标签与正文全文搜索', href: '/search/', routes: ['search'], keywords: 'search 搜索 全文' },
       { id: 'stats', label: '数据', icon: 'chart', desc: '写作热力图、字数与发布节奏', href: '/stats/', routes: ['stats'], keywords: 'stats 数据 热力图' },
       { id: 'scheduled', label: '即将发布', icon: 'clock', desc: '已经写好、定了发布时间的文章', href: '/scheduled/', routes: ['scheduled'], keywords: 'scheduled upcoming 定时 即将发布 预告' },
@@ -110,6 +110,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'works', label: '作品集', icon: 'aperture', desc: '按系列筛选的照片，附 EXIF 参数', href: '/works/', routes: ['works'], keywords: 'works photo exif 作品 照片' },
       { id: 'essays', label: '影集', icon: 'image', desc: '一组照片讲一个故事，支持故事模式', href: '/essays/', routes: ['essays'], keywords: 'essay 影集 故事模式' },
       { id: 'features', label: '摄影专题', icon: 'book', desc: '好朋友用照片和文字做的专题', href: '/f/', routes: ['features', 'feature'], keywords: 'feature 专题' },
+      { id: 'monthly', label: '月度合集', icon: 'calendar', desc: '每个月的文章、影集和作品自动整理成一页', href: '/monthly/', routes: ['monthly', 'month'], keywords: 'monthly digest 月度 合集 每月 回顾' },
       { id: 'map', label: '照片地图', icon: 'mapPin', desc: '约 10 公里精度的拍摄地点与每日一图', href: '/map/', routes: ['map'], keywords: 'map 地图 每日一图' },
       { id: 'gallery', label: '画廊', icon: 'image', desc: '按相册整理的照片', href: '/gallery/', routes: ['gallery', 'album'], keywords: 'gallery album 相册 画廊' },
       { id: 'gear', label: '器材', icon: 'camera', desc: '相机、镜头和日常装备', href: '/gear/', routes: ['gear'], keywords: 'gear 器材 相机' },
@@ -282,6 +283,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);

@@ -472,7 +472,7 @@ ${credit('field-bindweed')}`,
       series: '动效笔记',
       title: '滚动动效的性能预算',
       summary: '一个页面里同时跑多少动画才算多？我给自己定的预算：首屏传输、主线程时间和掉帧率三条线。',
-      tags: ['动效', '性能', '前端'],
+      tags: ['动效', '性能', '前端', '完结'],
       coverUrl: photo('baltic-view'),
       category: '前端',
       pinned: false,
@@ -681,12 +681,13 @@ export function demoEssays(photo: (key: string) => string): Omit<Post, 'id'>[] {
     const c = PHOTO_CREDITS[key];
     return c ? `${c.author} · ${c.license} · Wikimedia Commons` : '';
   };
-  const ph = (key: string, caption: string, exif: Partial<EssayExif>, notes?: Partial<ShotNote>): EssayPhoto => {
+  const ph = (key: string, caption: string, exif: Partial<EssayExif>, notes?: Partial<ShotNote>, chapter?: string): EssayPhoto => {
     const c = PHOTO_CREDITS[key];
     return {
       src: photo(key), alt: caption, caption, credit: credit(key), width: c?.width ?? 0, height: c?.height ?? 0,
       exif: { camera: '', lens: '', focal: '', aperture: '', shutter: '', iso: '', date: '', ...exif },
       notes: notes ? { place: '', light: '', gear: '', settings: '', thought: '', ...notes } : null,
+      ...(chapter ? { chapter } : {}),
     };
   };
   const base = { pinned: false, wordCount: 0, status: 'published' as const, series: null };
@@ -704,10 +705,10 @@ export function demoEssays(photo: (key: string) => string): Omit<Post, 'id'>[] {
       essay: {
         layout: 'single',
         photos: [
-          ph('harbour-castle', '清晨的港口，城堡还在阴影里', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1/500s', iso: '50', date: '2026-07-12 07:40' }, { place: '港口（示例）', light: '清晨顺光', thought: '先拍全景交代环境。' }),
-          ph('beach-parasols', '中午，遮阳伞排成了图案', { camera: '示例手机', focal: '77mm', aperture: 'f/2.8', shutter: '1/1000s', iso: '50', date: '2026-07-12 12:10' }, { light: '正午顶光', gear: '3× 长焦', thought: '顶光不好看人，但很适合拍图案。' }),
+          ph('harbour-castle', '清晨的港口，城堡还在阴影里', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1/500s', iso: '50', date: '2026-07-12 07:40' }, { place: '港口（示例）', light: '清晨顺光', thought: '先拍全景交代环境。' }, '清晨'),
+          ph('beach-parasols', '中午，遮阳伞排成了图案', { camera: '示例手机', focal: '77mm', aperture: 'f/2.8', shutter: '1/1000s', iso: '50', date: '2026-07-12 12:10' }, { light: '正午顶光', gear: '3× 长焦', thought: '顶光不好看人，但很适合拍图案。' }, '正午到午后'),
           ph('field-bindweed', '海边草地上的旋花', { camera: '示例手机', focal: '26mm', aperture: 'f/1.8', shutter: '1/320s', iso: '64', date: '2026-07-12 16:30' }, { light: '侧逆光', settings: '点测光在花瓣上，-0.7 EV' }),
-          ph('harbour-night', '入夜，港湾的灯一盏盏亮起来', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1s', iso: '400', date: '2026-07-12 20:05' }, { place: '海湾（示例）', light: '蓝调时刻', settings: '靠在栏杆上，夜景模式 1 秒' }),
+          ph('harbour-night', '入夜，港湾的灯一盏盏亮起来', { camera: '示例手机', focal: '24mm', aperture: 'f/1.8', shutter: '1s', iso: '400', date: '2026-07-12 20:05' }, { place: '海湾（示例）', light: '蓝调时刻', settings: '靠在栏杆上，夜景模式 1 秒' }, '入夜'),
         ],
       },
     },

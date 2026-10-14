@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -260,6 +260,12 @@ if (API || DEMO) {
     for (const t of site.tags) if (!/[\/\\]|^\./.test(t.tag)) await emit({ name: 'tag', tag: t.tag });
     for (const c of site.categories) if (!/[\/\\]|^\./.test(c.category)) await emit({ name: 'category', category: c.category });
     for (const a of extra.gallery) await emit({ name: 'album', slug: a.slug });
+    // L25：每个系列详情页 + 每个有内容的月份（月度合集）
+    const seriesList = R.buildSeries(site.posts);
+    for (const s of seriesList) await emit({ name: 'seriesdetail', series: s.name }, null, async () => ({ title: `${s.name} · 系列连载`, description: s.intro || `系列「${s.name}」共 ${s.parts.length} 篇`, image: s.cover || '', type: 'website' }));
+    const months = R.monthlyGroups(site.posts, extra.works ?? []);
+    for (const g of months) await emit({ name: 'month', ym: g.ym });
+    console.log(`[prerender] L25：系列详情 ${seriesList.length} 页，月度合集 ${months.length} 个月`);
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
     try {
