@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.27.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.27.0) — 2026-10-14
+
+_L27 · 阅读与书影音 2.0：书摘页 /quotes/（文章 :::quote 块 + 书影音摘录，按来源筛选、稳定锚点链回原文、分享卡片）、年度书影音 /shelf/:年份/（数量、状态、平均分、月份分布，逐年预渲染）、文章页稍后读 + /reading-list/（只存本机、阅读进度、导出 Markdown）、GET /api/quotes_
+
+### 新功能 Features
+
+- **reading:** L27 阅读与书影音 2.0 — 书摘 /quotes/ (stable anchors, share cards), 年度书影音 /shelf/:year/ (prerendered), 稍后读 + /reading-list/ (local only, progress, Markdown export), GET /api/quotes; docs (5ffe7ae)
+
+### 修复 Fixes
+
+- **reading:** /reading-list/ route path for prerender (noindex shell), year-stat label contrast (2a59a3a)
+
+### 测试 Tests
+
+- **reading:** L27 书摘 / 年度书影音 / 稍后读 unit + worker tests (fail-before: module missing) (c9c331c)
+
+### 杂项 Chores
+
+- **release:** 1.27.0 — version bump, release-meta (1.26.0 frozen at 12ad6ae) (a8da522)
+
 ## [1.26.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.26.0) — 2026-10-14
 
 _L26 · 搜索与推荐 2.0：文章 / 作品 / 影集 / 创作者 / 话题联合搜索（中文二元组 + 字段加权 BM25）、类型 / 标签 / 年份筛选写进网址、分面与无结果建议、⌘K 同一套排名、相关推荐 MMR 多样性重排、GET /api/search_
