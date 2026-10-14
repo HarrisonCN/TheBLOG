@@ -315,6 +315,8 @@ export function routePath(r: Route): string {
       return `/monthly/${r.ym}/`;
     case 'shelfyear':
       return `/shelf/${r.year}/`;
+    case 'readinglist':
+      return '/reading-list/';
     case 'notfound':
       return '/404/';
     default:

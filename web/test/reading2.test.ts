@@ -133,6 +133,9 @@ describe('路由与页面', () => {
     expect(parseRoute('/shelf/2026/')).toEqual({ name: 'shelfyear', year: '2026' });
     expect(parseRoute('/shelf/20x6/')).toEqual({ name: 'notfound' });
     expect(routePath({ name: 'shelfyear', year: '2026' })).toBe('/shelf/2026/');
+    expect(routePath({ name: 'readinglist' })).toBe('/reading-list/');
+    expect(parseRoute(routePath({ name: 'readinglist' }))).toEqual({ name: 'readinglist' });
+    expect(routePath({ name: 'quotes' })).toBe('/quotes/');
     expect(needs({ name: 'quotes' })).toEqual(expect.arrayContaining(['quotes', 'shelf']));
     expect(needs({ name: 'shelfyear', year: '2026' })).toEqual(['shelf']);
   });
