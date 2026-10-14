@@ -123,13 +123,14 @@ export const SITE_SECTIONS: SiteSection[] = [
     title: '社区',
     icon: 'users',
     href: '/community/',
-    desc: '好朋友们的作品、话题、活动与留言',
+    desc: '好朋友们的作品、话题、小组、活动与留言',
     isNew: true,
     entries: [
       { id: 'community', label: '社区首页', icon: 'users', desc: '社区里的全部功能', href: '/community/', routes: ['community'], listed: false },
       { id: 'discover', label: '发现', icon: 'compass', desc: '从话题、精选创作者和活动开始逛', href: '/discover/', routes: ['discover', 'user', 'collection'], keywords: 'discover 发现 创作者 合集' },
       { id: 'feed', label: '社区动态', icon: 'users', desc: '关注的人和最新的作品', href: '/feed/', routes: ['feed', 'work'], keywords: 'feed 动态 作品' },
       { id: 'topics', label: '话题', icon: 'tag', desc: '摄影、编程、硬件、设计和日常', href: '/t/', routes: ['topics', 'topic'], keywords: 'topic 话题 订阅' },
+      { id: 'groups', label: '小组', icon: 'users', desc: '按兴趣组队：加入小组、分享作品、看公告', href: '/groups/', routes: ['groups', 'group'], keywords: 'group 小组 兴趣 社群 组队' },
       { id: 'events', label: '摄影活动', icon: 'flag', desc: '每日一图、每周主题与投稿投票', href: '/events/', routes: ['events', 'event'], keywords: 'event 活动 投票 投稿 聊天室' },
       { id: 'guestbook', label: '留言与便签', icon: 'message', desc: '给站长留言，贴一张访客便签', href: '/guestbook/', routes: ['guestbook'], keywords: 'guestbook 留言 便签' },
       { id: 'compose', label: '发布作品', icon: 'edit', desc: '分享照片、影集、短动态或长文', href: '/compose/', routes: ['compose'], audience: M, index: false, keywords: 'compose 发布 投稿' },
@@ -285,6 +286,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);

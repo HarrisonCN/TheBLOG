@@ -52,6 +52,8 @@ export interface DemoDb {
   /** L17 话题 / 活动 / 合集 / 社区徽章；旧的本地数据没有这个字段时用种子补齐 */
   discovery?: import('./mock-discovery').DiscoveryState;
   studio?: import('./mock-studio').StudioState;
+  /** L28 兴趣社群（小组） */
+  groups?: import('./mock-groups').GroupsState;
   /** L19 私信 / 消息请求 / 活动聊天室 */
   dm?: import('./mock-dm').DmState;
   /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */

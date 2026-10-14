@@ -20,6 +20,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   bindShelf(root);
   void refreshStars(root);
   bindSearch(root, ctx);
+  // L28：小组（按需加载）
+  if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）
   if (root.querySelector('.js-later-toggle, [data-later-list], .js-quotes-filter')) void import('./reading2-client').then((m) => m.bindReading2(root, ctx));
   bindFeeds(root, ctx);
