@@ -1,0 +1,53 @@
+/* L27 阅读与书影音 2.0：书摘、年度书影音、稍后读、书影音页的年度入口 */
+.qgrid { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); align-items: start; }
+.qcard { display: grid; gap: 0.4rem; min-width: 0; scroll-margin-top: 5rem; }
+.qcard[hidden] { display: none; }
+.qcard .quote-card { margin: 0; }
+.qcard .quote-card__q { margin: 0; padding: 0; border: 0; background: none; color: var(--heading); font-family: var(--serif); font-size: 1.05rem; line-height: 1.75; overflow-wrap: anywhere; }
+.qcard .quote-card__q::before { content: "“"; display: block; height: 0.5em; color: var(--accent); font-size: 2.4em; line-height: 0.9; }
+.qcard__from { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 32px; padding: 0 0.2rem; color: var(--muted); font-size: 0.85rem; text-decoration: none; overflow-wrap: anywhere; }
+.qcard__from:hover span, .qcard__from:focus-visible span { color: var(--heading); text-decoration: underline; }
+.qcard__from svg { flex: none; width: 1em; height: 1em; }
+.quotes-head .seg { flex-wrap: wrap; }
+/* 年度书影音 */
+.ystats { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(min(46%, 8.5rem), 1fr)); }
+.ystat { display: grid; gap: 0.15rem; padding: 0.75rem 0.9rem; border-radius: 14px; background: var(--soft); border: 1px solid var(--hairline); min-width: 0; }
+.ystat b { font-size: 1.6rem; line-height: 1.1; color: var(--heading); font-variant-numeric: tabular-nums; }
+.ystat span { color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+.ybars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; align-items: end; height: 7.5rem; }
+.ybars li { display: grid; grid-template-rows: 1fr auto; height: 100%; gap: 0.25rem; min-width: 0; text-align: center; }
+.ybars i { align-self: end; display: block; height: calc(var(--v, 0) * 100%); min-height: 3px; border-radius: 6px 6px 2px 2px; background: var(--accent); opacity: calc(0.35 + var(--v, 0) * 0.65); }
+.ybars span:not(.visually-hidden) { font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ylist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.yitem { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.6rem 0.7rem; border-radius: 12px; background: var(--tile); border: 1px solid var(--hairline); min-width: 0; }
+.yitem__k { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--soft); color: var(--heading); }
+.yitem__k svg { width: 1rem; height: 1rem; }
+.yitem__t { flex: 1; min-width: 0; display: grid; gap: 0.15rem; }
+.yitem__t b { color: var(--heading); font-family: var(--serif); overflow-wrap: anywhere; }
+.yitem__t small { font-size: 0.82rem; overflow-wrap: anywhere; }
+.yitem__r { flex: none; display: grid; justify-items: end; gap: 0.35rem; }
+@media (max-width: 600px) {
+  .yitem { flex-wrap: wrap; }
+  .yitem__t { flex-basis: calc(100% - 3rem); }
+  .yitem__r { width: 100%; display: flex; justify-content: flex-start; align-items: center; padding-left: 2.7rem; }
+}
+/* 稍后读 */
+.later-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.later-bar p { margin: 0; }
+.later-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.later-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.later-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.6rem 0.55rem 0.8rem; border-radius: 12px; background: var(--tile); border: 1px solid var(--hairline); min-width: 0; }
+.later-row__a { flex: 1; min-width: 0; display: grid; gap: 0.3rem; color: var(--fg); text-decoration: none; }
+.later-row__a b { color: var(--heading); font-family: var(--serif); overflow-wrap: anywhere; }
+.later-row__a:hover b, .later-row__a:focus-visible b { text-decoration: underline; }
+.later-row__p { display: block; height: 6px; border-radius: 999px; background: var(--hairline); overflow: hidden; }
+.later-row__p i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); border-radius: inherit; background: var(--accent); }
+.later-row.is-done b { color: var(--muted); }
+.later-row .js-later-remove { flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--soft); color: var(--heading); font: inherit; font-size: 1.2rem; cursor: pointer; }
+.later-row .js-later-remove:hover { color: var(--accent); }
+/* 书影音页：年度回顾入口 */
+.shelf-years { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.6rem; }
+.shelf-years > svg { width: 1rem; height: 1rem; color: var(--muted); }
+.shelf-years .chip { text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; gap: 0.3rem; }
+.shelf-years .chip svg { width: 0.95em; height: 0.95em; }
+.js-later-toggle[aria-pressed="true"] { color: var(--accent-strong, var(--accent)); }

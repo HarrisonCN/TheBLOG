@@ -25,6 +25,7 @@ import { MockOps, opsSeed } from './mock-ops';
 import { EditorError, MockEditor, editorSeed } from './mock-editor';
 import { MockSecurity, securitySeed } from './mock-security';
 import { buildIndex, MAX_QUERY, search as coreSearch, suggest } from '../search-core';
+import { extractQuotes } from '../reading-core';
 import type { DmEvent } from '../dm-core';
 
 export interface KV {
@@ -518,6 +519,7 @@ export class DemoBackend {
       if (path === '/api/tags') return ok({ tags: this.tags() });
       if (path === '/api/categories') return ok({ categories: this.categories() });
       if (path === '/api/search-index') return ok({ posts: this.searchIndex() });
+      if (path === '/api/quotes') return ok({ quotes: this.db().posts.filter((p) => p.status === 'published').sort(byOrder).flatMap((p) => extractQuotes(p.contentMd, { slug: p.slug, title: p.title, publishedAt: p.publishedAt })).slice(0, 200) });
       if (path === '/api/search') return ok(this.searchApi(q.get('q') ?? '', q.get('tag'), q.get('year')));
       const mc = /^\/api\/content\/([a-z]+)$/.exec(path);
       if (mc && isContentKey(mc[1]!)) return ok({ items: this.db()[mc[1] as ContentKey] ?? [] });

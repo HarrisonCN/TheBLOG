@@ -8,6 +8,7 @@ import { icon } from './icons';
 import { bento, formatDate, hashHue, img, kicker, more, pageHead, postPath, shell, tagCloud, tile, url, type Extra, type Page } from './render';
 import type { PostSummary, SiteData } from './types';
 import { SEARCH_KIND_LABEL, SEARCH_KINDS } from './search-core';
+import { shelfYears } from './reading-core';
 import { exploreTile } from './site-map-view';
 import {
   activityHeatmap, CHANGE_TYPE, GEAR_CATEGORIES, NOW_KIND, REPO_STATUS, SHELF_KIND, SHELF_STATUS, shelfStatusLabel, sortByDateDesc, TIMELINE_KIND,
@@ -244,6 +245,7 @@ export function gearPage(site: SiteData, gear: GearItem[]): Page {
 export function shelfPage(site: SiteData, shelf: ShelfItem[]): Page {
   const kinds = Object.keys(SHELF_KIND) as ShelfItem['kind'][];
   const count = (k: string) => shelf.filter((s) => s.kind === k).length;
+  const years = shelfYears(shelf);
   const head = tile(
     'full',
     `<div class="shelf-bar"><div class="seg js-shelf-kind" role="group" aria-label="按类型筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">全部 <small>${shelf.length}</small></button>${kinds
@@ -253,7 +255,7 @@ export function shelfPage(site: SiteData, shelf: ShelfItem[]): Page {
       .map((s) => `<button type="button" class="seg__b" data-v="${s}" aria-pressed="false">${SHELF_STATUS[s]}</button>`)
       .join('')}</div>
 <div class="seg seg--soft js-shelf-rating" role="group" aria-label="按评分筛选"><button type="button" class="seg__b is-on" data-v="" aria-pressed="true">不限评分</button><button type="button" class="seg__b" data-v="4" aria-pressed="false">4 星以上</button><button type="button" class="seg__b" data-v="5" aria-pressed="false">5 星</button></div>
-<p class="shelf-count muted small js-shelf-count" aria-live="polite">共 ${shelf.length} 项</p></div>`,
+<p class="shelf-count muted small js-shelf-count" aria-live="polite">共 ${shelf.length} 项</p></div>${years.length ? `<nav class="shelf-years" aria-label="年度书影音">${icon('calendar')}<span class="muted small">年度回顾：</span>${years.map((y) => `<a class="chip" href="${url(`/shelf/${y}/`)}">${y}</a>`).join('')}<a class="chip chip--ghost" href="${url('/quotes/')}">${icon('book')}书摘</a></nav>` : ''}`,
     { cls: 'shelf-head' },
   );
   const items = shelf

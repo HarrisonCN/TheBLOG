@@ -117,6 +117,7 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     if (path === '/api/tags') return json({ tags: await svc.listTags(env) }, { headers: PUBLIC_CACHE });
     if (path === '/api/categories') return json({ categories: await svc.listCategories(env) }, { headers: PUBLIC_CACHE });
     if (path === '/api/search-index') return json({ posts: await svc.searchIndex(env) }, { headers: PUBLIC_CACHE });
+    if (path === '/api/quotes') return json(await svc.listQuotes(env), { headers: PUBLIC_CACHE });
     if (path === '/api/search') return json(await svc.searchPosts(env, url.searchParams.get('q') ?? '', { tag: url.searchParams.get('tag'), year: url.searchParams.get('year') }), { headers: PUBLIC_CACHE });
     if ((match = /^\/api\/content\/([a-z]+)$/.exec(path)) && isContentKey(match[1]!)) return json({ items: await svc.getContent(env, match[1]) }, { headers: PUBLIC_CACHE });
     if (path === '/api/guestbook') return json(await svc.listGuestbook(env, { status: 'approved' }), { headers: NO_STORE });

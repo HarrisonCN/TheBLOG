@@ -64,6 +64,7 @@ export const api = {
   settings: () => request<Settings>('/api/settings'),
   categories: () => request<{ categories: CategoryCount[] }>('/api/categories'),
   searchIndex: () => request<{ posts: SearchDoc[] }>('/api/search-index'),
+  quotes: () => request<{ quotes: import('./reading-core').QuoteCard[] }>('/api/quotes'),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
   reactions: (slug: string) => request<{ counts: Record<string, number> }>(`/api/posts/${encodeURIComponent(slug)}/reactions`),
   react: (slug: string, emoji: string, on: boolean) =>

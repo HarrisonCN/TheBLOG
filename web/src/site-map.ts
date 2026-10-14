@@ -91,11 +91,12 @@ export const SITE_SECTIONS: SiteSection[] = [
     title: '专题',
     icon: 'folder',
     href: '/categories/',
-    desc: '分类、标签、书影音与收藏',
+    desc: '分类、标签、书影音、书摘与收藏',
     entries: [
       { id: 'categories', label: '分类专题', icon: 'folder', desc: '按主题归类的文章合集', href: '/categories/', routes: ['categories', 'category'], keywords: 'category 分类' },
       { id: 'tags', label: '标签', icon: 'tag', desc: '全部标签与对应文章', href: '/tags/', routes: ['tags', 'tag'], keywords: 'tag 标签' },
-      { id: 'shelf', label: '书影音', icon: 'library', desc: '在读、在看、在听，带封面与评分', href: '/shelf/', routes: ['shelf'], keywords: 'book movie music 书 电影 openlibrary' },
+      { id: 'shelf', label: '书影音', icon: 'library', desc: '在读、在看、在听，带封面与评分', href: '/shelf/', routes: ['shelf', 'shelfyear'], keywords: 'book movie music 书 电影 openlibrary' },
+      { id: 'quotes', label: '书摘', icon: 'book', desc: '文章和书影音里摘下来的句子，可生成分享卡片', href: '/quotes/', routes: ['quotes'], keywords: 'quotes highlight 书摘 摘录 划线 引用' },
       { id: 'favorites', label: '收藏与项目', icon: 'star', desc: '收藏的好东西和站长的项目', href: '/favorites/', routes: ['favorites'], keywords: 'favorites 收藏' },
     ],
   },
@@ -161,6 +162,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'palette', label: '命令面板', icon: 'search', desc: '⌘K / Ctrl K 一处搜索页面与操作', action: 'palette', routes: [], keywords: 'palette command 命令 快捷键' },
       { id: 'music', label: '音乐播放器', icon: 'music', desc: 'CC 授权的完整曲目，不会自动播放', action: 'music', routes: [], keywords: 'music 音乐 播放器 歌单' },
       { id: 'reading', label: '阅读设置与朗读', icon: 'settings', desc: '字号、行距、宽度，以及朗读全文', action: 'reading', routes: [], keywords: 'reading tts 阅读 朗读 字号' },
+      { id: 'readinglist', label: '稍后读', icon: 'bookmark', desc: '在文章页加入的待读清单，带阅读进度，可导出 Markdown', href: '/reading-list/', routes: ['readinglist'], index: false, keywords: 'read later reading list 稍后读 待读 清单' },
       { id: 'share', label: '分享海报', icon: 'send', desc: '文章二维码海报与引用卡片', action: 'share', routes: [], keywords: 'share poster qr quote 分享 海报 引用卡片' },
       { id: 'theme', label: '深色模式', icon: 'moon', desc: '在深色与浅色之间切换', action: 'theme', routes: [], keywords: 'dark light theme 深色 浅色' },
       { id: 'random', label: '随便看一篇', icon: 'shuffle', desc: '随机打开一篇文章', action: 'random', routes: [], keywords: 'random 随机' },
@@ -283,6 +285,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);

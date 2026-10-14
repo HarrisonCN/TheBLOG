@@ -9,6 +9,7 @@ import { Marked, type Tokens } from 'marked';
 import { highlight, langLabel } from './highlight';
 import { parseAudioBlock, parseMapBlock, parseNotesBlock, parseQuoteSource } from './essay-core';
 import { shotNotesHtml } from './essay-view';
+import { quoteAnchor } from './reading-core';
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -163,7 +164,7 @@ const containers = {
           case 'quote': {
             const q = parseQuoteSource(t.title);
             const cite = q.source ? (q.link ? `<a href="${escapeHtml(q.link)}"${/^https?:/i.test(q.link) ? ' target="_blank" rel="noopener noreferrer nofollow"' : ''}><cite>${escapeHtml(q.source)}</cite></a>` : `<cite>${escapeHtml(q.source)}</cite>`) : '';
-            return `<figure class="quote-card" data-quote><blockquote class="quote-card__q">${this.parser.parse(t.tokens)}</blockquote>${cite ? `<figcaption class="quote-card__src">— ${cite}</figcaption>` : ''}</figure>\n`;
+            return `<figure class="quote-card" data-quote id="${quoteAnchor(String(t.body))}"><blockquote class="quote-card__q">${this.parser.parse(t.tokens)}</blockquote>${cite ? `<figcaption class="quote-card__src">— ${cite}</figcaption>` : ''}</figure>\n`;
           }
           case 'compare': {
             const imgs = [...String(t.body).matchAll(IMG_RE)].slice(0, 2).map((m) => ({ alt: m[1] ?? '', src: safeHref(m[2], true), label: (m[3] ?? '').trim() }));
