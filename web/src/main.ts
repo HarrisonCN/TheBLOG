@@ -10,6 +10,7 @@ import './l14.css';
 import './ia.css';
 import './editor.css';
 import './series.css';
+import './reading.css';
 import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
@@ -138,6 +139,9 @@ async function loadExtra(route: Route): Promise<Extra> {
           return;
         case 'projects':
           x.projects = (await api.projects().catch(() => ({ items: [] }))).items;
+          return;
+        case 'quotes':
+          x.quotes = (await api.quotes().catch(() => ({ quotes: [] }))).quotes;
           return;
         case 'guestbook':
           x.guestbook = (await api.guestbook().catch(() => ({ entries: [] }))).entries;

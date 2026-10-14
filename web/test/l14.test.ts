@@ -125,7 +125,7 @@ describe('Markdown ::: 块', () => {
     expect(h).not.toContain('25.27');
   });
   it('引用卡片与拍摄手记', () => {
-    expect(renderMarkdown(':::quote 王维《终南别业》\n行到水穷处，坐看云起时。\n:::')).toMatch(/<figure class="quote-card" data-quote><blockquote class="quote-card__q"><p>行到水穷处，坐看云起时。<\/p>\n<\/blockquote><figcaption class="quote-card__src">— <cite>王维《终南别业》<\/cite><\/figcaption><\/figure>/);
+    expect(renderMarkdown(':::quote 王维《终南别业》\n行到水穷处，坐看云起时。\n:::')).toMatch(/<figure class="quote-card" data-quote id="q-[0-9a-z]{7}"><blockquote class="quote-card__q"><p>行到水穷处，坐看云起时。<\/p>\n<\/blockquote><figcaption class="quote-card__src">— <cite>王维《终南别业》<\/cite><\/figcaption><\/figure>/);
     const n = renderMarkdown(':::notes 第三张\nplace: 桂林\nthought: 等风停\n:::');
     expect(n).toContain('<details class="shot-notes">');
     expect(n).toContain('<dt>想法</dt><dd>等风停</dd>');

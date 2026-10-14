@@ -77,6 +77,8 @@ export interface ShelfItem {
   cover?: string;
   /** 标记时间（例如 2026-09） */
   date?: string;
+  /** L27：摘录一句（≤200 字），出现在「书摘」页 */
+  quote?: string;
 }
 
 export type TimelineKind = 'study' | 'work' | 'project' | 'life' | 'award';
@@ -256,6 +258,7 @@ export const SECTION_SPECS: Record<SectionKey, SectionSpec> = {
       urlF(),
       { key: 'cover', label: '封面（上传或 https 链接）', t: 'url', image: true, wide: true },
       { key: 'note', label: '短评', t: 'str', max: 200, wide: true },
+      { key: 'quote', label: '摘录一句（出现在书摘页）', t: 'str', max: 200, wide: true },
     ],
   },
   timeline: {

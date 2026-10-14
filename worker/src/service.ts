@@ -1,4 +1,5 @@
 import { buildIndex, MAX_QUERY, search as coreSearch, suggest, type SearchDoc } from './search-core';
+import { extractQuotes, type QuoteCard } from './reading-core';
 import type { Env } from './env';
 import { HttpError } from './http';
 import {
@@ -250,6 +251,12 @@ export async function searchPosts(env: Env, q: string, filters: { tag?: string |
     total: hits.length,
     suggestions: hits.length ? [] : suggest(index, query, 5),
   };
+}
+
+/** L27：GET /api/quotes —— 已发布文章里的 :::quote 块（与前端同一份 reading-core；锚点与文章页 figure id 一致）。会员同步 D1 = SKIPPED-verifiable。 */
+export async function listQuotes(env: Env): Promise<{ quotes: QuoteCard[] }> {
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM posts WHERE status = 'published' ${ORDER}`).all<PostRow>();
+  return { quotes: (results ?? []).flatMap((r) => extractQuotes(r.content_md, { slug: r.slug, title: r.title, publishedAt: r.published_at ?? null })).slice(0, 200) };
 }
 
 export function plainText(md: string): string {

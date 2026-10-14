@@ -31,7 +31,11 @@ import { previewShell, scheduledShell } from './editor-view';
 import { essayChapters, isMonthKey, seriesNameOk } from './series-core';
 // L25：预渲染用（系列详情 / 月度合集逐页输出）
 export { buildSeries, monthlyGroups } from './series-core';
+// L27：预渲染用（年度书影音逐年输出）
+export { shelfYears } from './reading-core';
 import { monthlyPage, monthPage, seriesDetailPage } from './series-view';
+import { quotesPage, readingListPage, shelfYearPage } from './reading-view';
+import type { QuoteCard } from './reading-core';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
@@ -122,6 +126,9 @@ export type Route =
   | { name: 'seriesdetail'; series: string }
   | { name: 'monthly' }
   | { name: 'month'; ym: string }
+  | { name: 'quotes' }
+  | { name: 'shelfyear'; year: string }
+  | { name: 'readinglist' }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -129,7 +136,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -183,6 +190,9 @@ const STATIC: Record<string, Route['name']> = {
   '/scheduled': 'scheduled',
   // L25 系列与影集 2.0：月度合集
   '/monthly': 'monthly',
+  // L27 阅读与书影音 2.0：书摘、稍后读
+  '/quotes': 'quotes',
+  '/reading-list': 'readinglist',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -233,6 +243,9 @@ export function parseRoute(pathname: string): Route {
   }
   m = /^\/monthly\/([^/]+)$/.exec(p);
   if (m) return isMonthKey(m[1]!) ? { name: 'month', ym: m[1]! } : { name: 'notfound' };
+  // L27：年度书影音
+  m = /^\/shelf\/([^/]+)$/.exec(p);
+  if (m) return /^(19|20)\d{2}$/.test(m[1]!) ? { name: 'shelfyear', year: m[1]! } : { name: 'notfound' };
   m = /^\/tags\/([^/]+)$/.exec(p);
   if (m) {
     const t = decode(m[1]!);
@@ -300,6 +313,10 @@ export function routePath(r: Route): string {
       return `/series/${encodeURIComponent(r.series)}/`;
     case 'month':
       return `/monthly/${r.ym}/`;
+    case 'shelfyear':
+      return `/shelf/${r.year}/`;
+    case 'readinglist':
+      return '/reading-list/';
     case 'notfound':
       return '/404/';
     default:
@@ -392,6 +409,8 @@ export interface Extra {
   timeline?: TimelineItem[];
   changelog?: ChangelogEntry[];
   repos?: Repo[];
+  /** L27 书摘（来自已发布文章的 :::quote 块） */
+  quotes?: QuoteCard[];
 }
 
 /** 每个路由需要额外拉取的数据。 */
@@ -428,6 +447,10 @@ export function needs(r: Route): (keyof Extra)[] {
     case 'monthly':
     case 'month':
       return ['works'];
+    case 'quotes':
+      return ['quotes', 'shelf'];
+    case 'shelfyear':
+      return ['shelf'];
     default:
       return [];
   }
@@ -914,6 +937,7 @@ export function postTools(): string {
     `<fieldset class="rs__fs"><legend>${label}</legend><div class="rs__seg">${opts.map(([v, l]) => `<label class="rs__opt"><input type="radio" name="rs-${name}" value="${v}" data-rs="${name}"><span>${l}</span></label>`).join('')}</div></fieldset>`;
   return `<div class="post-tools" role="toolbar" aria-label="阅读工具">
   <button class="pt-btn js-rs-toggle" type="button" aria-expanded="false" aria-controls="rs-panel">${icon('settings')}<span>阅读设置</span></button>
+  <button class="pt-btn js-later-toggle" type="button" aria-pressed="false" title="加入稍后读（只存在这台设备上）">${icon('bookmark')}<span class="js-later-label">稍后读</span></button>
   <div class="tts js-tts" hidden role="group" aria-label="朗读"><button class="pt-btn js-tts-play" type="button" aria-pressed="false">${icon('play', 'tts__ic-play')}${icon('pause', 'tts__ic-pause')}<span class="js-tts-label">朗读全文</span></button><button class="pt-btn pt-btn--icon js-tts-stop" type="button" aria-label="停止朗读" disabled>${icon('close')}</button><label class="tts__rate">语速 <select class="js-tts-rate"><option value="0.8">0.8×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><span class="tts__status js-tts-status muted small" aria-live="polite"></span></div>
   <div class="rs-panel" id="rs-panel" hidden role="group" aria-label="阅读设置">
     ${seg('size', '字号', [['s', '小'], ['m', '中'], ['l', '大'], ['xl', '特大']])}
@@ -1568,6 +1592,12 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return monthlyPage(site, route, x.works ?? []);
     case 'month':
       return monthPage(site, route, x.works ?? []) ?? notFoundPage(site);
+    case 'quotes':
+      return quotesPage(site, route, x.quotes ?? [], x.shelf ?? []);
+    case 'shelfyear':
+      return shelfYearPage(site, route, x.shelf ?? []) ?? notFoundPage(site);
+    case 'readinglist':
+      return readingListPage(site, route);
     case 'user':
     case 'notifications':
     case 'me':
