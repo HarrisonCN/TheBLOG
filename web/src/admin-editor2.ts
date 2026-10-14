@@ -76,13 +76,13 @@ export function editor2Html(p: Post | null): string {
   <div class="ed2-tool"><span class="ed2-tool__label">素材与预览</span><div class="adm-row"><button class="btn btn--soft btn--sm" type="button" id="ed2-media-open">${icon('image')}媒体库</button><button class="btn btn--soft btn--sm" type="button" id="ed2-preview">${icon('eye')}发布预览</button></div></div>
 </div>
 <div class="ed2-outline">
-  <div class="adm-row adm-row--between"><h3 class="ed2-h" id="ed2-blocks-h">正文块</h3><span class="muted small" id="ed2-stats"></span></div>
+  <div class="adm-row adm-row--between"><h2 class="ed2-h" id="ed2-blocks-h">正文块</h2><span class="muted small" id="ed2-stats"></span></div>
   <ol class="ed2-blocks" id="ed2-blocks" aria-labelledby="ed2-blocks-h"></ol>
   <div class="adm-row"><label for="ed2-add" class="muted small">在末尾插入</label><select id="ed2-add">${BLOCK_ADD.map((t) => `<option value="${t}">${BLOCK_LABELS[t]}</option>`).join('')}</select><button class="btn btn--ghost btn--sm" type="button" id="ed2-add-btn">${icon('plus')}插入块</button></div>
   <ul class="ed2-issues" id="ed2-issues" aria-label="发布前检查"></ul>
 </div>
 <dialog class="ed2-media" id="ed2-media" aria-labelledby="ed2-media-h">
-  <div class="adm-row adm-row--between"><h3 class="ed2-h" id="ed2-media-h">媒体库</h3><button class="adm-icon-btn" type="button" id="ed2-media-close" aria-label="关闭媒体库">${icon('close')}</button></div>
+  <div class="adm-row adm-row--between"><h2 class="ed2-h" id="ed2-media-h">媒体库</h2><button class="adm-icon-btn" type="button" id="ed2-media-close" aria-label="关闭媒体库">${icon('close')}</button></div>
   <div class="adm-row"><label class="sr-only" for="ed2-media-q">搜索媒体库</label><input id="ed2-media-q" type="search" placeholder="按替代文字搜索"><label class="btn btn--soft btn--sm">${icon('upload')}上传图片<input type="file" id="ed2-media-file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden></label></div>
   <p class="muted small">上传时自动生成 640 / 1280 / 1920 宽的尺寸（只缩小，不放大），并去掉 EXIF / GPS。插入正文前请写好替代文字。</p>
   <ul class="ed2-media__grid" id="ed2-media-list" role="list"></ul>
@@ -227,6 +227,8 @@ export function bindEditor2(h: Editor2Host): { saved: () => void } {
   // ---------------------------------------------------------------- 块大纲
   const list = $<HTMLOListElement>('#ed2-blocks')!;
   function outline(): void {
+    clearTimeout(outlineTimer);
+    const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('#ed2-blocks [data-i]')?.dataset.i;
     const blocks = parseBlocks(h.content.value);
     const st = textStats(h.content.value);
     $('#ed2-stats')!.textContent = `${st.chars} 字 · 约 ${st.minutes} 分钟 · ${blocks.length} 块`;
@@ -241,11 +243,12 @@ export function bindEditor2(h: Editor2Host): { saved: () => void } {
     $('#ed2-issues')!.innerHTML = issues.length
       ? issues.map((x) => `<li class="ed2-issue ed2-issue--${x.level}">${icon(x.level === 'error' ? 'ban' : 'flag')}第 ${x.index + 1} 块：${e(x.message)}</li>`).join('')
       : `<li class="ed2-issue ed2-issue--ok">${icon('check')}发布前检查通过</li>`;
+    if (focused !== undefined) list.querySelector<HTMLElement>(`[data-i="${focused}"]`)?.focus();
   }
   function rewrite(next: ReturnType<typeof parseBlocks>, focus?: number): void {
     h.content.value = blocksToMarkdown(next);
     h.content.dispatchEvent(new Event('input', { bubbles: true }));
-    outline();
+    outline(); // 同时取消 input 触发的延迟重绘（否则焦点会丢）
     if (focus !== undefined) list.querySelector<HTMLElement>(`[data-i="${focus}"]`)?.focus();
   }
   list.addEventListener('click', (ev) => {
