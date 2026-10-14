@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.28.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.28.0) — 2026-10-14
+
+_L28 · 兴趣社群：小组 /groups/ 与小组主页（建组、组长 / 管理员 / 成员角色、直接加入或审核入组、置顶公告、小组动态分享自己的公开作品、移出与移除、举报走已有审核队列、尊重屏蔽、频率限制）、/api/social/groups、迁移 0021_groups_
+
+### 新功能 Features
+
+- **groups:** L28 兴趣社群 — /groups/ + /groups/:slug/, roles owner/mod/member, join approval, pinned notice, group feed (share own public works), reports via existing queue, rate limits, block/mute respected; Worker /api/social/groups + migration 0021_groups.sql + purge/export (9a70251)
+
+### 修复 Fixes
+
+- **groups:** EXPECTED_MIGRATION 0021_groups; tell members when all public works are already shared (2f79b0f)
+
+### 测试 Tests
+
+- **groups:** L28 兴趣社群 group-core unit + worker API tests (fail-before: module missing) (7ab4ffc)
+
+### 文档 Docs
+
+- **groups:** L28 兴趣社群 docs (groups.md, README, ROADMAP, sections) (27ff867)
+
+### 杂项 Chores
+
+- **release:** 1.28.0 — version bump, release-meta (1.27.0 frozen at 4b0275e) (76eb804)
+
 ## [1.27.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.27.0) — 2026-10-14
 
 _L27 · 阅读与书影音 2.0：书摘页 /quotes/（文章 :::quote 块 + 书影音摘录，按来源筛选、稳定锚点链回原文、分享卡片）、年度书影音 /shelf/:年份/（数量、状态、平均分、月份分布，逐年预渲染）、文章页稍后读 + /reading-list/（只存本机、阅读进度、导出 Markdown）、GET /api/quotes_

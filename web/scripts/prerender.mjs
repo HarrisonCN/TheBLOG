@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -272,6 +272,10 @@ if (API || DEMO) {
     const shelfYears = R.shelfYears(extra.shelf ?? []);
     for (const y of shelfYears) await emit({ name: 'shelfyear', year: y });
     console.log(`[prerender] L27：书摘 ${extra.quotes.length} 段，年度书影音 ${shelfYears.length} 年`);
+    // L28：小组详情的静态外壳（内容在浏览器端按身份加载）；旧 Worker 没有该接口时跳过
+    const groupList = (await soft('/api/social/groups', { groups: [] })).groups ?? [];
+    for (const g of groupList) if (/^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/.test(g.slug)) await emit({ name: 'group', slug: g.slug }, null, async () => ({ title: `${g.name} · 小组`, description: g.intro || `小组「${g.name}」`, image: '', type: 'website' }));
+    console.log(`[prerender] L28：小组 ${groupList.length} 个`);
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
     try {

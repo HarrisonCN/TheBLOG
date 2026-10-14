@@ -18,6 +18,7 @@ import type { Badge, Festival, Member, PublicMember, StickyNote, Viewer } from '
 import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-social';
 import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
+import { groupsSeed, MockGroups } from './mock-groups';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
@@ -205,6 +206,7 @@ export class DemoBackend {
         this.studio.purge(id);
         this.disc.purge(id);
         this.dm.purge(id);
+        this.groupsPurge(id);
       },
       exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id), ...this.studio.exportFor(id), ...this.dm.exportFor(id) }),
     });
@@ -251,6 +253,21 @@ export class DemoBackend {
       ugc: this.ugc,
       social: this.social,
       posts: () => this.db().posts,
+      members: () => this.db().members,
+      memberFrom: (h) => this.memberFrom(h),
+      optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
+      now: () => this.now(),
+    });
+    this.groups = new MockGroups({
+      state: () => this.db().groups ?? groupsSeed(this.now()),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.groups ??= groupsSeed(this.now());
+        mutate(db.groups);
+        this.save(db);
+      },
+      ugc: this.ugc,
+      social: this.social,
       members: () => this.db().members,
       memberFrom: (h) => this.memberFrom(h),
       optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
@@ -359,6 +376,13 @@ export class DemoBackend {
   }
   private social: MockSocial;
   private dm: MockDm;
+  private groups: MockGroups;
+  private groupsPurge(id: number): void {
+    const db = structuredClone(this.db());
+    if (!db.groups) return;
+    this.groups.purgeMember(db.groups, id);
+    this.save(db);
+  }
   /** L19 演示「实时」：事件监听（client.ts 把它们转发到 BroadcastChannel / 本标签页） */
   private dmListeners: ((to: number[], ev: DmEvent) => void)[] = [];
   onDmEvent(fn: (to: number[], ev: DmEvent) => void): () => void {
@@ -504,6 +528,9 @@ export class DemoBackend {
       // ---- L19 私信 / 消息请求 / 活动聊天室 ----
       const dm = this.dm.route(m, path.slice('/api/social'.length), q, body, headers);
       if (dm) return dm;
+      // ---- L28 兴趣社群（小组）----
+      const gr = this.groups.route(m, path.slice('/api/social'.length), q, body, headers);
+      if (gr) return gr;
     }
     // ---- L15 社交（/api/social/*）----
     const soc = this.social.route(m, path, q, body, headers);

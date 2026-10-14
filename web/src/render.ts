@@ -36,6 +36,8 @@ export { shelfYears } from './reading-core';
 import { monthlyPage, monthPage, seriesDetailPage } from './series-view';
 import { quotesPage, readingListPage, shelfYearPage } from './reading-view';
 import type { QuoteCard } from './reading-core';
+import { groupPage, groupsPage } from './groups-view';
+import { GROUP_SLUG_RE } from './group-core';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
@@ -129,6 +131,8 @@ export type Route =
   | { name: 'quotes' }
   | { name: 'shelfyear'; year: string }
   | { name: 'readinglist' }
+  | { name: 'groups' }
+  | { name: 'group'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -136,7 +140,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -193,6 +197,8 @@ const STATIC: Record<string, Route['name']> = {
   // L27 阅读与书影音 2.0：书摘、稍后读
   '/quotes': 'quotes',
   '/reading-list': 'readinglist',
+  // L28 兴趣社群
+  '/groups': 'groups',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -243,6 +249,9 @@ export function parseRoute(pathname: string): Route {
   }
   m = /^\/monthly\/([^/]+)$/.exec(p);
   if (m) return isMonthKey(m[1]!) ? { name: 'month', ym: m[1]! } : { name: 'notfound' };
+  // L28：小组详情
+  m = /^\/groups\/([^/]+)$/.exec(p);
+  if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
   // L27：年度书影音
   m = /^\/shelf\/([^/]+)$/.exec(p);
   if (m) return /^(19|20)\d{2}$/.test(m[1]!) ? { name: 'shelfyear', year: m[1]! } : { name: 'notfound' };
@@ -317,6 +326,8 @@ export function routePath(r: Route): string {
       return `/shelf/${r.year}/`;
     case 'readinglist':
       return '/reading-list/';
+    case 'group':
+      return `/groups/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -1598,6 +1609,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return shelfYearPage(site, route, x.shelf ?? []) ?? notFoundPage(site);
     case 'readinglist':
       return readingListPage(site, route);
+    case 'groups':
+      return groupsPage(site, route);
+    case 'group':
+      return groupPage(site, route);
     case 'user':
     case 'notifications':
     case 'me':
