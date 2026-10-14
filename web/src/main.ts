@@ -8,6 +8,7 @@ import './l12.css';
 import './music-tab.css';
 import './l14.css';
 import './ia.css';
+import './editor.css';
 import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
@@ -745,6 +746,8 @@ function bindPage(page: Page): void {
   if ((SOCIAL_ROUTES as readonly string[]).includes(page.route.name)) {
     void import('./social-client').then((m) => m.mountSocial(root, { notify: (msg, t) => void notify(msg, t), navigate: (h) => void go(h) }));
   }
+  // L24 发布预览 / 即将发布：页面上有挂载点时才加载
+  if (page.route.name === 'preview' || page.route.name === 'scheduled') void import('./editor-client').then((m) => m.mountEditorPages(root));
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
 

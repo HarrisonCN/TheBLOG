@@ -344,3 +344,39 @@
 .adm-sec-evs b { color: var(--heading); font-weight: 600; }
 .adm-contents { display: contents; }
 .adm-sec-steps a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- L24 写作台 2.0 ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.adm-ed2-tile { display: grid; gap: 0.9rem; }
+.ed2-status { margin: 0; }
+.ed2-recover { display: grid; gap: 0.5rem; padding: 0.75rem 0.9rem; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--border); }
+.ed2-recover p { margin: 0; display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.ed2-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 0.8rem; }
+.ed2-tool { display: grid; gap: 0.35rem; align-content: start; min-width: 0; }
+.ed2-tool > label, .ed2-tool__label { font-weight: 600; font-size: 0.9rem; }
+.ed2-tool select, .ed2-tool input[type="datetime-local"] { min-width: 0; max-width: 100%; }
+.ed2-tool p { margin: 0; }
+.ed2-h { margin: 0; font-size: 1rem; }
+.ed2-outline { display: grid; gap: 0.5rem; }
+.ed2-blocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; max-height: 26rem; overflow: auto; }
+.ed2-block { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; padding: 0.35rem 0.5rem; border-radius: 10px; background: var(--soft); border: 1px solid var(--border); }
+.ed2-block:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ed2-block__type { white-space: nowrap; }
+.ed2-block__txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+.ed2-block__acts { display: flex; gap: 0.15rem; }
+.ed2-block__acts button[disabled] { opacity: 0.35; cursor: default; }
+.ed2-issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; font-size: 0.88rem; }
+.ed2-issue { display: flex; gap: 0.35rem; align-items: center; }
+.ed2-issue--error { color: #b42318; }
+.ed2-issue--warn { color: #8a4b00; }
+.ed2-issue--ok { color: #13734b; }
+:root[data-theme="dark"] .ed2-issue--error, [data-site-theme="dark"] .ed2-issue--error { color: #ff9b8f; }
+:root[data-theme="dark"] .ed2-issue--warn, [data-site-theme="dark"] .ed2-issue--warn { color: #ffc56b; }
+:root[data-theme="dark"] .ed2-issue--ok, [data-site-theme="dark"] .ed2-issue--ok { color: #6fdcaa; }
+.ed2-media { width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 48px); border: 1px solid var(--border); border-radius: 16px; padding: 1rem; background: var(--card-solid); color: var(--fg); }
+.ed2-media::backdrop { background: rgb(10 16 30 / 0.45); }
+.ed2-media > * + * { margin-top: 0.6rem; }
+.ed2-media__grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.7rem; }
+.ed2-media__item { display: grid; gap: 0.35rem; align-content: start; }
+.ed2-media__item img { width: 100%; height: auto; border-radius: 8px; background: var(--soft); }
+.ed2-media__item input { min-width: 0; }

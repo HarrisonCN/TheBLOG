@@ -80,6 +80,8 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'series', label: '系列连载', icon: 'list', desc: '按系列从第一篇读起', href: '/series/', routes: ['series'], keywords: 'series 系列 连载' },
       { id: 'search', label: '搜索', icon: 'search', desc: '标题、标签与正文全文搜索', href: '/search/', routes: ['search'], keywords: 'search 搜索 全文' },
       { id: 'stats', label: '数据', icon: 'chart', desc: '写作热力图、字数与发布节奏', href: '/stats/', routes: ['stats'], keywords: 'stats 数据 热力图' },
+      { id: 'scheduled', label: '即将发布', icon: 'clock', desc: '已经写好、定了发布时间的文章', href: '/scheduled/', routes: ['scheduled'], keywords: 'scheduled upcoming 定时 即将发布 预告' },
+      { id: 'preview', label: '发布预览', icon: 'eye', desc: '用正式文章页的样子预览写作台里的草稿', href: '/preview/', routes: ['preview'], audience: 'admin', index: false, keywords: 'preview draft 预览 草稿 写作台' },
       { id: 'subscribe', label: '订阅', icon: 'rss', desc: 'RSS / Atom / JSON Feed 与邮件摘要', href: '/subscribe/', routes: ['subscribe'], keywords: 'rss atom feed 订阅 邮件 摘要' },
     ],
   },
@@ -273,6 +275,11 @@ export function sitemapRoutes(): { render: RouteName[]; index: RouteName[] } {
       }
     }
   return { render, index };
+}
+/** 不该被搜索引擎收录的路由（个人页面 / 站长预览）：预渲染时输出 robots noindex */
+export function noindexRoute(route: RouteName): boolean {
+  if (NOINDEX.has(route)) return true;
+  return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
 const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'notfound']);

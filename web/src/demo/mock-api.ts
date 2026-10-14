@@ -22,6 +22,7 @@ import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
 import { MockOps, opsSeed } from './mock-ops';
+import { EditorError, MockEditor, editorSeed } from './mock-editor';
 import { MockSecurity, securitySeed } from './mock-security';
 import type { DmEvent } from '../dm-core';
 
@@ -285,6 +286,22 @@ export class DemoBackend {
       now: () => this.now(),
       version: String(import.meta.env.VITE_APP_VERSION ?? ''),
     });
+    this.editor = new MockEditor({
+      state: () => this.db().editor ?? editorSeed(),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.editor ??= editorSeed();
+        mutate(db.editor);
+        this.save(db);
+      },
+      posts: () => this.db().posts,
+      commitPosts: (mutate) => {
+        const db = structuredClone(this.db());
+        mutate(db.posts);
+        this.save(db);
+      },
+      now: () => this.now(),
+    });
     this.security = new MockSecurity({
       state: () => this.db().security ?? securitySeed(),
       commit: (mutate) => {
@@ -332,6 +349,7 @@ export class DemoBackend {
   }
   private open: MockOpen;
   private ops!: MockOps;
+  private editor!: MockEditor;
   private security!: MockSecurity;
   /** 构建期（prerender）：生成静态订阅源 */
   openFeeds(): MockOpen {
@@ -435,6 +453,7 @@ export class DemoBackend {
       return await this.route(method.toUpperCase(), rawPath, body, headers);
     } catch (e) {
       if (e instanceof SocialError) return { status: e.status, body: { error: { code: e.code, message: e.message, ...(e.details ? { details: e.details } : {}) } } };
+      if (e instanceof EditorError) return { status: e.status, body: { error: { code: e.code, message: e.message, ...(e.details ? { details: e.details } : {}) } } };
       if (e instanceof MockError) return { status: e.status, body: { error: { code: e.code, message: e.message, ...(e.details ? { details: e.details } : {}) } } };
       return { status: 500, body: { error: { code: 'internal', message: (e as Error).message || '内部错误' } } };
     }
@@ -445,6 +464,10 @@ export class DemoBackend {
     const path = u.pathname.replace(/\/+$/, '') || '/';
     const q = u.searchParams;
     const ok = (b: unknown, status = 200): MockResponse => ({ status, body: b });
+    // L24：先把到点的定时文章发布出去（= Worker 的 cron），再处理请求
+    this.editor.tick();
+    const ed = this.editor.routePublic(m, path);
+    if (ed) return ed;
 
     // ---- L21 健康检查 / 版本 / 运行状态 / 前端错误上报 ----
     if (path === '/api/health' || path === '/api/version' || path === '/api/status' || path === '/api/errors') {
@@ -566,6 +589,9 @@ export class DemoBackend {
         if (b?.counts) b.counts.webmentions = this.open.pendingCount();
         return ugcAdmin;
       }
+      // L24 内容编辑器 2.0：草稿 / 定时发布 / 媒体库 / 模板
+      const edAdmin = this.editor.routeAdmin(m, sub, q, body);
+      if (edAdmin) return edAdmin;
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);

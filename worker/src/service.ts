@@ -323,7 +323,7 @@ export async function setPublished(env: Env, slug: string, published = true): Pr
   const current = await getPost(env, slug, { includeDrafts: true });
   const ts = nowIso();
   const row = await env.DB.prepare(
-    `UPDATE posts SET status = ?, published_at = ?, updated_at = ? WHERE id = ? RETURNING ${COLS}`,
+    `UPDATE posts SET status = ?, published_at = ?, updated_at = ?, publish_at = NULL WHERE id = ? RETURNING ${COLS}`,
   )
     .bind(published ? 'published' : 'draft', published ? (current.publishedAt ?? ts) : current.publishedAt, ts, current.id)
     .first<PostRow>();

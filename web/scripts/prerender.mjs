@@ -114,6 +114,8 @@ function headMeta(p, data, share) {
   if (scope && (!DEMO || feedScopes?.[`${scope.kind}s`]?.includes(scope.ref))) for (const f of ['rss', 'atom', 'json']) tags.push(`<link rel="alternate" type="${FEED_MIME[f]}" title="${esc(`${share?.title ?? scope.ref}（${FEED_NAME[f]}）`)}" href="${esc(feedHref(scope, f))}" />`);
   // 正式站：Webmention 端点（演示站在 GitHub Pages 上没有服务器，不声明端点）
   if (!DEMO && HAS_SITE_URL) tags.push(`<link rel="webmention" href="${esc(API_BASE ? `${API_BASE}/api/webmention` : absUrl('/api/webmention'))}" />`);
+  // L24：个人页面与站长预览不进搜索引擎
+  if (R.noindexRoute(p.route.name)) tags.push('<meta name="robots" content="noindex" />');
   if (post) {
     const pub = post.publishedAt ?? post.createdAt;
     tags.push(`<meta property="article:published_time" content="${esc(pub)}" />`, `<meta property="article:modified_time" content="${esc(post.updatedAt ?? pub)}" />`);

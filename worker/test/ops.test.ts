@@ -222,7 +222,7 @@ describe('L21 /api/health · /api/version · /api/status', () => {
     await worker.scheduled!({ cron: '*/15 * * * *', scheduledTime: Date.now(), noRetry() {} } as never, env, { waitUntil: (p: Promise<unknown>) => waits.push(p), passThroughOnException() {} } as never);
     await Promise.all(waits);
     const runs = (await env.DB.prepare('SELECT job, last_ok FROM ops_runs ORDER BY job').all<{ job: string; last_ok: number }>()).results;
-    expect(runs).toEqual([{ job: 'cron', last_ok: 1 }, { job: 'health', last_ok: 1 }, { job: 'open', last_ok: 1 }, { job: 'security', last_ok: 1 }]);
+    expect(runs).toEqual([{ job: 'cron', last_ok: 1 }, { job: 'editor', last_ok: 1 }, { job: 'health', last_ok: 1 }, { job: 'open', last_ok: 1 }, { job: 'security', last_ok: 1 }]);
     expect((await J(await call(env, '/api/status'))).components.find((c: any) => c.key === 'cron').state).toBe('ok');
     await scheduledOps(env, { broken: async () => { throw new Error('digest failed for carol@example.com'); } });
     const cron = await env.DB.prepare("SELECT last_ok, detail FROM ops_runs WHERE job = 'cron'").first<{ last_ok: number; detail: string }>();
