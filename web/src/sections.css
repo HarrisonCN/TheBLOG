@@ -277,7 +277,7 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
   .bento > .sp-tile { min-width: 0; }
   .sp-filters { flex-direction: column; align-items: stretch; min-width: 0; max-width: 100%; }
   .sp-filters > * { min-width: 0; max-width: 100%; }
-  .sp-kinds { flex-wrap: nowrap; min-width: 0; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .sp-kinds { flex-wrap: wrap; min-width: 0; max-width: 100%; }
   .sp-kind { flex: none; }
   .sp-selects { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
   .sp-sel select { flex: 1; width: 100%; min-width: 0; max-width: none; }
