@@ -715,7 +715,7 @@ function bindPage(page: Page): void {
   patchTablists(root);
   bindCommunity(root, { notify, rerender: () => rerender() });
   bindHomePage(root, { notify, go: (h) => void go(h), basePath: url(''), reducedMotion: prefersReducedMotion });
-  bindSections(root, { notify, searchIndex: () => api.searchIndex(), basePath: url('') });
+  bindSections(root, { notify, searchIndex: () => api.searchIndex(), posts: () => site.posts, basePath: url('') });
   // 评论、图片 lightbox、脚注预览、阅读设置、朗读、照片地图
   bindComments(root, (m, t) => void notify(m, t));
   bindLightbox(root);

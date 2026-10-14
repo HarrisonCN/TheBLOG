@@ -250,9 +250,39 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .sp-hit a:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--accent); color: var(--fg); }
 .sp-hit b { color: var(--heading); font-size: 1.05rem; }
 .sp-hit p { margin: 0; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
-.sp-hit mark { background: color-mix(in srgb, #f5b301 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.sp-hit mark { background: color-mix(in srgb, #f5b301 35%, transparent); color: var(--heading); border-radius: 3px; padding: 0 1px; }
 .sp-hit__meta { display: flex; flex-wrap: wrap; gap: 4px; }
 .bento > .sp-res-tile { min-height: 200px; }
+/* L26 联合搜索：类型、标签、年份筛选 + 分面 + 建议 */
+.sp-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.8rem; }
+.sp-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-kind { cursor: pointer; min-height: 36px; }
+.sp-kind[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); box-shadow: none; }
+.sp-kind__n { font-variant-numeric: tabular-nums; opacity: 0.85; }
+.sp-selects { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.sp-sel { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; font-size: 0.88rem; color: var(--muted); }
+.sp-sel > span { white-space: nowrap; }
+.sp-sel select { min-height: 36px; max-width: 11rem; padding: 0.3rem 0.6rem; border-radius: 12px; border: 0; background: var(--tile-strong); color: var(--fg); box-shadow: inset 0 0 0 1px var(--hairline); font: inherit; }
+.sp-facets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 0.8rem; font-size: 0.88rem; }
+.sp-facets .chip { cursor: pointer; }
+.sp-hit a { grid-template-columns: auto 1fr; align-items: start; column-gap: 0.8rem; }
+.sp-hit__kind { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 10px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--heading); font-weight: 700; font-size: 0.9rem; }
+.sp-hit__body { display: grid; gap: 0.3rem; min-width: 0; }
+.sp-hit__type { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.04em; }
+.sp-hit__date { font-size: 0.8rem; color: var(--muted); align-self: center; }
+.sp-suggest { margin-top: 0.6rem; }
+.sp-suggest p { margin: 0 0 0.5rem; color: var(--muted); }
+.sp-suggest .linkish { background: none; border: 0; padding: 0 0.15rem; color: var(--accent-strong); text-decoration: underline; cursor: pointer; font: inherit; }
+@media (max-width: 600px) {
+  .bento > .sp-tile { min-width: 0; }
+  .sp-filters { flex-direction: column; align-items: stretch; min-width: 0; max-width: 100%; }
+  .sp-filters > * { min-width: 0; max-width: 100%; }
+  .sp-kinds { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+  .sp-kind { flex: none; }
+  .sp-selects { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.5rem; }
+  .sp-sel select { flex: 1; width: 100%; min-width: 0; max-width: none; }
+  .js-sp-reset { grid-column: 1 / -1; justify-self: start; }
+}
 
 /* ---------- 订阅 ---------- */
 .feed-url { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.4rem 0.4rem 0.8rem; border-radius: 14px; background: var(--tile-strong); box-shadow: inset 0 0 0 1px var(--hairline); }

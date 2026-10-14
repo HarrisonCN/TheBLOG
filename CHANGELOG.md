@@ -2,6 +2,22 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.26.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.26.0) — 2026-10-14
+
+_L26 · 搜索与推荐 2.0：文章 / 作品 / 影集 / 创作者 / 话题联合搜索（中文二元组 + 字段加权 BM25）、类型 / 标签 / 年份筛选写进网址、分面与无结果建议、⌘K 同一套排名、相关推荐 MMR 多样性重排、GET /api/search_
+
+### 新功能 Features
+
+- **search:** L26 搜索与推荐 2.0 — unified search over posts/works/albums/creators/topics (CJK bigram BM25, filters, facets, suggestions), ⌘K on the same ranking, MMR related posts, GET /api/search (600ccbf)
+
+### 修复 Fixes
+
+- **search:** dark-mode highlight contrast, filter labels no-wrap, mobile filter layout; docs: L26 搜索与推荐 2.0 (docs/search.md), sections map, ROADMAP, README (f7620af)
+
+### 杂项 Chores
+
+- **release:** 1.26.0 — version bump, release-meta (1.25.0 frozen at d36e7cc) (fe86d91)
+
 ## [1.25.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.25.0) — 2026-10-14
 
 _L25 · 系列与影集 2.0：系列详情页（封面、简介、已完结 / 连载中、篇目、本机阅读进度与继续读第 N 篇、打印样式）、月度合集（每月文章 / 影集 / 作品自动成页，按上海时间分月）、影集章节与跳转_

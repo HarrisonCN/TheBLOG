@@ -3,12 +3,14 @@
  * 每次换页后由 main.ts 调用 bindSections(root)。不依赖后端：静态 GitHub Pages 上同样可用。
  */
 import { escapeHtml as e } from './markdown';
-import { searchDocs, snippet, type Work } from './sections';
-import type { SearchDoc } from './types';
+import type { Work } from './sections';
+import type { PostSummary, SearchDoc } from './types';
 
 interface Ctx {
   notify: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => unknown;
   searchIndex: () => Promise<{ posts: SearchDoc[] }>;
+  /** 已加载的文章摘要（给搜索结果补发布时间与系列） */
+  posts?: () => PostSummary[];
   /** 部署前缀（如 /TheBLOG），根路径部署时为空 */
   basePath: string;
 }
@@ -274,72 +276,11 @@ async function refreshStars(root: ParentNode): Promise<void> {
   if (note) note.textContent = ok ? `实时 · 来自 GitHub（${ok}/${repos.length}）` : 'GitHub 暂时连不上，显示构建时快照';
 }
 
-// ---------------------------------------------------------------- 搜索页
-let indexCache: Promise<SearchDoc[]> | null = null;
+// ---------------------------------------------------------------- 搜索页（L26：联合搜索 + 筛选，按需加载 search-client）
 function bindSearch(root: ParentNode, ctx: Ctx): void {
   const form = root.querySelector<HTMLFormElement>('.js-search-page');
   if (!form || form.dataset.bound) return;
-  form.dataset.bound = '1';
-  const input = form.querySelector<HTMLInputElement>('input[name="q"]')!;
-  const status = root.querySelector<HTMLElement>('.js-sp-status')!;
-  const out = root.querySelector<HTMLElement>('.js-sp-results')!;
-  const mark = (s: string, q: string) => {
-    let h = e(s);
-    for (const t of q.split(/\s+/).filter(Boolean).slice(0, 8)) {
-      const re = new RegExp(e(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      h = h.replace(re, (m) => `<mark>${m}</mark>`);
-    }
-    return h;
-  };
-  const run = async (q: string) => {
-    q = q.trim().slice(0, 80);
-    const u = new URL(location.href);
-    if (q) u.searchParams.set('q', q);
-    else u.searchParams.delete('q');
-    history.replaceState(history.state, '', u.pathname + u.search);
-    if (!q) {
-      out.innerHTML = '';
-      status.textContent = '输入关键词开始搜索；支持多个词（空格分隔）。';
-      return;
-    }
-    status.textContent = '搜索中…';
-    try {
-      indexCache ??= ctx.searchIndex().then((r) => r.posts);
-      const hits = searchDocs(await indexCache, q).slice(0, 30);
-      status.textContent = hits.length ? `找到 ${hits.length} 篇和「${q}」有关的文章` : `没有找到和「${q}」有关的文章，换个词试试？`;
-      out.innerHTML = hits
-        .map(
-          ({ doc }) => `<li class="sp-hit"><a href="${e(ctx.basePath)}/posts/${e(doc.slug)}/"><b>${mark(doc.title, q)}</b><p>${mark(snippet(doc.text || doc.summary, q, 90), q)}</p><span class="sp-hit__meta">${doc.category ? `<span class="chip">${e(doc.category)}</span>` : ''}${doc.tags
-            .slice(0, 4)
-            .map((t) => `<span class="chip chip--ghost">#${e(t)}</span>`)
-            .join('')}</span></a></li>`,
-        )
-        .join('');
-    } catch {
-      indexCache = null;
-      status.textContent = '搜索索引加载失败，请稍后再试。';
-    }
-  };
-  form.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    void run(input.value);
-  });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => void run(input.value), 220);
-  });
-  root.querySelectorAll<HTMLElement>('.js-sp-chip').forEach((c) =>
-    c.addEventListener('click', () => {
-      input.value = c.dataset.q ?? '';
-      void run(input.value);
-    }),
-  );
-  const q0 = new URLSearchParams(location.search).get('q') ?? '';
-  if (q0) {
-    input.value = q0;
-    void run(q0);
-  }
+  void import('./search-client').then((m) => m.bindSearchPage(root, ctx));
 }
 
 // ---------------------------------------------------------------- 订阅
