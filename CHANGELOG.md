@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.24.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.24.0) — 2026-10-14
+
+_L24 · 内容编辑器 2.0：块大纲（移动 / 插入 / 删除 / 发布前检查）、自动保存与草稿恢复（修订号冲突）、定时发布与「即将发布」页、内容模板、媒体库（替代文字 + 640 / 1280 / 1920 多尺寸）、发布预览_
+
+### 新功能 Features
+
+- **editor:** L24 内容编辑器 2.0 — block editor, autosave + draft recovery, scheduled publish, templates, media library with size variants, publish preview (be642be)
+
+### 修复 Fixes
+
+- **editor:** keep block focus after move, h2 headings in 写作台 (axe heading-order); ops cron test lists the new editor job (3799b70)
+
+### 文档 Docs
+
+- L24 内容编辑器 2.0 (docs/editor.md), 更新计划 1.24→1.32 (docs/ROADMAP.md), sections map + README (83c1130)
+
+### 杂项 Chores
+
+- **release:** 1.24.0 — version bump, release-meta (1.23.0 frozen at 31e0f5f) (286beba)
+
 ## [1.23.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.23.0) — 2026-10-13
 
 _L23 · 栏目整理：栏目注册表统一导航 / 菜单 / ⌘K / sitemap / 我的，新开 社区 / 工具 / 账号与安全 三个栏目（各有落地页），新增全部栏目、影集与系列连载列表，登录 / 站长条目按身份显示_
