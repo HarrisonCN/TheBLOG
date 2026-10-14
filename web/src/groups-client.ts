@@ -175,8 +175,11 @@ async function bindDetail(root: ParentNode, ctx: GroupsCtx): Promise<void> {
       try {
         const { works } = await get<{ works: Work[] }>('/api/social/me/works?status=published&limit=50');
         const shared = new Set(items.map((x) => x.work.id));
-        const mine = works.filter((w) => w.visibility === 'public' && w.status === 'published' && !shared.has(w.id));
-        shareBox.innerHTML = mine.length
+        const pub = works.filter((w) => w.visibility === 'public' && w.status === 'published');
+        const mine = pub.filter((w) => !shared.has(w.id));
+        shareBox.innerHTML = !mine.length && pub.length
+          ? `<p class="muted small">你的公开作品都已经分享到这个小组了。<a href="${url('/compose/')}">再发布一个</a></p>`
+          : mine.length
           ? `<form class="grp-sharebar js-grp-share-form"><label class="grp-field"><span>分享我的作品到小组</span><select name="workId">${mine.map((w) => `<option value="${w.id}">${e((w.title || w.body || w.caption || `作品 #${w.id}`).slice(0, 40))}</option>`).join('')}</select></label><button class="btn btn--primary btn--sm" type="submit">${icon('send')}分享</button></form>`
           : `<p class="muted small">你还没有可以分享的公开作品。<a href="${url('/compose/')}">去发布一个</a>（新账号的前几条作品需要站长审核后才能分享）。</p>`;
         shareBox.querySelector<HTMLFormElement>('.js-grp-share-form')?.addEventListener('submit', (ev) => {
