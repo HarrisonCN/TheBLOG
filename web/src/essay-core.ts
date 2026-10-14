@@ -58,6 +58,8 @@ export interface EssayPhoto {
   height: number;
   exif: EssayExif;
   notes: ShotNote | null;
+  /** L25：从这张照片开始新的一章（章节标题，≤ 40 字；没有就不输出这个字段） */
+  chapter?: string;
 }
 export interface Essay {
   layout: EssayLayout;
@@ -156,7 +158,8 @@ export function validateExif(v: unknown, path: string, issues: Issue[]): EssayEx
   return out;
 }
 
-const PHOTO_KEYS = ['src', 'alt', 'caption', 'credit', 'width', 'height', 'exif', 'notes'] as const;
+const PHOTO_KEYS = ['src', 'alt', 'caption', 'credit', 'width', 'height', 'exif', 'notes', 'chapter'] as const;
+export const MAX_CHAPTER = 40;
 
 /** 影集 JSON 的严格校验；null / undefined 返回 null（普通文章）。 */
 export function validateEssay(v: unknown): { essay: Essay | null; issues: Issue[] } {
@@ -191,7 +194,8 @@ export function validateEssay(v: unknown): { essay: Essay | null; issues: Issue[
     const height = dim('height');
     const exif = validateExif(o.exif, `${p}exif.`, issues);
     const notes = validateShotNote(o.notes, `${p}notes.`, issues).note;
-    return { src: src ?? '', alt, caption, credit, width, height, exif, notes };
+    const chapter = text(o, 'chapter', MAX_CHAPTER, p, issues);
+    return { src: src ?? '', alt, caption, credit, width, height, exif, notes, ...(chapter ? { chapter } : {}) };
   });
   if (!photos.length && Array.isArray(v.photos)) issues.push({ path: 'photos', message: '影集至少需要 1 张照片' });
   return { essay: { layout, photos }, issues };

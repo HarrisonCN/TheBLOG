@@ -9,6 +9,7 @@ import './music-tab.css';
 import './l14.css';
 import './ia.css';
 import './editor.css';
+import './series.css';
 import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
@@ -748,6 +749,8 @@ function bindPage(page: Page): void {
   }
   // L24 发布预览 / 即将发布：页面上有挂载点时才加载
   if (page.route.name === 'preview' || page.route.name === 'scheduled') void import('./editor-client').then((m) => m.mountEditorPages(root));
+  // L25 系列详情：本机阅读进度 + 继续读第 N 篇
+  if (page.route.name === 'seriesdetail') void import('./series-client').then((m) => m.mountSeriesPage(root));
   document.dispatchEvent(new CustomEvent('blog:page', { detail: { route: page.route } }));
 }
 

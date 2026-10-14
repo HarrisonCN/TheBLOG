@@ -28,6 +28,10 @@ import { sectionIndex } from './site-map';
 export { noindexRoute, sitemapRoutes } from './site-map';
 import { drawerGroups, essaysPage, navMenus, sectionLanding, sectionsPage, seriesPage } from './site-map-view';
 import { previewShell, scheduledShell } from './editor-view';
+import { essayChapters, isMonthKey, seriesNameOk } from './series-core';
+// L25：预渲染用（系列详情 / 月度合集逐页输出）
+export { buildSeries, monthlyGroups } from './series-core';
+import { monthlyPage, monthPage, seriesDetailPage } from './series-view';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
@@ -115,6 +119,9 @@ export type Route =
   | { name: 'series' }
   | { name: 'preview' }
   | { name: 'scheduled' }
+  | { name: 'seriesdetail'; series: string }
+  | { name: 'monthly' }
+  | { name: 'month'; ym: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -122,7 +129,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -174,6 +181,8 @@ const STATIC: Record<string, Route['name']> = {
   // L24 编辑器 2.0：发布预览（站长）+ 即将发布
   '/preview': 'preview',
   '/scheduled': 'scheduled',
+  // L25 系列与影集 2.0：月度合集
+  '/monthly': 'monthly',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -216,6 +225,14 @@ export function parseRoute(pathname: string): Route {
   if (m) return { name: 'collection', id: Number(m[1]) };
   m = /^\/u\/([A-Za-z0-9_]{3,20})$/.exec(p);
   if (m) return { name: 'user', username: m[1]!.toLowerCase() };
+  // L25：系列详情（网址用系列名本身，和标签页一样）、月度合集
+  m = /^\/series\/([^/]+)$/.exec(p);
+  if (m) {
+    const n = decode(m[1]!)?.trim();
+    return n && seriesNameOk(n) ? { name: 'seriesdetail', series: n } : { name: 'notfound' };
+  }
+  m = /^\/monthly\/([^/]+)$/.exec(p);
+  if (m) return isMonthKey(m[1]!) ? { name: 'month', ym: m[1]! } : { name: 'notfound' };
   m = /^\/tags\/([^/]+)$/.exec(p);
   if (m) {
     const t = decode(m[1]!);
@@ -279,6 +296,10 @@ export function routePath(r: Route): string {
       return '/messages/settings/';
     case 'conversation':
       return `/messages/c/${r.id}/`;
+    case 'seriesdetail':
+      return `/series/${encodeURIComponent(r.series)}/`;
+    case 'month':
+      return `/monthly/${r.ym}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -404,6 +425,9 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['repos', 'changelog'];
     case 'stats':
       return ['changelog'];
+    case 'monthly':
+    case 'month':
+      return ['works'];
     default:
       return [];
   }
@@ -907,7 +931,7 @@ export function seriesNav(s: { name: string; posts: PostSummary[]; index: number
   const n = s.posts.length;
   const pct = Math.round(((s.index + 1) / n) * 100);
   return `<nav class="series-nav" aria-label="系列连载：${e(s.name)}">
-  <p class="series-nav__kicker">${icon('list')}<span>系列连载 · <b>${e(s.name)}</b></span><span class="series-nav__pos">第 ${s.index + 1} / ${n} 篇</span></p>
+  <p class="series-nav__kicker">${icon('list')}<span>系列连载 · <b><a href="${url(`/series/${encodeURIComponent(s.name)}/`)}">${e(s.name)}</a></b></span><span class="series-nav__pos">第 ${s.index + 1} / ${n} 篇</span></p>
   <div class="series-nav__bar" role="progressbar" aria-label="系列阅读进度" aria-valuemin="1" aria-valuemax="${n}" aria-valuenow="${s.index + 1}" aria-valuetext="第 ${s.index + 1} 篇，共 ${n} 篇"><span style="width:${pct}%"></span></div>
   <ol class="series-nav__list">${s.posts.map((p, i) => (p.slug === slug ? `<li class="is-current" aria-current="page"><span class="series-nav__n">${i + 1}</span><span>${e(p.title)}</span></li>` : `<li><span class="series-nav__n">${i + 1}</span><a href="${postPath(p.slug)}">${e(p.title)}</a></li>`)).join('')}</ol>
   <div class="series-nav__pn">${s.prev ? `<a class="series-nav__a series-nav__a--prev" href="${postPath(s.prev.slug)}" rel="prev">${icon('arrowLeft')}<span><small>系列上一篇</small>${e(s.prev.title)}</span></a>` : '<span></span>'}${s.next ? `<a class="series-nav__a series-nav__a--next" href="${postPath(s.next.slug)}" rel="next"><span><small>系列下一篇</small>${e(s.next.title)}</span>${icon('arrowRight')}</a>` : '<span class="series-nav__done muted small">已经是系列最新一篇</span>'}</div>
@@ -1016,16 +1040,24 @@ export function chapterize(html: string): { html: string; toc: string; chapters:
 /** 影集：版式（单列全幅 / 双联 / 网格）+ 每张照片的图注、EXIF 条、署名和可折叠的拍摄手记；点照片进入故事模式。 */
 export function essaySection(essay: Essay): string {
   const n = essay.photos.length;
+  // L25：章节（照片的可选 chapter 字段）→ 每章第一张前面一个标题 + 顶部跳转导航
+  const chapters = essayChapters(essay.photos);
+  const chAt = new Map(chapters.map((c) => [c.start, c]));
+  const chNav = chapters.length
+    ? `<nav class="essay__chapters" aria-label="影集章节"><ol>${chapters.map((c) => `<li><a href="#${c.id}">${e(c.title)}<small> · ${c.count} 张</small></a></li>`).join('')}</ol></nav>`
+    : '';
   const items = essay.photos
     .map((p, i) => {
+      const ch = chAt.get(i);
+      const head = ch ? `<h2 class="essay__ch" id="${ch.id}">${e(ch.title)}</h2>` : '';
       const cap = p.caption || p.alt || `第 ${i + 1} 张`;
       const pic = img(p.src, p.alt || p.caption || `影集第 ${i + 1} 张`, 'essay__img', { sizes: essay.layout === 'single' ? '(max-width: 1100px) 100vw, 1100px' : essay.layout === 'diptych' ? '(max-width: 640px) 100vw, 560px' : '(max-width: 640px) 50vw, 380px', eager: i === 0, w: p.width || undefined, h: p.height || undefined });
-      return `<li class="essay__item"><figure class="essay__fig"><button type="button" class="essay__open js-essay-open" data-i="${i}" aria-label="故事模式查看第 ${i + 1} 张：${e(cap)}">${pic}</button><figcaption class="essay__cap"><span class="essay__n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><span class="essay__txt">${p.caption ? `<span class="essay__caption">${e(p.caption)}</span>` : ''}${exifStripHtml(p.exif)}${p.credit ? `<small class="essay__credit">署名：${e(p.credit)}</small>` : ''}</span></figcaption></figure>${shotNotesHtml(p.notes, `拍摄手记 · 第 ${i + 1} 张`)}</li>`;
+      return `<li class="essay__item${ch ? ' essay__item--ch' : ''}">${head}<figure class="essay__fig"><button type="button" class="essay__open js-essay-open" data-i="${i}" aria-label="故事模式查看第 ${i + 1} 张：${e(cap)}">${pic}</button><figcaption class="essay__cap"><span class="essay__n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><span class="essay__txt">${p.caption ? `<span class="essay__caption">${e(p.caption)}</span>` : ''}${exifStripHtml(p.exif)}${p.credit ? `<small class="essay__credit">署名：${e(p.credit)}</small>` : ''}</span></figcaption></figure>${shotNotesHtml(p.notes, `拍摄手记 · 第 ${i + 1} 张`)}</li>`;
     })
     .join('');
   return `<section class="essay essay--${essay.layout}" aria-label="影集：${n} 张照片" data-essay>
   <div class="essay__bar"><span class="essay__meta">${icon('aperture')}影集 · ${n} 张 · ${ESSAY_LAYOUT_LABEL[essay.layout]}</span><button type="button" class="btn btn--soft essay__story js-essay-story" data-i="0">${icon('play')}故事模式</button></div>
-  <ol class="essay__list">${items}</ol>
+  ${chNav}<ol class="essay__list">${items}</ol>
 </section>`;
 }
 
@@ -1530,6 +1562,12 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return previewShell(site, route);
     case 'scheduled':
       return scheduledShell(site, route);
+    case 'seriesdetail':
+      return seriesDetailPage(site, route) ?? notFoundPage(site);
+    case 'monthly':
+      return monthlyPage(site, route, x.works ?? []);
+    case 'month':
+      return monthPage(site, route, x.works ?? []) ?? notFoundPage(site);
     case 'user':
     case 'notifications':
     case 'me':
