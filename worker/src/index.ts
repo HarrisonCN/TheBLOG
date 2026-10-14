@@ -20,6 +20,7 @@ import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpTok
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
 import { reportUnhandled, routeAdminOps, routeOps, scheduledOps } from './ops';
+import { routeAdminEditor, routeEditorPublic, scheduledEditor } from './editor';
 import { adminAudit, adminTotpEnabled, handleSecondFactor, routeAdminSecurity, routeSecurity, scheduledSecurity } from './security';
 export { DmHub } from './dm-hub';
 
@@ -89,6 +90,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/health' || path === '/api/version' || path === '/api/status' || path === '/api/errors') {
     const ops = await routeOps(req, env, path);
     if (ops) return ops;
+  }
+
+  // ---------- L24 即将发布（公开，只有标题与时间） ----------
+  if (path === '/api/scheduled') {
+    const ed = await routeEditorPublic(req, env, path);
+    if (ed) return ed;
   }
 
   // ---------- 公开接口 ----------
@@ -191,6 +198,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L21 运行状态 / 错误事件 / 手动健康检查
     const opsAdmin = await routeAdminOps(req, env, sub, url);
     if (opsAdmin) return opsAdmin;
+    // L24 内容编辑器 2.0：草稿 / 定时发布 / 媒体库 / 模板（草稿正文最多 20 万字符）
+    const edAdmin = await routeAdminEditor(req, env, sub, url, () => readJson(req, 512 * 1024));
+    if (edAdmin) return edAdmin;
     // L22 管理员二次验证
     const secAdmin = await routeAdminSecurity(req, env, sub, url, () => readJson(req, 4096));
     if (secAdmin) return secAdmin;
@@ -269,6 +279,6 @@ export default {
   // L22：security = 清理过期 challenge / 超期安全记录 + 清除冷静期已满的注销账号
   // L21：每次触发先记录健康检查，再跑各个任务；每个任务的最近一次运行写进 ops_runs（状态页显示）
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env), security: () => scheduledSecurity(env) }));
+    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env), security: () => scheduledSecurity(env), editor: () => scheduledEditor(env) }));
   },
 } satisfies ExportedHandler<Env>;

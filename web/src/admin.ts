@@ -18,6 +18,7 @@ import { resultIconHtml } from './result-icon';
 import { installIconMotion } from './icon-motion';
 import { backdrop, essaySection, festivalText, memberBadge, url } from './render';
 import { bindEssayEditor, essayEditorHtml, readPostMediaRaw } from './admin-essay';
+import { bindEditor2, editor2Html } from './admin-editor2';
 import { validateEssay } from './essay-core';
 import { searchBooks, type BookHit } from './openlibrary';
 import { shotNotesHtml } from './essay-view';
@@ -422,6 +423,7 @@ async function renderEditor(): Promise<void> {
       'adm-editor',
     ) +
       tile('half', `${head('eye', '实时预览')}<article class="adm-preview" id="preview"></article>`, 'adm-preview-tile') +
+      tile('full', editor2Html(p), 'adm-ed2-tile', 'id="ed2"') +
       tile('full', '', 'adm-exif-tile', 'id="post-exif" hidden'),
   );
   const form = root.querySelector<HTMLFormElement>('#post-form')!;
@@ -459,6 +461,28 @@ async function renderEditor(): Promise<void> {
   });
   form.addEventListener('input', update);
   update();
+  // L24 写作台 2.0：块大纲、自动保存与草稿恢复、模板、媒体库、定时发布、发布预览
+  const ed2 = bindEditor2({
+    root,
+    form,
+    content,
+    post: p,
+    get: (path) => adminFetch(path),
+    send: (path, body, method) => (method === 'DELETE' ? adminFetch(path, { method }) : put(path, body, method)),
+    uploadBlob: async (blob, name) => {
+      const fd = new FormData();
+      fd.append('file', new File([blob], name, { type: blob.type || 'image/webp' }));
+      fd.append('alt', '');
+      return adminFetch<{ url: string }>('/api/admin/images', { method: 'POST', body: fd });
+    },
+    uploadPhoto: async (file) => {
+      const { res, prep } = await uploadPhoto(file);
+      return { url: res.url, width: prep.width, height: prep.height, file: prep.file };
+    },
+    msg: (t, err) => msg(t, err),
+    previewUrl: `${SITE_HOME.replace(/\/?$/, '/')}preview/`,
+    errStatus: (err) => (err instanceof ApiError ? { status: err.status, details: err.details } : { status: 0 }),
+  });
   form.querySelector<HTMLInputElement>('#f-cover-file')!.addEventListener('change', async (ev) => {
     const file = (ev.target as HTMLInputElement).files?.[0];
     if (!file) return;
@@ -525,6 +549,7 @@ async function renderEditor(): Promise<void> {
         if (publish) body.status = 'published';
         editing = await put<Post>('/api/admin/posts', body, 'POST');
       }
+      ed2.saved();
       await renderEditor();
       msg('已保存');
     } catch (err) {

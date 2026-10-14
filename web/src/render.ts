@@ -25,12 +25,17 @@ import { dailyWork, dotsPath, mapPoints, project } from './photo-map';
 import { changelogPage, gearPage, homeSections, nowPage, opensourcePage, searchPage, shelfPage, statsPage, subscribePage, timelinePage, worksPage } from './sections-view';
 import { sectionIndex } from './site-map';
 // L23：预渲染 / sitemap 的固定路由来自栏目注册表
-export { sitemapRoutes } from './site-map';
+export { noindexRoute, sitemapRoutes } from './site-map';
 import { drawerGroups, essaysPage, navMenus, sectionLanding, sectionsPage, seriesPage } from './site-map-view';
+import { previewShell, scheduledShell } from './editor-view';
 
 let md: (s: string) => string = renderMarkdown;
 export function setMarkdownRenderer(fn: (s: string) => string): void {
   md = fn;
+}
+/** L24 发布预览：和文章页相同的正文渲染（Markdown → 章节 / 目录） */
+export function renderPostBody(src: string): { html: string; toc: string; chapters: number } {
+  return chapterize(md(src));
 }
 
 /** 站点部署在子路径（如 GitHub Pages 的 /TheBLOG/）时的前缀；根路径部署时为空。 */
@@ -108,6 +113,8 @@ export type Route =
   | { name: 'sections' }
   | { name: 'essays' }
   | { name: 'series' }
+  | { name: 'preview' }
+  | { name: 'scheduled' }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -115,7 +122,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -164,6 +171,9 @@ const STATIC: Record<string, Route['name']> = {
   '/sections': 'sections',
   '/essays': 'essays',
   '/series': 'series',
+  // L24 编辑器 2.0：发布预览（站长）+ 即将发布
+  '/preview': 'preview',
+  '/scheduled': 'scheduled',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -1516,6 +1526,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return essaysPage(site, route);
     case 'series':
       return seriesPage(site, route);
+    case 'preview':
+      return previewShell(site, route);
+    case 'scheduled':
+      return scheduledShell(site, route);
     case 'user':
     case 'notifications':
     case 'me':
