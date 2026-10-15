@@ -204,5 +204,8 @@ export function mountDemoBanner(opts: { adminHref?: string; siteHref?: string } 
   });
   actions.append(btn);
   bar.append(actions);
-  document.body.prepend(bar);
+  // L32：放在「跳到正文」之后，键盘第一个 Tab 仍然是跳过导航
+  const skip = document.querySelector('.skip-link');
+  if (skip) skip.after(bar);
+  else document.body.prepend(bar);
 }

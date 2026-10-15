@@ -317,7 +317,7 @@ document.addEventListener('click', (ev) => {
   if (u.origin !== location.origin || outsideBase || inSite.startsWith('/admin') || inSite.startsWith('/api/') || /\.\w{2,5}$/.test(inSite)) return;
   if (u.pathname === location.pathname && u.hash) {
     ev.preventDefault();
-    document.getElementById(decodeURIComponent(u.hash.slice(1)))?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    jumpToHash(u);
     closeDrawer();
     return;
   }
@@ -326,6 +326,15 @@ document.addEventListener('click', (ev) => {
   void go(u.pathname + u.search + u.hash);
 });
 let lastClickHref: { href: string; at: number } | null = null;
+/** 页内锚点（目录、脚注）：地址栏带上 #hash（可分享；replaceState 不触发重新渲染），滚动过去并把焦点移到目标（L32 键盘 / 读屏） */
+function jumpToHash(u: URL): void {
+  const el = document.getElementById(decodeURIComponent(u.hash.slice(1)));
+  if (location.hash !== u.hash) history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+  if (!el) return;
+  el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  if (!el.matches('a[href], button, input, select, textarea, [tabindex]')) el.setAttribute('tabindex', '-1');
+  el.focus({ preventScroll: true });
+}
 // 转场遮罩的起点：捕获阶段记录（<usa-route-transition> 会先于文档级监听拦下站内链接再发 usa:navigate）
 document.addEventListener('click', (ev) => {
   const a = (ev.target as HTMLElement).closest?.('a');
@@ -345,7 +354,10 @@ document.addEventListener('usa:navigate', (ev) => {
     if (c.pathname === new URL(u, location.href).pathname) u = c.pathname + c.search + c.hash;
   }
   lastClickHref = null;
-  if (u && u !== location.pathname) void go(u);
+  if (!u) return;
+  const nu = new URL(u, location.href);
+  if (nu.pathname === location.pathname && nu.hash) return jumpToHash(nu);
+  if (u !== location.pathname) void go(u);
 });
 // <usa-pagination> 的页码按钮
 document.addEventListener('usa:change', (ev) => {

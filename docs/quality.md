@@ -35,7 +35,7 @@
 `scripts/browser-e2e.mjs`，CI `browser` 任务在 **chromium / firefox / webkit** 三个引擎里各跑一遍演示站：
 
 - 页面：首页、文章、归档、作品、社区、小组、工具、曝光计算器、搜索、关于、加入、隐私、全部栏目、使用指南 `/guide/`、404。
-- 视口：1280 浅色、390 深色（`prefers-reduced-motion: reduce`）。
+- 视口：1280 浅色、390 深色（`prefers-reduced-motion: reduce`）。另有 l32 E2E 检查缩放重排：1280 的 200%（640 px）与 WCAG 1.4.10 的 320 px 下使用指南、首页、关于无横向溢出。
 - 每页检查：axe（wcag2a + wcag2aa）严重 / 致命问题为 0、无横向溢出、无页面报错、「跳到正文」链接指向 `<main id="main">`、main 里恰好一个 h1。
 
 本地：`PW_DIR=<装了 playwright 与 axe-core 的目录> node scripts/browser-e2e.mjs --browser firefox`。

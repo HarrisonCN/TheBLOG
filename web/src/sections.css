@@ -332,3 +332,4 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .guide-list { margin: 0; padding-left: 1.2rem; line-height: 1.75; }
 .guide-list li + li { margin-top: 0.3rem; }
 .guide-list kbd { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; padding: 0.05em 0.4em; border: 1px solid var(--line, currentColor); border-radius: 4px; }
+.guide-list a { text-decoration: underline; text-underline-offset: 0.18em; }
