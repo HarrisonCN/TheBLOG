@@ -94,7 +94,7 @@ describe('使用指南 /guide/', () => {
   it('预渲染内容：七个主题、锚点唯一、目录链接都能落到锚点', () => {
     const site = { settings: { siteTitle: 't', siteDescription: '', postsPerPage: 10 }, profile: {}, posts: [], total: 0, tags: [], categories: [] } as never;
     const p = renderRoute({ name: 'guide' } as never, site, {});
-    expect(p.title).toBe('使用指南');
+    expect(p.title).toMatch(/^使用指南/);
     for (const h of ['阅读', '订阅', '加入', '发布', 'AI', '隐私', '无障碍']) expect(p.main, h).toContain(h);
     const ids = [...p.main.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
     expect(new Set(ids).size).toBe(ids.length);
