@@ -3,6 +3,7 @@
  * 每次换页后由 main.ts 调用 bindSections(root)。不依赖后端：静态 GitHub Pages 上同样可用。
  */
 import { escapeHtml as e } from './markdown';
+import { workExposure } from './photo-core';
 import type { Work } from './sections';
 import type { PostSummary, SearchDoc } from './types';
 
@@ -16,10 +17,12 @@ interface Ctx {
 }
 
 export function bindSections(root: ParentNode, ctx: Ctx): void {
-  bindWorks(root);
+  bindWorks(root, ctx.basePath);
   bindShelf(root);
   void refreshStars(root);
   bindSearch(root, ctx);
+  // L29：摄影工具箱（按需加载）
+  if (root.querySelector('form[data-ptool]')) void import('./photo-tools-client').then((m) => m.bindPhotoTools(root, ctx));
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）
@@ -48,7 +51,7 @@ function segGroup(el: HTMLElement | null, onChange: (v: string) => void): void {
 }
 
 // ---------------------------------------------------------------- 作品集
-function bindWorks(root: ParentNode): void {
+function bindWorks(root: ParentNode, basePath = ''): void {
   const grid = root.querySelector<HTMLElement>('.js-works');
   const dataEl = root.querySelector<HTMLScriptElement>('.js-works-data');
   if (!grid || !dataEl || grid.dataset.bound) return;
@@ -93,7 +96,10 @@ function bindWorks(root: ParentNode): void {
       ['ISO', w.iso],
       ['尺寸', w.width && w.height ? `${w.width} × ${w.height}` : ''],
     ];
-    dlg.querySelector('.lightbox__exif')!.innerHTML = rows.filter(([, v]) => v).map(([k, v]) => `<div><dt>${k}</dt><dd>${e(v)}</dd></div>`).join('') + (w.credit ? '<div class="lightbox__sample"><dt>说明</dt><dd>示意参数</dd></div>' : '');
+    // L29：由光圈 / 快门 / ISO 算出曝光值，并可在曝光计算器里打开
+    const xp = workExposure(w);
+    const evRow = xp ? `<div class="lightbox__tool"><dt>曝光值</dt><dd><a class="js-lb-ev" href="${e(basePath + xp.href)}">${e(xp.label)}</a></dd></div>` : '';
+    dlg.querySelector('.lightbox__exif')!.innerHTML = rows.filter(([, v]) => v).map(([k, v]) => `<div><dt>${k}</dt><dd>${e(v)}</dd></div>`).join('') + evRow + (w.credit ? '<div class="lightbox__sample"><dt>说明</dt><dd>示意参数</dd></div>' : '');
     dlg.querySelector('.lightbox__tags')!.innerHTML = w.tags.map((t) => `<span class="chip">#${e(t)}</span>`).join('');
     const cr = dlg.querySelector<HTMLElement>('.lightbox__credit')!;
     cr.innerHTML = w.credit ? `照片：${/^https?:\/\//i.test(w.creditUrl) ? `<a href="${e(w.creditUrl)}" target="_blank" rel="noopener noreferrer">${e(w.credit)}</a>` : e(w.credit)}` : '';
