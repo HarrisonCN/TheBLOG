@@ -27,6 +27,7 @@ import { renderCommentHtml, type CommentStatus, type PostComment } from './comme
 import { toggleTheme } from './theme';
 import type { Album, ContentKey, ContentMap, Favorite, Friend, GuestbookEntry, Post, PostSummary, Profile, Settings, SocialIcon } from './types';
 import { normalizeSettings } from './types';
+import { WEBHOOK_EVENTS, WEBHOOK_EVENT_LABEL } from './webhook-core';
 import type { Festival, Member, Project, StickyNote, UploadedFile, VoiceMessage } from './demo/community-types';
 import { isSectionKey, SECTION_KEYS, SECTION_SPECS, toList, type SectionKey } from './sections';
 import { AUDIO_ACCEPT, MAX_AUDIO_BYTES, type PlaylistItem } from './music-core';
@@ -1088,6 +1089,9 @@ interface WmItem { id: number; type: string; source: string; url: string; author
 const WM_TYPE: Record<string, string> = { reply: '回复', like: '喜欢', repost: '转发', bookmark: '收藏', mention: '提及' };
 const WM_STATUS: Record<string, string> = { queued: '排队验证', pending: '待审核', approved: '已显示', rejected: '已拒绝', spam: '垃圾', invalid: '验证失败' };
 let wmStatus = 'pending';
+// L31 Webhook
+interface WebhookItem { id: number; url: string; events: string[]; active: boolean; description: string; secretHint: string; createdAt: string }
+const HOOK_STATUS: Record<string, string> = { demo: '演示（未发送）', ok: '成功', failed: '失败', retrying: '等待重试', pending: '排队中' };
 async function renderUgc(): Promise<void> {
   const q = await optional(
     adminFetch<{ items: UgcItem[]; counts: Record<string, number>; rules: { reviewFirstN: number; maxLinks: number } }>(`/api/admin/ugc/queue?view=${ugcView === 'log' || ugcView === 'webmentions' ? 'pending' : ugcView}`),
@@ -1095,7 +1099,8 @@ async function renderUgc(): Promise<void> {
   );
   const log = ugcView === 'log' ? (await optional(adminFetch<{ actions: UgcLog[] }>('/api/admin/ugc/log?limit=50'), { actions: [] })).actions : [];
   const wm = ugcView === 'webmentions' ? await optional(adminFetch<{ items: WmItem[]; counts: Record<string, number> }>(`/api/admin/webmentions?status=${wmStatus}`), { items: [], counts: {} }) : { items: [], counts: {} as Record<string, number> };
-  const ai = await optional(adminFetch<{ enabled: boolean; provider: string }>('/api/admin/ai'), { enabled: false, provider: 'local' });
+  const ai = await optional(adminFetch<{ enabled: boolean; provider: string; budget?: { month: string; used: number; budget: number; left: number } }>('/api/admin/ai'), { enabled: false, provider: 'local' });
+  const hooks = (await optional(adminFetch<{ items: WebhookItem[] }>('/api/admin/webhooks'), { items: [] })).items;
   const seg = (v: typeof ugcView, l: string) => `<button type="button" class="adm-seg__b${ugcView === v ? ' is-on' : ''}" data-ugcv="${v}" aria-pressed="${ugcView === v}">${l}</button>`;
   const btn = (it: UgcItem, action: string, label: string, cls = 'btn--soft', report?: number) =>
     `<button class="btn ${cls} btn--sm" type="button" data-ugc="${action}" data-kind="${it.kind}" data-id="${it.kind === 'user' ? it.author?.id ?? it.id : it.id}"${report ? ` data-report="${report}"` : ''}>${label}</button>`;
@@ -1131,8 +1136,17 @@ ${
         'full',
         `${head('link', '开放网络')}<div class="adm-open">
 <form class="adm-form" data-form="wm-send"><p class="muted small">发送 Webmention：找出一篇已发布文章 / 公开作品正文里的外链，逐个发现对方的 Webmention 端点并通知它们（只由站长手动触发）。</p><div class="adm-grid2"><label class="field"><span>内容类型</span><select name="kind"><option value="post">文章（slug）</option><option value="work">作品（id）</option></select></label><label class="field"><span>slug 或 id</span><input name="ref" required maxlength="80"></label></div><p><button class="btn btn--sm" type="submit">${icon('send')}发送 Webmention</button></p><ul class="adm-wm-sent js-wm-sent plain-list small" aria-live="polite"></ul></form>
-<form class="adm-form" data-form="ai-flag"><label class="adm-switch"><input type="checkbox" name="enabled"${ai.enabled ? ' checked' : ''}> AI 辅助（实验）：会员在发布器里可以请求摘要 / 标签 / 提纲建议</label><p class="muted small">默认关闭。建议只在作者点击「采用」后才会填入，发布前需要作者再次确认，作品会标注「含 AI 辅助内容」。AI 不会生成评论、点赞等互动。提供方：${e(ai.provider === 'local' ? '本地确定性回退（不调用任何外部服务）' : ai.provider)}。</p><p><button class="btn btn--sm" type="submit">保存</button></p></form>
+<form class="adm-form" data-form="ai-flag"><label class="adm-switch"><input type="checkbox" name="enabled"${ai.enabled ? ' checked' : ''}> AI 创作台（实验）：会员在发布器里可以请求标题 / 摘要 / 替代文字 / 标签 / 校对 / 提纲建议</label><div class="adm-grid2"><label class="field"><span>每月建议次数上限（全站，上海时间分月）</span><input name="monthlyBudget" type="number" min="0" max="100000" step="1" value="${ai.budget?.budget ?? 200}" required></label><p class="muted small adm-ai-usage" aria-live="polite">${ai.budget ? `${e(ai.budget.month)} 已用 ${ai.budget.used} / ${ai.budget.budget} 次，剩余 ${ai.budget.left} 次` : ''}</p></div><p class="muted small">默认关闭。建议只在作者点击「采用」后才会填入（校对逐条勾选），发布前需要作者再次确认，作品会标注「含 AI 辅助内容」。额度用完后本月不再生成建议。AI 不会生成评论、点赞等互动。提供方：${e(ai.provider === 'local' ? '本地确定性回退（不调用任何外部服务）' : ai.provider)}。</p><p><button class="btn btn--sm" type="submit">保存</button></p></form>
 <form class="adm-form" data-form="role"><p class="muted small">站点角色决定会员最多能创建哪一级 MCP 令牌：审核员可以用「社区审核」令牌处理审核队列。撤销角色后旧令牌自动降级。</p><div class="adm-grid2"><label class="field"><span>会员 id</span><input name="id" type="number" min="1" required></label><label class="field"><span>角色</span><select name="role"><option value="moderator">审核员</option><option value="admin">站长</option><option value="member">普通好朋友（撤销）</option></select></label></div><p><button class="btn btn--sm" type="submit">保存角色</button></p></form>
+</div>`,
+      ) +
+      tile(
+        'full',
+        `${head('send', 'Webhook')}<div class="adm-hooks">
+<p class="muted small">有新文章 / 作品 / 评论时，用带签名的 POST 通知你的服务（签名头 <code>X-TheBLOG-Signature: t=…,v1=HMAC-SHA256</code>，接收方请校验并拒绝超过 5 分钟的请求）。只允许 https 公网地址；失败会按 30 秒、2 分钟、8 分钟、32 分钟退避重试。${DEMO ? '<b>演示站不会真正发送</b>，「测试投递」只生成带签名的请求体。' : ''}</p>
+<form class="adm-form" data-form="hook-new"><div class="adm-grid2"><label class="field"><span>接收地址（https）</span><input name="url" type="url" required maxlength="500" placeholder="https://hooks.example.com/blog" inputmode="url"></label><label class="field"><span>备注</span><input name="description" maxlength="100"></label></div><fieldset class="adm-hook-events"><legend class="small">事件</legend>${WEBHOOK_EVENTS.map((ev) => `<label class="adm-check"><input type="checkbox" name="events" value="${ev}"${ev === 'post.published' ? ' checked' : ''}> ${e(WEBHOOK_EVENT_LABEL[ev])}</label>`).join('')}</fieldset><p><button class="btn btn--sm" type="submit">${icon('plus')}添加 Webhook</button></p><p class="adm-hook-secret js-hook-secret" role="status" aria-live="polite" hidden></p></form>
+<div class="adm-gb adm-hook-list">${hooks.map((w) => `<article class="adm-gb__item adm-hook" data-id="${w.id}"><header><b class="adm-hook__url">${e(w.url)}</b><span class="chip${w.active ? ' chip--pub' : ''}">${w.active ? '启用' : '已停用'}</span><span class="muted small">${e(w.secretHint)}</span></header>${w.description ? `<p class="small">${e(w.description)}</p>` : ''}<p class="small">${w.events.map((ev) => `<span class="chip">${e((WEBHOOK_EVENT_LABEL as Record<string, string>)[ev] ?? ev)}</span>`).join(' ')}</p>
+<div class="adm-row"><button class="btn btn--soft btn--sm" type="button" data-hook="test" data-id="${w.id}">测试投递</button><button class="btn btn--ghost btn--sm" type="button" data-hook="${w.active ? 'pause' : 'resume'}" data-id="${w.id}">${w.active ? '停用' : '启用'}</button><button class="btn btn--ghost btn--sm" type="button" data-hook="log" data-id="${w.id}" aria-expanded="false" aria-controls="hook-log-${w.id}">投递记录</button><button class="adm-icon-btn adm-icon-btn--danger" type="button" data-hook="delete" data-id="${w.id}" aria-label="删除 Webhook ${e(w.url)}">${icon('trash')}</button></div><div class="adm-hook__log small" id="hook-log-${w.id}" hidden></div></article>`).join('') || '<p class="empty">还没有 Webhook</p>'}</div>
 </div>`,
       ) +
       tile(
@@ -1156,10 +1170,64 @@ ${
   });
   root.querySelector<HTMLFormElement>('[data-form="ai-flag"]')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const on = ((ev.currentTarget as HTMLFormElement).elements.namedItem('enabled') as HTMLInputElement).checked;
+    const f = ev.currentTarget as HTMLFormElement;
+    const on = (f.elements.namedItem('enabled') as HTMLInputElement).checked;
+    const budget = Number((f.elements.namedItem('monthlyBudget') as HTMLInputElement | null)?.value ?? 200);
     try {
-      await put('/api/admin/ai', { enabled: on });
-      msg(on ? 'AI 辅助已开启' : 'AI 辅助已关闭');
+      const r = await put<{ budget?: { month: string; used: number; budget: number; left: number } }>('/api/admin/ai', { enabled: on, monthlyBudget: budget });
+      const u = f.querySelector('.adm-ai-usage');
+      if (u && r.budget) u.textContent = `${r.budget.month} 已用 ${r.budget.used} / ${r.budget.budget} 次，剩余 ${r.budget.left} 次`;
+      msg(on ? 'AI 创作台已开启' : 'AI 创作台已关闭');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+  root.querySelector<HTMLFormElement>('[data-form="hook-new"]')?.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget as HTMLFormElement;
+    const events = [...f.querySelectorAll<HTMLInputElement>('input[name="events"]:checked')].map((c) => c.value);
+    try {
+      const r = await put<{ secret: string }>('/api/admin/webhooks', { url: (f.elements.namedItem('url') as HTMLInputElement).value.trim(), description: (f.elements.namedItem('description') as HTMLInputElement).value, events }, 'POST');
+      await renderUgc();
+      const out = root.querySelector<HTMLElement>('.js-hook-secret');
+      if (out) {
+        out.hidden = false;
+        out.innerHTML = `签名密钥（只显示这一次，请马上保存）：<code class="adm-hook__secret" tabindex="0">${e(r.secret)}</code>`;
+        out.querySelector<HTMLElement>('code')?.focus();
+      }
+      msg('Webhook 已添加');
+    } catch (err) {
+      msg(errText(err), true);
+    }
+  });
+  root.querySelector('.adm-hook-list')?.addEventListener('click', async (ev) => {
+    const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('[data-hook]');
+    if (!b) return;
+    const id = Number(b.dataset.id);
+    const act = b.dataset.hook;
+    try {
+      if (act === 'test') {
+        const r = await put<{ delivery: { status: string; httpStatus: number | null } }>(`/api/admin/webhooks/${id}/test`, {}, 'POST');
+        msg(r.delivery.status === 'demo' ? '已生成测试投递（演示站不真正发送）' : r.delivery.status === 'ok' ? `测试投递成功（HTTP ${r.delivery.httpStatus}）` : `测试投递失败：${r.delivery.status}`);
+        return;
+      }
+      if (act === 'log') {
+        const box = root.querySelector<HTMLElement>(`#hook-log-${id}`)!;
+        const open = b.getAttribute('aria-expanded') === 'true';
+        b.setAttribute('aria-expanded', String(!open));
+        box.hidden = open;
+        if (!open) {
+          const r = await adminFetch<{ items: { id: number; event: string; status: string; httpStatus: number | null; attempts: number; createdAt: string }[] }>(`/api/admin/webhooks/${id}/deliveries`);
+          box.innerHTML = r.items.length ? `<ul class="plain-list">${r.items.map((d) => `<li><span class="chip">${e(d.event)}</span> ${e(HOOK_STATUS[d.status] ?? d.status)}${d.httpStatus ? ` · HTTP ${d.httpStatus}` : ''} · ${e(fmtDate(d.createdAt))}</li>`).join('')}</ul>` : '<p class="muted">还没有投递记录</p>';
+        }
+        return;
+      }
+      if (act === 'delete') {
+        if (!confirm('删除这个 Webhook 和它的投递记录？')) return;
+        await put(`/api/admin/webhooks/${id}`, {}, 'DELETE');
+      } else await put(`/api/admin/webhooks/${id}`, { active: act === 'resume' });
+      await renderUgc();
+      msg(act === 'delete' ? 'Webhook 已删除' : act === 'resume' ? 'Webhook 已启用' : 'Webhook 已停用');
     } catch (err) {
       msg(errText(err), true);
     }
