@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.29.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.29.0) — 2026-10-15
+
+_L29 · 摄影工具箱：曝光计算器 /tools/exposure/（EV、等效组合、ND 减光、网址参数）、景深计算器 /tools/dof/（近点 / 远点 / 超焦距，含手机传感器与等效焦距）、黄金 / 蓝调时刻 /tools/golden-hour/（NOAA 离线计算，默认不请求定位）、本地 EXIF 查看器 /tools/exif/（不上传、零网络请求、GPS 只提示、下载去元数据副本）、作品灯箱曝光值_
+
+### 新功能 Features
+
+- **phototools:** L29 摄影工具箱 — /tools/exposure/ (EV, equivalents, ND), /tools/dof/ (near/far/hyperfocal, phone sensors, 35mm-eq input), /tools/golden-hour/ (offline NOAA sun, golden/blue hour, polar day/night, geolocation only on click, 0.1°), /tools/exif/ (local-only viewer, GPS warning, strip copy); works lightbox EV row → exposure calculator (2a53ad6)
+
+### 测试 Tests
+
+- **phototools:** L29 摄影工具箱 — exposure/EV, DOF/hyperfocal (incl. phone sensors), NOAA sun times vs sunrise-sunset.org + timeanddate references, EXIF report, routes (fail-before: l29-failbefore.log) (46e6045)
+
+### 文档 Docs
+
+- **phototools:** L29 摄影工具箱 docs (phototools.md, README, ROADMAP, sections) (0c15f5d)
+
+### 杂项 Chores
+
+- **release:** 1.29.0 — version bump, release-meta (1.28.0 frozen at 1ff3bd6) (fc40c30)
+
 ## [1.28.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.28.0) — 2026-10-14
 
 _L28 · 兴趣社群：小组 /groups/ 与小组主页（建组、组长 / 管理员 / 成员角色、直接加入或审核入组、置顶公告、小组动态分享自己的公开作品、移出与移除、举报走已有审核队列、尊重屏蔽、频率限制）、/api/social/groups、迁移 0021_groups_
