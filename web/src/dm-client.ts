@@ -25,6 +25,7 @@ import {
   ALT_MAX,
   DM_VOICE_MAX_MS,
   fmtDuration,
+  backoffMs,
   type DmAttachment,
   type DmConversation,
   type DmEvent,
@@ -220,7 +221,7 @@ export class Live {
       // 连不上就轮询；连上过又断了 → 退避重连，期间轮询兜底
       this.startPolling();
       if (opened || this.retry < 3) {
-        const wait = Math.min(30_000, 1000 * 2 ** this.retry++);
+        const wait = backoffMs(this.retry++); // dm-core 共享退避（1 s → 30 s 上限，单元测试覆盖）
         setTimeout(() => !this.stopped && navigator.onLine !== false && void this.connect(), wait);
       }
     });

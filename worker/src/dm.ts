@@ -805,7 +805,7 @@ export async function uploadMedia(req: Request, env: Env, id: number) {
   const v = checkMedia({ kind: fields.get('kind'), mime: file.type, size: file.size, alt: fields.get('alt'), durationMs: fields.get('durationMs'), width: fields.get('width'), height: fields.get('height') });
   if (!v.ok) throw new HttpError(v.status, v.code, v.message);
   await rateLimit(env, 'dm-media', String(me.id), DM_MEDIA_PER_HOUR, 3600, '上传太频繁，请稍后再试');
-  let bytes = new Uint8Array(await file.arrayBuffer());
+  let bytes: Uint8Array = new Uint8Array(await file.arrayBuffer());
   if (v.value.kind === 'image') {
     if (sniffImageType(bytes) !== v.value.mime) throw new HttpError(415, 'unsupported_type', '图片内容和类型不符');
     bytes = stripMetadata(bytes).bytes;
