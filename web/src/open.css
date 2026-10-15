@@ -110,5 +110,7 @@ a.open-face:hover .open-face__l, a.open-face:focus-visible .open-face__l { box-s
 .open-ai__opts span { min-width: 0; overflow-wrap: anywhere; }
 .open-ai__proof { margin: 0; padding: 0.4rem 0.6rem; border: 1px solid var(--hairline); border-radius: 8px; display: grid; gap: 0.3rem; }
 .open-ai__proof legend { padding: 0 0.3rem; color: var(--muted, inherit); }
-.open-ai__fix { display: flex; align-items: flex-start; gap: 0.45rem; min-height: 44px; align-items: center; font-size: 0.9rem; overflow-wrap: anywhere; }
-.open-ai__fix input { width: 1.1rem; height: 1.1rem; flex: none; }
+.open-ai__proof { min-width: 0; }
+.open-ai .open-ai__fix { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; font-size: 0.9rem; overflow-wrap: anywhere; padding: 0; background: none; border: 0; box-shadow: none; }
+.open-ai .open-ai__fix > input[type='checkbox'] { appearance: auto; width: 1.15rem; height: 1.15rem; min-width: 0; min-height: 0; margin: 0; padding: 0; flex: none; }
+.open-ai .open-ai__fix > span { flex: 1 1 auto; min-width: 0; }
