@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DemoBackend, memoryKV, type KV } from '../src/demo/mock-api';
-import { DEMO_OTP } from '../src/demo/seed';
+import { DEMO_OTP, DEMO_PASSWORD } from '../src/demo/seed';
 import {
   AI2_KINDS, AI_BUDGET_DEFAULT, aiMonth, applyFixes, budgetState, checkAi2Input, checkAiConfig, proofread, suggestAlt, suggestTitles,
 } from '../src/ai-core';
@@ -182,7 +182,12 @@ async function member(email = 'm31@example.com') {
   await api.handle('POST', '/api/members/register', { name: 'Mo', email });
   return B(await api.handle('POST', '/api/members/verify', { email, code: DEMO_OTP })).token as string;
 }
-const admin = { 'x-demo-admin': '1' };
+/** 演示站的站长登录：会话 + CSRF（与 open.test.ts 相同） */
+let admin: Record<string, string> = {};
+async function adminLogin() {
+  const r = B(await api.handle('POST', '/api/auth/login', { password: DEMO_PASSWORD }));
+  admin = { 'x-csrf-token': r.csrfToken };
+}
 
 describe('演示 mock：AI 创作台 2.0', () => {
   it('默认关闭；开启后六种建议都可用；预算用完 429；新的月份重置', async () => {
@@ -190,6 +195,7 @@ describe('演示 mock：AI 创作台 2.0', () => {
     const body = '今天去了西湖,风很大.我们的的相机差点被吹倒。湖边的日落非常好看。';
     expect((await api.handle('POST', '/api/social/ai/suggest', { kind: 'proof', body }, as(t))).status).toBe(403);
     expect(B(await api.handle('GET', '/api/social/ai/status', undefined, as(t)))).toMatchObject({ enabled: false });
+    await adminLogin();
     expect((await api.handle('PUT', '/api/admin/ai', { enabled: true, monthlyBudget: 3 }, admin)).status).toBe(200);
     const st = B(await api.handle('GET', '/api/social/ai/status', undefined, as(t)));
     expect(st).toMatchObject({ enabled: true, kinds: [...AI2_KINDS], budget: { month: '2026-10', used: 0, budget: 3, left: 3 } });
@@ -214,6 +220,7 @@ describe('演示 mock：AI 创作台 2.0', () => {
 describe('演示 mock：Webhook', () => {
   it('站长增删改；密钥只在创建时返回一次；测试投递生成签名但演示站不真正发送', async () => {
     expect((await api.handle('GET', '/api/admin/webhooks', undefined, {})).status).toBe(401);
+    await adminLogin();
     const c = await api.handle('POST', '/api/admin/webhooks', { url: 'https://hooks.example.com/blog', events: ['work.published', 'post.published'], description: '示例' }, admin);
     expect(c.status).toBe(201);
     const hook = B(c).webhook;
