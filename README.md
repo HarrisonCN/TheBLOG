@@ -110,6 +110,7 @@ scripts/e2e.mjs         端到端测试
 - **搜索与推荐 2.0（L26 · 1.26.0）**：`/search/` **联合搜索**文章、作品、影集、创作者和话题（中文按二元组切词、字段加权 BM25），按 **类型 / 标签 / 年份** 筛选并写进网址，命中高亮、分面计数、没有结果时给相近的词；**⌘K** 和搜索页用同一套排名；文章末尾的 **相关推荐** 做 MMR 多样性重排（同一系列最多 2 篇）；新接口 `GET /api/search`。D1 FTS5 与语义搜索未做（SKIPPED-verifiable）。详见 [docs/search.md](docs/search.md)。
 - **阅读与书影音 2.0（L27 · 1.27.0）**：**书摘** `/quotes/` 汇集文章里的 `:::quote` 摘录和书影音条目的摘录，按来源筛选、链回文章里的那一段（锚点改文章也不会失效）、可生成分享卡片；**年度书影音** `/shelf/:年份/` 统计每年的数量、状态、平均分和月份分布；文章页 **稍后读** 只存在本机，`/reading-list/` 显示阅读进度、可导出 Markdown。会员跨设备同步：SKIPPED-verifiable。见 [docs/reading.md](docs/reading.md)。
 - **兴趣社群（L28 · 1.28.0）**：**小组** `/groups/`（社区 › 小组）：建组、组长 / 管理员 / 成员三种角色、直接加入或审核入组、置顶公告、小组动态（成员分享自己已发布的公开作品）、移出与移除、举报走已有审核队列、尊重屏蔽、频率限制；新接口 `/api/social/groups`。**真实部署需要执行新迁移 `0021_groups.sql`**（只做加法）。见 [docs/groups.md](docs/groups.md)。
+- **摄影工具箱（L29 · 1.29.0）**：工具栏目新增四个本机计算的页面——**曝光计算器** `/tools/exposure/`（EV、等效组合、ND 减光，支持网址参数）、**景深计算器** `/tools/dof/`（近点 / 远点 / 超焦距，含手机传感器和等效焦距换算）、**黄金 / 蓝调时刻** `/tools/golden-hour/`（NOAA 公式离线计算，默认城市坐标、不请求定位权限）、**EXIF 查看器** `/tools/exif/`（照片不上传、零网络请求，GPS 只提示不显示，可下载去除元数据的副本）；作品集灯箱多了「曝光值」并可一键带入曝光计算器。没有新接口、没有迁移。见 [docs/phototools.md](docs/phototools.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -195,7 +196,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 345 个 + web 389 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 362 个 + web 577 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
