@@ -37,6 +37,7 @@ import { monthlyPage, monthPage, seriesDetailPage } from './series-view';
 import { quotesPage, readingListPage, shelfYearPage } from './reading-view';
 import type { QuoteCard } from './reading-core';
 import { groupPage, groupsPage } from './groups-view';
+import { photoToolPage } from './photo-tools-view';
 import { GROUP_SLUG_RE } from './group-core';
 
 let md: (s: string) => string = renderMarkdown;
@@ -133,6 +134,10 @@ export type Route =
   | { name: 'readinglist' }
   | { name: 'groups' }
   | { name: 'group'; slug: string }
+  | { name: 'exposure' }
+  | { name: 'dof' }
+  | { name: 'goldenhour' }
+  | { name: 'exifviewer' }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -140,7 +145,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -199,6 +204,11 @@ const STATIC: Record<string, Route['name']> = {
   '/reading-list': 'readinglist',
   // L28 兴趣社群
   '/groups': 'groups',
+  // L29 摄影工具箱
+  '/tools/exposure': 'exposure',
+  '/tools/dof': 'dof',
+  '/tools/golden-hour': 'goldenhour',
+  '/tools/exif': 'exifviewer',
 };
 /** 扩展栏目的静态路由（预渲染用） */
 export const SECTION_ROUTES = ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'opensource', 'stats', 'search', 'subscribe', 'map'] as const;
@@ -328,6 +338,14 @@ export function routePath(r: Route): string {
       return '/reading-list/';
     case 'group':
       return `/groups/${r.slug}/`;
+    case 'exposure':
+      return '/tools/exposure/';
+    case 'dof':
+      return '/tools/dof/';
+    case 'goldenhour':
+      return '/tools/golden-hour/';
+    case 'exifviewer':
+      return '/tools/exif/';
     case 'notfound':
       return '/404/';
     default:
@@ -1611,6 +1629,11 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return readingListPage(site, route);
     case 'groups':
       return groupsPage(site, route);
+    case 'exposure':
+    case 'dof':
+    case 'goldenhour':
+    case 'exifviewer':
+      return photoToolPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':
