@@ -333,3 +333,62 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .guide-list li + li { margin-top: 0.3rem; }
 .guide-list kbd { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; padding: 0.05em 0.4em; border: 1px solid var(--line, currentColor); border-radius: 4px; }
 .guide-list a { text-decoration: underline; text-underline-offset: 0.18em; }
+
+/* L33 视觉杂志 /magazine/ */
+.mag-fig { margin: 0; }
+.mag-img { display: block; width: 100%; height: auto; border-radius: 10px; background: var(--line, rgba(127,127,127,.15)); }
+.mag-credit { margin-top: 0.3rem; }
+.mag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.mag-card__a { display: flex; flex-direction: column; gap: 0.3rem; color: inherit; text-decoration: none; }
+.mag-card__a:hover .mag-card__title, .mag-card__a:focus-visible .mag-card__title { text-decoration: underline; }
+.mag-fig--card .mag-img { aspect-ratio: 4 / 3; object-fit: cover; }
+.mag-card__no { font: 600 0.8rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.08em; margin-top: 0.4rem; }
+.mag-card__title { font-family: var(--serif, serif); font-size: 1.15rem; font-weight: 600; }
+.mag-cover { position: relative; }
+.mag-fig--cover .mag-img { aspect-ratio: 16 / 9; object-fit: cover; }
+.mag-cover__meta { display: flex; align-items: baseline; gap: 0.8rem; margin-top: 0.6rem; }
+.mag-cover__no { font: 700 1.6rem/1 var(--serif, serif); margin: 0; }
+.mag-note { margin: 1.4rem 0; padding: 1rem 1.2rem; border-left: 3px solid var(--accent, currentColor); background: var(--card, transparent); border-radius: 0 10px 10px 0; }
+.mag-note__k { margin: 0 0 0.3rem; font-weight: 600; letter-spacing: 0.1em; }
+.mag-note p:last-child { margin: 0; line-height: 1.8; }
+.mag-toc { margin: 1.4rem 0; }
+.mag-toc__h { font-size: 1.1rem; margin: 0 0 0.6rem; }
+.mag-toc__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line, rgba(127,127,127,.25)); }
+.mag-toc__list a { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.6rem; align-items: baseline; padding: 0.55rem 0.2rem; border-bottom: 1px solid var(--line, rgba(127,127,127,.25)); color: inherit; text-decoration: none; }
+.mag-toc__list a:hover .mag-toc__title, .mag-toc__list a:focus-visible .mag-toc__title { text-decoration: underline; }
+.mag-toc__kind { font-weight: 600; }
+.mag-keys kbd { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; padding: 0.05em 0.4em; border: 1px solid var(--line, currentColor); border-radius: 4px; }
+.mag-piece { scroll-margin-top: 5rem; margin: 2.4rem 0; padding-top: 1.2rem; border-top: 1px solid var(--line, rgba(127,127,127,.25)); }
+.mag-piece:focus { outline: none; }
+.mag-piece:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 6px; border-radius: 6px; }
+.mag-piece__kicker { display: flex; gap: 0.8rem; margin: 0 0 0.3rem; }
+.mag-piece__kind { font-weight: 600; letter-spacing: 0.1em; }
+.mag-piece__title { font-family: var(--serif, serif); font-size: clamp(1.4rem, 3vw, 2rem); margin: 0 0 0.3rem; }
+.mag-piece__dek { margin: 0 0 1rem; font-size: 1.05rem; opacity: 0.85; }
+.mag-text { line-height: 1.85; }
+.mag-row, .mag-spread { display: grid; gap: 0.8rem; }
+.mag-spread--diptych, .mag-spread--triptych { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.mag-spread--lead { grid-template-columns: 2fr 1fr; }
+.mag-spread--lead .mag-fig--first { grid-row: span 2; }
+.mag-spread--lead .mag-fig--first .mag-img { height: 100%; object-fit: cover; }
+.mag-gallery { display: flex; flex-direction: column; gap: 0.8rem; }
+.mag-gallery__row { display: flex; gap: 0.8rem; }
+.mag-gallery__row .mag-fig { flex: var(--ar) 1 0; min-width: 0; }
+.mag-quote { margin: 0; padding: 1.4rem 0; text-align: center; }
+.mag-quote p { font: 500 clamp(1.3rem, 3vw, 1.9rem)/1.5 var(--serif, serif); margin: 0 0 0.6rem; }
+.mag-more { margin-top: 1rem; }
+.mag-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem; }
+.mag-nav__a { display: flex; flex-direction: column; padding: 0.8rem 1rem; border: 1px solid var(--line, rgba(127,127,127,.3)); border-radius: 10px; color: inherit; text-decoration: none; }
+.mag-nav__a[rel='next'] { text-align: right; grid-column: 2; }
+@media (max-width: 640px) {
+  .mag-spread--lead { grid-template-columns: 1fr; }
+  .mag-spread--lead .mag-fig--first { grid-row: auto; }
+  .mag-gallery__row { flex-direction: column; }
+  .mag-toc__list a { grid-template-columns: 2.8rem 1fr; }
+  .mag-toc__page { grid-column: 2; }
+}
+@media print {
+  .mag-piece { break-before: page; border: 0; }
+  .mag-keys, .mag-nav { display: none; }
+  .mag-img { border-radius: 0; }
+}

@@ -19,6 +19,7 @@ import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-so
 import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { groupsSeed, MockGroups } from './mock-groups';
+import { magazineSeed, MockMagazine } from './mock-magazine';
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
@@ -379,6 +380,15 @@ export class DemoBackend {
       base: this.base,
       now: () => this.now(),
     });
+    this.magazine = new MockMagazine({
+      state: () => this.db().magazine ?? magazineSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.magazine ??= magazineSeed(this.base);
+        mutate(db.magazine);
+        this.save(db);
+      },
+    });
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
       commit: (mutate) => {
@@ -415,6 +425,7 @@ export class DemoBackend {
   private social: MockSocial;
   private dm: MockDm;
   private groups: MockGroups;
+  private magazine: MockMagazine;
   private sync: MockSync;
   private groupsPurge(id: number): void {
     const db = structuredClone(this.db());
@@ -538,6 +549,11 @@ export class DemoBackend {
     if (path === '/api/health' || path === '/api/version' || path === '/api/status' || path === '/api/errors') {
       const o = this.ops.routePublic(m, path, body);
       if (o) return o;
+    }
+    // ---- L33 视觉杂志（公开：只有已发布的期刊）----
+    if (path.startsWith('/api/magazine')) {
+      const mg = this.magazine.routePublic(m, path);
+      if (mg) return mg;
     }
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -669,6 +685,9 @@ export class DemoBackend {
       if (edAdmin) return edAdmin;
       const aiAdmin = await this.aistudio.routeAdmin(m, sub, body);
       if (aiAdmin) return aiAdmin;
+      // L33 视觉杂志
+      const magAdmin = this.magazine.routeAdmin(m, sub, body);
+      if (magAdmin) return magAdmin;
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);

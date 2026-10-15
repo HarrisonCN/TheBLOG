@@ -23,6 +23,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   bindSearch(root, ctx);
   // L29：摄影工具箱（按需加载）
   if (root.querySelector('form[data-ptool]')) void import('./photo-tools-client').then((m) => m.bindPhotoTools(root, ctx));
+  // L33：视觉杂志键盘翻篇（按需加载）
+  if (root.querySelector('[data-magazine]')) void import('./magazine-client').then((m) => m.bindMagazine(root));
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）

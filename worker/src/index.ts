@@ -17,6 +17,7 @@ import { routeAdminDiscovery } from './discovery';
 import { routeAdminStudio } from './studio';
 import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
+import { routeAdminMagazine, routeMagazinePublic } from './magazine';
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
@@ -97,6 +98,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/scheduled') {
     const ed = await routeEditorPublic(req, env, path);
     if (ed) return ed;
+  }
+
+  // ---------- L33 视觉杂志（公开：只有已发布期刊） ----------
+  if (path === '/api/magazine' || path.startsWith('/api/magazine/')) {
+    const mg = await routeMagazinePublic(req, env, path);
+    if (mg) return mg;
   }
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -204,6 +211,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L20 Webmention 审核 / 外发、站点角色、AI 开关
     const aiAdmin = await routeAiStudioAdmin(req, env, sub, () => readJson(req, 8 * 1024));
     if (aiAdmin) return aiAdmin;
+    // L33 视觉杂志（整期 JSON 最多 64 KB）
+    const magAdmin = await routeAdminMagazine(req, env, sub, () => readJson(req, 64 * 1024));
+    if (magAdmin) return magAdmin;
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
     // L21 运行状态 / 错误事件 / 手动健康检查
