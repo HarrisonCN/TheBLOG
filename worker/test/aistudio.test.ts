@@ -10,6 +10,7 @@ import { testOutbox } from '../src/community';
 import type { Env } from '../src/env';
 import { verifySignature } from '../src/webhook-core';
 import { AP_CONTENT_TYPE } from '../src/ap-core';
+import { scheduledWebhooks } from '../src/aistudio';
 
 let env: Env;
 let admin: { cookie: string; csrf: string };
@@ -109,6 +110,21 @@ describe('Webhook', () => {
     expect((await J(await adm(`/api/admin/webhooks/${webhook.id}`, { active: false }, 'PUT'))).webhook.active).toBe(false);
     expect((await adm(`/api/admin/webhooks/${webhook.id}`, undefined, 'DELETE')).status).toBe(200);
     expect((await J(await adm('/api/admin/webhooks'))).items).toHaveLength(0);
+  });
+  it('发布文章 → 排队 post.published；cron 投递并验签', async () => {
+    const { webhook, secret } = await J(await adm('/api/admin/webhooks', { url: hookUrl, events: ['post.published'] }));
+    const n0 = received.length;
+    const p = await adm('/api/admin/posts', { title: 'L31 Webhook 测试文章（虚构）', contentMd: '正文', status: 'published' });
+    expect(p.status).toBe(201);
+    const q = (await J(await adm(`/api/admin/webhooks/${webhook.id}/deliveries`))).items;
+    expect(q[0]).toMatchObject({ event: 'post.published', status: 'retrying', attempts: 0 });
+    expect(received.length).toBe(n0); // 请求里不等待对方
+    expect(await scheduledWebhooks(env)).toBeGreaterThanOrEqual(1);
+    const got = received.at(-1)!;
+    expect(JSON.parse(got.body)).toMatchObject({ type: 'post.published', data: { title: 'L31 Webhook 测试文章（虚构）' } });
+    expect(await verifySignature(String(got.headers['x-theblog-signature']), secret, got.body, Math.floor(Date.now() / 1000))).toBe(true);
+    expect((await J(await adm(`/api/admin/webhooks/${webhook.id}/deliveries`))).items[0]).toMatchObject({ status: 'ok', attempts: 1 });
+    await adm(`/api/admin/webhooks/${webhook.id}`, undefined, 'DELETE');
   });
   it('没有放开内网时拒绝 http 与内网地址', async () => {
     const strict = await setupEnv({ SITE_URL: 'https://blog.example/' } as Partial<Env>);

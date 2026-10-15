@@ -143,13 +143,14 @@ export async function testHook(env: Env, id: number) {
   const d = await enqueue(env, hook, 'ping', { webhookId: id, message: '这是一条测试投递' });
   return { delivery: deliveryView(await attempt(env, hook, d)) };
 }
-/** 业务事件：投递给所有订阅了该事件的启用中 Webhook（调用方用 ctx.waitUntil）。 */
+/** 业务事件：给所有订阅了该事件的启用中 Webhook 排队一条投递（不在请求里等待对方），由 cron 在 15 分钟内发出。 */
 export async function dispatchEvent(env: Env, event: WebhookEvent, data: Record<string, unknown>): Promise<number> {
   const { results } = await env.DB.prepare('SELECT * FROM webhooks WHERE active = 1').all<HookRow>();
   let n = 0;
   for (const h of results) {
     if (!(JSON.parse(h.events) as string[]).includes(event)) continue;
-    await attempt(env, h, await enqueue(env, h, event, data));
+    const d = await enqueue(env, h, event, data);
+    await env.DB.prepare("UPDATE webhook_deliveries SET status = 'retrying', next_attempt_at = ? WHERE id = ?").bind(d.created_at, d.id).run();
     n++;
   }
   return n;

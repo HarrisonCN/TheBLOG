@@ -17,7 +17,7 @@ import { routeAdminDiscovery } from './discovery';
 import { routeAdminStudio } from './studio';
 import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
-import { routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
+import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
 import { reportUnhandled, routeAdminOps, routeOps, scheduledOps } from './ops';
@@ -219,7 +219,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
       const { cursor, q } = pageParams(url, listQuerySchema);
       return json(await svc.listPosts(env, { ...q, cursor, includeDrafts: true }), { headers: NO_STORE });
     }
-    if (sub === '/posts' && m === 'POST') return json(await svc.createPost(env, await readJson(req)), { status: 201, headers: NO_STORE });
+    if (sub === '/posts' && m === 'POST') {
+      const post = await svc.createPost(env, await readJson(req));
+      // L31 Webhook：新发布的文章排队 post.published（失败不影响发布）
+      if (post.status === 'published') await dispatchEvent(env, 'post.published', { slug: post.slug, title: post.title, summary: post.summary ?? '', publishedAt: post.publishedAt ?? null }).catch(() => 0);
+      return json(post, { status: 201, headers: NO_STORE });
+    }
     if ((match = /^\/posts\/([^/]+)\/publish$/.exec(sub)) && m === 'POST') {
       const body = (await readJson(req)) as { published?: unknown };
       return json(await svc.setPublished(env, decodeURIComponent(match[1]!), body.published !== false), { headers: NO_STORE });
