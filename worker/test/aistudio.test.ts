@@ -61,21 +61,21 @@ describe('AI 创作台 2.0', () => {
     expect((await call(env, '/api/social/ai/suggest', { method: 'POST', token: t, body: { kind: 'proof', body } })).status).toBe(403);
     expect((await call(env, '/api/admin/ai', { method: 'PUT', body: { enabled: true } })).status).toBe(401);
     expect((await adm('/api/admin/ai', { monthlyBudget: -2 }, 'PUT')).status).toBe(400);
-    const st = await J(await adm('/api/admin/ai', { enabled: true, monthlyBudget: 3 }, 'PUT'));
-    expect(st).toMatchObject({ enabled: true, kinds: ['title', 'summary', 'alt', 'tags', 'proof', 'draft'], budget: { budget: 3 } });
-    const used0 = st.budget.used as number;
-    expect(used0).toBe(0);
+    // 用量按月全站累计：其它测试文件可能已经用过几次，预算设为「已用 + 3」
+    const used0 = (await J(await adm('/api/admin/ai'))).budget.used as number;
+    const st = await J(await adm('/api/admin/ai', { enabled: true, monthlyBudget: used0 + 3 }, 'PUT'));
+    expect(st).toMatchObject({ enabled: true, kinds: ['title', 'summary', 'alt', 'tags', 'proof', 'draft'], budget: { budget: used0 + 3, used: used0, left: 3 } });
     const p = (await J(await call(env, '/api/social/ai/suggest', { method: 'POST', token: t, body: { kind: 'proof', title: '西湖', body } }))).suggestion;
     expect(p.issues.map((i: any) => i.rule)).toEqual(expect.arrayContaining(['half-punct', 'dup-word']));
     expect(p.generated).toBe(true);
     const alt = await J(await call(env, '/api/social/ai/suggest', { method: 'POST', token: t, body: { kind: 'alt', meta: { caption: '湖边的日落', place: '杭州' } } }));
     expect(alt.suggestion.text).toBe('湖边的日落，拍摄于杭州');
-    expect(alt.budget).toMatchObject({ used: 2, left: 1 });
+    expect(alt.budget).toMatchObject({ used: used0 + 2, left: 1 });
     expect((await J(await call(env, '/api/social/ai/suggest', { method: 'POST', token: t, body: { kind: 'title', title: '西湖', body } }))).suggestion.options.length).toBeGreaterThan(0);
     const over = await call(env, '/api/social/ai/suggest', { method: 'POST', token: t, body: { kind: 'summary', title: '西湖', body } });
     expect(over.status).toBe(429);
     expect((await J(over)).error.code).toBe('ai_budget_exhausted');
-    expect((await J(await call(env, '/api/social/ai/status', { token: t }))).budget).toMatchObject({ used: 3, left: 0 });
+    expect((await J(await call(env, '/api/social/ai/status', { token: t }))).budget).toMatchObject({ used: used0 + 3, left: 0 });
   });
 });
 
