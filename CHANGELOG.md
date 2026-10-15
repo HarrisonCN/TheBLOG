@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.32.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.32.0) — 2026-10-15
+
+_L32 · 平台质量基线：权限矩阵测试（每个 /api/admin/* 路由自动收集，匿名 401、会员 403）、性能预算（首屏 JS / CSS / 懒加载分片 / 总量 gzip 上限，CI 检查）、跨浏览器 E2E（chromium / firefox / webkit × 1280 浅色 / 390 深色，axe 0、无横向溢出、无控制台错误）、使用指南 /guide/、跳到正文与页内锚点焦点修复_
+
+### 新功能 Features
+
+- **quality:** L32 平台质量基线 — /guide/ 使用指南 (关于 栏目, prerendered), perf budget (scripts/perf-budget.mjs + perf-budget.json, CI check), cross-browser E2E scripts/browser-e2e.mjs + CI browser job (chromium/firefox/webkit × 1280 light/390 dark), docs/quality.md (9c0df6b)
+
+### 修复 Fixes
+
+- **a11y:** demo banner no longer precedes the skip link (first Tab = 跳到正文); in-page anchors update #hash and move focus; guide links underlined + /me/security/ (8ff681a)
+
+### 测试 Tests
+
+- **quality:** L32 平台质量基线 — permission matrix (worker, auto-collected admin routes), perf-budget calculator, /guide/, CI browser matrix + docs (fail-before: perf-budget-lib missing) (53cacd6)
+
+### 文档 Docs
+
+- **quality:** L32 README feature + test counts (worker 382, web 619), ROADMAP (d609913)
+
 ## [1.31.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.31.0) — 2026-10-15
 
 _L31 · AI 创作台 2.0：标题 / 摘要 / 替代文字 / 标签 / 校对 / 提纲六种建议（只在点击时生成、确认后写入，校对逐条采用，不编造）、站长每月建议额度（上海时间分月，用完 429）、Webhook（https 公网地址、HMAC 签名、退避重试、投递记录）、ActivityPub 只读试验（WebFinger / Actor / Outbox）、迁移 0023_aistudio_
