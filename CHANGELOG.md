@@ -2,6 +2,31 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.31.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.31.0) — 2026-10-15
+
+_L31 · AI 创作台 2.0：标题 / 摘要 / 替代文字 / 标签 / 校对 / 提纲六种建议（只在点击时生成、确认后写入，校对逐条采用，不编造）、站长每月建议额度（上海时间分月，用完 429）、Webhook（https 公网地址、HMAC 签名、退避重试、投递记录）、ActivityPub 只读试验（WebFinger / Actor / Outbox）、迁移 0023_aistudio_
+
+### 新功能 Features
+
+- **aistudio:** queue post.published / work.published webhooks (cron delivers), docs/aistudio.md, README + ROADMAP; fix compose checkbox sizing (afb342b)
+- **aistudio:** admin AI monthly budget + Webhook manager (add/test/pause/log/delete, secret shown once) (46c942f)
+- **aistudio:** composer AI 创作台 — 6 kinds, title options, per-issue proofreading accept, alt fill, monthly budget meter (ac7aeb7)
+- **aistudio:** Worker AI budget + six kinds, webhooks (signed delivery, retry cron), ActivityPub read-only WebFinger/actor/outbox; worker tests (fail-before l31-worker-failbefore.log) (dd5d523)
+- **aistudio:** ai-core/webhook-core/ap-core (web = worker), demo mock budget + webhooks, migration 0023 (9b59d5d)
+
+### 修复 Fixes
+
+- **aistudio:** EXPECTED_MIGRATION 0023_aistudio, cron webhooks job in ops test, AI budget test independent of other files' usage (9a97638)
+- **aistudio:** webhook status chip contrast; proofreading checklist layout on mobile (81045df)
+
+### 测试 Tests
+
+- **aistudio:** L31 AI 创作台 2.0 + webhook + ActivityPub tests first (fail-before: modules missing) (d3a6a5a)
+
+### 杂项 Chores
+
+- **release:** 1.31.0 — version bump, release-meta (1.30.0 frozen at 51599aa) (6b7f8cf)
+
 ## [1.30.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.30.0) — 2026-10-15
 
 _L30 · 实时社交 2.0：私信图片（替代文字必填、去 EXIF / GPS、不公开的 R2 存储）与语音（1 秒 – 2 分钟）、私信搜索（只搜自己的会话、含替代文字、跳转高亮）、clientId 幂等重发与指数退避重连、阅读进度 + 稍后读跨设备同步（墓碑合并）、迁移 0022_realtime2_

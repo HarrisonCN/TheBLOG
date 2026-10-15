@@ -861,7 +861,7 @@ export async function siteTopics(env: Env): Promise<AiTopic[]> {
   return ts.map((t) => ({ slug: t.slug, name: t.name, tags: tags.filter((x) => x.topic_id === t.id).map((x) => x.tag) }));
 }
 /** 可插拔提供方：openai-compatible（AI_API_URL / AI_API_KEY / AI_MODEL）；失败或未配置 → 本地确定性回退。 */
-async function remoteSuggest(env: Env, inp: { kind: string; title: string; body: string }, topics: AiTopic[]): Promise<AiSuggestion | null> {
+export async function remoteSuggest(env: Env, inp: { kind: string; title: string; body: string }, topics: AiTopic[]): Promise<AiSuggestion | null> {
   const e = env as Env & { AI_API_URL?: string; AI_API_KEY?: string; AI_MODEL?: string };
   if (providerName(env) !== 'openai-compatible') return null;
   const ask = inp.kind === 'summary' ? '用一两句中文概括下面的内容（不超过 120 字），只输出摘要。' : inp.kind === 'tags' ? `从这些话题里挑最多 3 个最相关的，只输出话题名，用顿号分隔：${topics.map((t) => t.name).join('、')}` : '把下面的文字整理成 Markdown 提纲（缘起 / 过程 / 收获），只重排作者自己的内容，不要编造事实。';

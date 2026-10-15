@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.30.0", "milestone": "L30", "from": "6412242", "date": "2026-10-15", "title": "实时社交 2.0：私信图片（替代文字必填、去 EXIF / GPS、不公开的 R2 存储）与语音（1 秒 – 2 分钟）、私信搜索（只搜自己的会话、含替代文字、跳转高亮）、clientId 幂等重发与指数退避重连、阅读进度 + 稍后读跨设备同步（墓碑合并）、迁移 0022_realtime2" },
+    { "version": "1.31.0", "milestone": "L31", "from": "51599aa", "date": "2026-10-15", "title": "AI 创作台 2.0：标题 / 摘要 / 替代文字 / 标签 / 校对 / 提纲六种建议（只在点击时生成、确认后写入，校对逐条采用，不编造）、站长每月建议额度（上海时间分月，用完 429）、Webhook（https 公网地址、HMAC 签名、退避重试、投递记录）、ActivityPub 只读试验（WebFinger / Actor / Outbox）、迁移 0023_aistudio" },
+    { "version": "1.30.0", "milestone": "L30", "sha": "51599aa", "from": "6412242", "date": "2026-10-15", "title": "实时社交 2.0：私信图片（替代文字必填、去 EXIF / GPS、不公开的 R2 存储）与语音（1 秒 – 2 分钟）、私信搜索（只搜自己的会话、含替代文字、跳转高亮）、clientId 幂等重发与指数退避重连、阅读进度 + 稍后读跨设备同步（墓碑合并）、迁移 0022_realtime2" },
     { "version": "1.29.0", "milestone": "L29", "sha": "6412242", "from": "1ff3bd6", "date": "2026-10-15", "title": "摄影工具箱：曝光计算器 /tools/exposure/（EV、等效组合、ND 减光、网址参数）、景深计算器 /tools/dof/（近点 / 远点 / 超焦距，含手机传感器与等效焦距）、黄金 / 蓝调时刻 /tools/golden-hour/（NOAA 离线计算，默认不请求定位）、本地 EXIF 查看器 /tools/exif/（不上传、零网络请求、GPS 只提示、下载去元数据副本）、作品灯箱曝光值" },
     { "version": "1.28.0", "milestone": "L28", "sha": "1ff3bd6", "from": "4b0275e", "date": "2026-10-14", "title": "兴趣社群：小组 /groups/ 与小组主页（建组、组长 / 管理员 / 成员角色、直接加入或审核入组、置顶公告、小组动态分享自己的公开作品、移出与移除、举报走已有审核队列、尊重屏蔽、频率限制）、/api/social/groups、迁移 0021_groups" },
     { "version": "1.27.0", "milestone": "L27", "sha": "4b0275e", "from": "12ad6ae", "date": "2026-10-14", "title": "阅读与书影音 2.0：书摘页 /quotes/（文章 :::quote 块 + 书影音摘录，按来源筛选、稳定锚点链回原文、分享卡片）、年度书影音 /shelf/:年份/（数量、状态、平均分、月份分布，逐年预渲染）、文章页稍后读 + /reading-list/（只存本机、阅读进度、导出 Markdown）、GET /api/quotes" },

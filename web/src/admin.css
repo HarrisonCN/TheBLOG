@@ -380,3 +380,9 @@
 .ed2-media__item { display: grid; gap: 0.35rem; align-content: start; }
 .ed2-media__item img { width: 100%; height: auto; border-radius: 8px; background: var(--soft); }
 .ed2-media__item input { min-width: 0; }
+/* L31 Webhook 管理 */
+.adm-hook-events { margin: 0.4rem 0; padding: 0.4rem 0.6rem; border: 1px solid var(--hairline, rgba(127,127,127,.25)); border-radius: 10px; display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; }
+.adm-hook-events .adm-check { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 44px; }
+.adm-hook__url { overflow-wrap: anywhere; min-width: 0; }
+.adm-hook__secret { display: inline-block; max-width: 100%; overflow-wrap: anywhere; padding: 0.1rem 0.35rem; border-radius: 6px; background: var(--soft, rgba(127,127,127,.12)); }
+.adm-hook__log ul { margin: 0.3rem 0 0; }

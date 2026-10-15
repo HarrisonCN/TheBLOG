@@ -60,6 +60,8 @@ export interface DemoDb {
   dm?: import('./mock-dm').DmState;
   /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */
   open?: import('./mock-open').OpenState;
+  /** L31 AI 创作台 2.0 预算 + Webhook */
+  aistudio?: import('./mock-aistudio').AiStudioState;
   ops?: import('./mock-ops').OpsState;
   /** L24 编辑器草稿 / 媒体库 / 定时发布 */
   editor?: import('./mock-editor').EditorState;

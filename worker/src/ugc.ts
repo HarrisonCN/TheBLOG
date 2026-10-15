@@ -47,6 +47,7 @@ import {
   type WorkVisibility,
 } from './ugc-core';
 import { checkAiPublish } from './open-core';
+import { dispatchEvent } from './aistudio';
 
 const NO_STORE = { 'cache-control': 'no-store' };
 const nowIso = () => new Date().toISOString();
@@ -369,6 +370,8 @@ async function logAction(env: Env, a: { actor: string; action: string; targetKin
 /** 作品变为公开可见后：给关注者发「新作品」（集合式插入，幂等）、给被 @ 的人发提及。私密作品不扇出。 */
 async function afterPublish(env: Env, w: WorkRow): Promise<void> {
   try {
+    // L31 Webhook：公开作品发布 → 排队 work.published（失败不影响发布）
+    if (w.visibility === 'public') await dispatchEvent(env, 'work.published', { id: w.id, type: w.type, title: w.title, authorId: w.author_id, publishedAt: w.published_at }).catch(() => 0);
     if (w.visibility !== 'private') {
       const t = nowIso();
       // 关注者里静音 / 拉黑了作者的、关掉「关注者新作」的不发；dedupe_key 唯一 → 重复审核通过也只有一条

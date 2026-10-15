@@ -23,6 +23,7 @@ import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
+import { MockAiStudio, aiStudioSeed } from './mock-aistudio';
 import { MockOps, opsSeed } from './mock-ops';
 import { EditorError, MockEditor, editorSeed } from './mock-editor';
 import { MockSecurity, securitySeed } from './mock-security';
@@ -378,8 +379,32 @@ export class DemoBackend {
       base: this.base,
       now: () => this.now(),
     });
+    this.aistudio = new MockAiStudio({
+      state: () => this.db().aistudio ?? aiStudioSeed(),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.aistudio ??= aiStudioSeed();
+        mutate(db.aistudio);
+        this.save(db);
+      },
+      aiEnabled: () => (this.db().open ?? openSeed(this.now(), this.base)).ai,
+      setAiEnabled: (on) => {
+        const db = structuredClone(this.db());
+        db.open ??= openSeed(this.now(), this.base);
+        db.open.ai = on;
+        this.save(db);
+      },
+      social: this.social,
+      memberFrom: (h) => this.memberFrom(h),
+      topics: () => {
+        const d = this.db().discovery ?? discoverySeed(this.now());
+        return d.topics.map((t) => ({ slug: t.slug, name: t.name, tags: d.topicTags.filter((x) => x.topicId === t.id).map((x) => x.tag) }));
+      },
+      now: () => this.now(),
+    });
   }
   private open: MockOpen;
+  private aistudio: MockAiStudio;
   private ops!: MockOps;
   private editor!: MockEditor;
   private security!: MockSecurity;
@@ -529,6 +554,8 @@ export class DemoBackend {
     // ---- L16 用户投稿（/api/social/works…、uploads、reports）----
     if (path.startsWith('/api/social/')) {
       // ---- L20 订阅 / MCP 令牌 / AI 建议 / 项目 GitHub 卡片 ----
+      const ais = this.aistudio.routeSocial(m, path.slice('/api/social'.length), body, headers);
+      if (ais) return ais;
       const os = this.open.routeSocial(m, path.slice('/api/social'.length), q, body, headers);
       if (os) return os;
       const u = this.ugc.route(m, path.slice('/api/social'.length), q, body, headers);
@@ -640,6 +667,8 @@ export class DemoBackend {
       // L24 内容编辑器 2.0：草稿 / 定时发布 / 媒体库 / 模板
       const edAdmin = this.editor.routeAdmin(m, sub, q, body);
       if (edAdmin) return edAdmin;
+      const aiAdmin = await this.aistudio.routeAdmin(m, sub, body);
+      if (aiAdmin) return aiAdmin;
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);

@@ -71,7 +71,7 @@
 .ugc-compose fieldset { margin: 0; padding: 0.8rem; border: 1px solid var(--hairline); border-radius: 10px; min-width: 0; }
 .ugc-compose legend { padding: 0 0.3rem; font-weight: 600; color: var(--heading); }
 .ugc-compose .field { display: grid; gap: 0.3rem; }
-.ugc-compose input:not([type=radio]):not([type=file]), .ugc-compose textarea, .ugc-compose select, .ugc-cform textarea, .ugc-report textarea { width: 100%; min-height: 44px; padding: 0.55rem 0.7rem; border: 1px solid var(--hairline-strong, var(--hairline)); border-radius: 8px; background: var(--card, var(--bg)); color: var(--text); font: inherit; }
+.ugc-compose input:not([type=radio]):not([type=file]):not([type=checkbox]), .ugc-compose textarea, .ugc-compose select, .ugc-cform textarea, .ugc-report textarea { width: 100%; min-height: 44px; padding: 0.55rem 0.7rem; border: 1px solid var(--hairline-strong, var(--hairline)); border-radius: 8px; background: var(--card, var(--bg)); color: var(--text); font: inherit; }
 .ugc-compose [aria-invalid="true"], .ugc-cform [aria-invalid="true"] { border-color: #dc2626; box-shadow: 0 0 0 1px #dc2626; }
 .field__err { margin: 0; color: #b91c1c; font-size: 0.86rem; }
 :root[data-theme="dark"] .field__err { color: #fca5a5; }
