@@ -325,16 +325,26 @@ document.addEventListener('click', (ev) => {
   rememberOrigin(ev, a);
   void go(u.pathname + u.search + u.hash);
 });
+let lastClickHref: { href: string; at: number } | null = null;
 // 转场遮罩的起点：捕获阶段记录（<usa-route-transition> 会先于文档级监听拦下站内链接再发 usa:navigate）
 document.addEventListener('click', (ev) => {
   const a = (ev.target as HTMLElement).closest?.('a');
-  if (a && ev.button === 0) rememberOrigin(ev, a);
+  if (a && ev.button === 0) {
+    rememberOrigin(ev, a);
+    lastClickHref = { href: a.href, at: Date.now() };
+  }
 }, true);
 window.addEventListener('popstate', () => void go(location.pathname + location.search, { pop: true }));
 // <usa-route-transition> 自己也会拦截站内链接：交给上面的路由（它基于浏览器内的数据渲染，演示站新建的文章也能打开）
 document.addEventListener('usa:navigate', (ev) => {
   ev.preventDefault();
-  const u = (ev as CustomEvent<{ url: string }>).detail?.url;
+  let u = (ev as CustomEvent<{ url: string }>).detail?.url;
+  // 组件只给 pathname：从刚点过的链接补回 ?query#hash（L30 私信搜索命中 → #m-<id>）
+  if (u && lastClickHref && Date.now() - lastClickHref.at < 1500) {
+    const c = new URL(lastClickHref.href, location.href);
+    if (c.pathname === new URL(u, location.href).pathname) u = c.pathname + c.search + c.hash;
+  }
+  lastClickHref = null;
   if (u && u !== location.pathname) void go(u);
 });
 // <usa-pagination> 的页码按钮
@@ -769,6 +779,8 @@ function syncSocialChrome(offer: boolean): void {
     void m.refreshUnread();
     if (offer) void m.offerMerge({ notify: (msg, t) => void notify(msg, t) });
   });
+  // L30：登录后阅读进度 + 稍后读跨设备同步（按需加载；未登录不下载）
+  void import('./sync-client').then((m) => m.startReadingSync());
 }
 document.addEventListener('blog:member', () => syncSocialChrome(true));
 document.addEventListener('blog:bookmark', (ev) => {

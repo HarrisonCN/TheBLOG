@@ -690,16 +690,18 @@ async function renderConversation(box: HTMLElement, id: number, ctx: DmCtx): Pro
   const log = box.querySelector<HTMLOListElement>('.js-log')!;
   const input = box.querySelector<HTMLTextAreaElement>('#dm-input')!;
   const scrollEnd = () => log.lastElementChild?.scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
+  // 从搜索结果跳过来：#m-<id> 高亮那条消息（重绘后保留高亮）
+  const hashId = /^#m-(\d+)$/.exec(location.hash)?.[1];
+  const markHit = () => hashId && log.querySelector<HTMLElement>(`#m-${hashId}`)?.classList.add('is-hit');
   const repaint = (keep = false) => {
     const y = log.scrollHeight - log.scrollTop;
     log.innerHTML = list();
+    markHit();
     if (keep) log.scrollTop = log.scrollHeight - y;
     void hydrateMedia(log);
   };
   void hydrateMedia(log);
   log.scrollTop = log.scrollHeight;
-  // 从搜索结果跳过来：#m-<id> 高亮那条消息
-  const hashId = /^#m-(\d+)$/.exec(location.hash)?.[1];
   if (hashId) requestAnimationFrame(() => {
     const el = log.querySelector<HTMLElement>(`#m-${hashId}`);
     if (el) {
@@ -707,7 +709,7 @@ async function renderConversation(box: HTMLElement, id: number, ctx: DmCtx): Pro
       el.scrollIntoView({ block: 'center' });
     }
   });
-  requestAnimationFrame(() => (log.scrollTop = log.scrollHeight));
+  if (!hashId) requestAnimationFrame(() => (log.scrollTop = log.scrollHeight));
   const markRead = () => {
     const last = [...msgs.keys()].reduce((a, b) => Math.max(a, b), 0);
     if (!last || document.hidden) return;
