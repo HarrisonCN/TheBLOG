@@ -19,6 +19,13 @@ import {
   DM_SETTINGS_DEFAULT,
   encodeConvCursor,
   excerpt,
+  excerptOf,
+  checkBodyWith,
+  checkMedia,
+  searchMessages,
+  highlightHits,
+  DM_MEDIA_PER_HOUR,
+  type DmAttachment,
   limitsFor,
   parseId,
   receiptsVisible,
@@ -38,7 +45,9 @@ import type { Member } from './community-types';
 
 interface DConv { id: number; kind: 'dm' | 'room'; a: number | null; b: number | null; eventSlug: string | null; title: string; status: ConvStatus; requestedBy: number | null; retention: RoomRetention; ttlHours: number; closed: boolean; createdAt: string; lastMessageId: number | null; lastAt: string }
 interface DMem { conv: number; member: number; role: 'member' | 'moderator'; lastReadId: number; clearedBeforeId: number; hidden: boolean; muted: boolean; joinedAt: string }
-interface DMsg { id: number; conv: number; sender: number | null; body: string; clientId: string | null; createdAt: string; recalledAt: string | null; removedBy: number | null }
+interface DMsg { id: number; conv: number; sender: number | null; body: string; clientId: string | null; createdAt: string; recalledAt: string | null; removedBy: number | null; attachment?: DmAttachment | null }
+/** L30：私信媒体（演示站把文件存成 data URL；真实站点在 R2，只有会话成员能取） */
+interface DMedia extends DmAttachment { id: string; conv: number; member: number; messageId: number | null; createdAt: string }
 interface DChange { seq: number; conv: number; kind: 'msg' | 'recall' | 'read' | 'conv' | 'remove'; messageId: number | null; actor: number | null; target: number | null; data: Record<string, unknown> }
 export interface DmState {
   convs: DConv[];
@@ -53,6 +62,8 @@ export interface DmState {
   welcomed: number[];
   /** 演示：标签页正以示例用户身份操作（id → 时间戳），这段时间不再模拟自动回复，免得和真人操作打架 */
   acting?: Record<string, number>;
+  /** L30 私信媒体 */
+  media?: DMedia[];
   nextId: number;
   seq: number;
 }
@@ -144,7 +155,7 @@ export class MockDm {
   }
   private toMessage(r: DMsg, me: number): DmMessage {
     const gone = !!r.recalledAt || r.removedBy != null;
-    return { id: r.id, conversationId: r.conv, sender: this.user(r.sender), mine: r.sender === me, body: gone ? '' : r.body, clientId: r.sender === me ? r.clientId : null, createdAt: r.createdAt, recalled: !!r.recalledAt, removed: r.removedBy != null };
+    return { id: r.id, conversationId: r.conv, sender: this.user(r.sender), mine: r.sender === me, body: gone ? '' : r.body, clientId: r.sender === me ? r.clientId : null, createdAt: r.createdAt, recalled: !!r.recalledAt, removed: r.removedBy != null, attachment: gone || !r.attachment ? null : { ...r.attachment } };
   }
   private unreadOf(c: DConv, m: DMem, me: number): number {
     const from = Math.max(m.lastReadId, m.clearedBeforeId);
@@ -163,7 +174,7 @@ export class MockDm {
       title: c.title || pu?.nickname || '',
       requestedByMe: c.requestedBy === me,
       unread: this.unreadOf(c, m, me),
-      lastMessage: last ? { id: last.id, excerpt: last.recalledAt || last.removedBy != null ? '' : excerpt(last.body), createdAt: last.createdAt, mine: last.sender === me, recalled: !!last.recalledAt } : null,
+      lastMessage: last ? { id: last.id, excerpt: last.recalledAt || last.removedBy != null ? '' : excerptOf({ body: last.body, attachment: last.attachment ?? null }), createdAt: last.createdAt, mine: last.sender === me, recalled: !!last.recalledAt } : null,
       lastAt: c.lastAt,
       peerLastReadId: vis && peer != null ? (this.mem(c.id, peer)?.lastReadId ?? 0) : null,
       muted: m.muted,
@@ -306,32 +317,43 @@ export class MockDm {
     const me = this.h.memberFrom(headers);
     this.touchSeen(me.id);
     const { c, peer } = this.loadConv(id, me.id);
-    const o = (input ?? {}) as { body?: unknown; clientId?: unknown };
-    const b = checkBody(o.body);
-    if (!b.ok) throw bad('body', b.message);
+    const o = (input ?? {}) as { body?: unknown; clientId?: unknown; mediaId?: unknown };
     const clientId = o.clientId == null ? null : checkClientId(o.clientId);
     if (o.clientId != null && !clientId) throw bad('clientId', 'clientId 格式不正确');
     if (clientId) {
       const dup = this.st().messages.find((x) => x.conv === id && x.sender === me.id && x.clientId === clientId);
       if (dup) return { status: 200, body: { message: this.toMessage(dup, me.id), duplicate: true } };
     }
+    // L30：附件只能是自己上传到这个会话、还没用过的媒体
+    let media: DMedia | null = null;
+    if (o.mediaId != null) {
+      media = (this.st().media ?? []).find((x) => x.id === String(o.mediaId) && x.conv === id && x.member === me.id && x.messageId == null) ?? null;
+      if (!media) throw bad('mediaId', '附件不存在或已经发送过');
+    }
+    const b = checkBodyWith(o.body, !!media);
+    if (!b.ok) throw bad('body', b.message);
     const rel = peer != null ? this.h.social.rel(me.id, peer) : null;
     const can = canSend({ kind: 'dm', status: c.status, isRequester: c.requestedBy === me.id, myCountWhilePending: c.status === 'request' ? this.pendingCount(id, me.id) : 0, blockedEither: !!(rel?.blocked || rel?.blockedBy) });
     if (!can.ok) throw new SocialError(can.status, can.code, can.message);
     const lim = limitsFor(me.joinedAt, this.h.now().getTime());
     this.h.social.limit(`dm-msg:${me.id}`, lim.msgsPerMin, 60_000, '发送太快了，请稍等一会儿');
-    const msg = this.insert(id, me.id, b.value, clientId, peer);
+    const msg = this.insert(id, me.id, b.value, clientId, peer, media);
     if (peer != null && SEED_IDS.has(peer)) this.autoReply(id, peer);
     return { status: 201, body: { message: this.toMessage(msg, me.id), duplicate: false } };
   }
 
-  private insert(conv: number, sender: number, body: string, clientId: string | null, peer: number | null): DMsg {
+  private insert(conv: number, sender: number, body: string, clientId: string | null, peer: number | null, media: DMedia | null = null): DMsg {
     const t = this.iso();
     let msg!: DMsg;
     let seq = 0;
     this.h.commit((s) => {
-      msg = { id: s.nextId++, conv, sender, body, clientId, createdAt: t, recalledAt: null, removedBy: null };
+      const att: DmAttachment | null = media ? { kind: media.kind, url: media.url, mime: media.mime, size: media.size, alt: media.alt, durationMs: media.durationMs, width: media.width, height: media.height } : null;
+      msg = { id: s.nextId++, conv, sender, body, clientId, createdAt: t, recalledAt: null, removedBy: null, attachment: att };
       s.messages.push(msg);
+      if (media) {
+        const md = (s.media ?? []).find((x) => x.id === media.id);
+        if (md) md.messageId = msg.id;
+      }
       const c = s.convs.find((x) => x.id === conv)!;
       c.lastMessageId = msg.id;
       c.lastAt = t;
@@ -344,6 +366,57 @@ export class MockDm {
     const to = peer != null ? [sender, peer] : [sender];
     for (const uid of to) this.h.emit([uid], { t: 'msg', seq, conversationId: conv, message: this.toMessage(msg, uid) });
     return msg;
+  }
+
+  /** L30：上传私信图片 / 语音（演示站存 data URL）。会话成员且当前能发消息才可以上传。 */
+  upload(headers: Record<string, string>, id: number, input: unknown) {
+    const me = this.h.memberFrom(headers);
+    const { c, peer } = this.loadConv(id, me.id);
+    if (c.kind !== 'dm') throw notFound();
+    const rel = peer != null ? this.h.social.rel(me.id, peer) : null;
+    const can = canSend({ kind: 'dm', status: c.status, isRequester: c.requestedBy === me.id, myCountWhilePending: c.status === 'request' ? this.pendingCount(id, me.id) : 0, blockedEither: !!(rel?.blocked || rel?.blockedBy) });
+    if (!can.ok) throw new SocialError(can.status, can.code, can.message);
+    const o = (input ?? {}) as Record<string, unknown>;
+    const v = checkMedia({ kind: o.kind, mime: o.type, size: o.size, alt: o.alt, durationMs: o.durationMs, width: o.width, height: o.height });
+    if (!v.ok) throw new SocialError(v.status, v.code, v.message);
+    const dataUrl = typeof o.dataUrl === 'string' ? o.dataUrl : '';
+    const prefix = v.value.kind === 'image' ? /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/ : /^data:audio\/[a-z0-9.+-]+(;codecs=[a-z0-9.,-]+)?;base64,[A-Za-z0-9+/=]+$/;
+    if (!prefix.test(dataUrl)) throw new SocialError(400, 'validation_error', '无法读取文件');
+    if (dataUrl.length > 1_500_000) throw new SocialError(413, 'too_large', '演示站只能保存较小的文件（真实站点上限：图片 5 MB、语音 2 MB）');
+    this.h.social.limit(`dm-media:${me.id}`, DM_MEDIA_PER_HOUR, 3_600_000, '上传太频繁，请稍后再试');
+    const rand = Math.random().toString(36).slice(2, 12).padEnd(10, '0');
+    const media: DMedia = { id: `dm/${id}/${me.id}/${rand}`, conv: id, member: me.id, messageId: null, createdAt: this.iso(), url: dataUrl, ...v.value };
+    this.h.commit((s) => {
+      s.media ??= [];
+      s.media.push(media);
+    });
+    const { url: _u, ...meta } = media;
+    return { status: 201, body: { media: { ...meta, url: dataUrl } } };
+  }
+
+  /** L30：消息搜索 —— 只搜自己参与的私信会话，不含撤回 / 移除 / 仅自己删除的消息。 */
+  search(headers: Record<string, string>, q: URLSearchParams) {
+    const me = this.h.memberFrom(headers);
+    const query = (q.get('q') ?? '').trim();
+    const s = this.st();
+    const mine = s.members.filter((m) => m.member === me.id);
+    const convs = new Map(mine.map((m) => [m.conv, m]));
+    const cand = s.messages
+      .filter((x) => {
+        const m = convs.get(x.conv);
+        const c = s.convs.find((y) => y.id === x.conv);
+        return m && c && c.kind === 'dm' && x.id > m.clearedBeforeId && !this.isHidden(me.id, x.id);
+      })
+      .map((x) => this.toMessage(x, me.id));
+    const hits = searchMessages(cand, query);
+    return {
+      q: query,
+      items: hits.map((h) => {
+        const c = s.convs.find((y) => y.id === h.message.conversationId)!;
+        const peer = this.user(this.peerOf(c, me.id));
+        return { message: h.message, field: h.field, html: highlightHits(h.field === 'alt' ? (h.message.attachment?.alt ?? '') : h.message.body, query), conversation: { id: c.id, peer, title: peer?.nickname ?? c.title } };
+      }),
+    };
   }
 
   /** 演示：某个标签页切换成示例用户后，6 小时内由真人替它回复 */
@@ -688,7 +761,7 @@ export class MockDm {
         .filter((m) => m.sender === id && !m.recalledAt && m.removedBy == null)
         .map((m) => {
           const c = s.convs.find((x) => x.id === m.conv);
-          return { conversation_id: m.conv, kind: c?.kind ?? 'dm', peer: c ? (this.user(this.peerOf(c, id))?.username ?? null) : null, body: m.body, created_at: m.createdAt, recalled_at: null };
+          return { conversation_id: m.conv, kind: c?.kind ?? 'dm', peer: c ? (this.user(this.peerOf(c, id))?.username ?? null) : null, body: m.body, attachment: m.attachment ? { kind: m.attachment.kind, mime: m.attachment.mime, size: m.attachment.size, alt: m.attachment.alt, durationMs: m.attachment.durationMs } : null, created_at: m.createdAt, recalled_at: null };
         }),
     };
   }
@@ -697,6 +770,7 @@ export class MockDm {
       const gone = new Set(s.convs.filter((c) => c.kind === 'dm' && (c.a === id || c.b === id)).map((c) => c.id));
       s.convs = s.convs.filter((c) => !gone.has(c.id));
       s.messages = s.messages.filter((m) => m.sender !== id && !gone.has(m.conv));
+      s.media = (s.media ?? []).filter((x) => x.member !== id && !gone.has(x.conv));
       s.members = s.members.filter((m) => m.member !== id && !gone.has(m.conv));
       s.hidden = s.hidden.filter((h) => !h.startsWith(`${id}:`));
       s.declines = s.declines.filter((d) => d.requester !== id && d.target !== id);
@@ -717,6 +791,7 @@ export class MockDm {
       if ((mt = /^\/dm\/conversations\/(\d{1,12})\/messages$/.exec(sub))) return ok(this.messages(headers, Number(mt[1]), q));
       if (sub === '/dm/unread') return ok(this.unreadTotals(this.h.memberFrom(headers).id));
       if (sub === '/dm/sync') return ok(this.sync(headers, q));
+      if (sub === '/dm/search') return ok(this.search(headers, q));
       if (sub === '/dm/settings') return ok(this.getSettings(headers));
       if (sub === '/dm/presence') return ok(this.presence(headers, q));
       if ((mt = new RegExp(`^/rooms/${SLUG}$`).exec(sub))) return ok(this.getRoom(headers, mt[1]!, q));
@@ -727,6 +802,7 @@ export class MockDm {
       return ok(r, r.created ? 201 : 200);
     }
     if ((mt = /^\/dm\/conversations\/(\d{1,12})\/messages$/.exec(sub)) && m === 'POST') return this.send(headers, Number(mt[1]), body);
+    if ((mt = /^\/dm\/conversations\/(\d{1,12})\/media$/.exec(sub)) && m === 'POST') return this.upload(headers, Number(mt[1]), body);
     if ((mt = /^\/dm\/conversations\/(\d{1,12})\/read$/.exec(sub)) && m === 'POST') return ok(this.read(headers, Number(mt[1]), body));
     if ((mt = /^\/dm\/conversations\/(\d{1,12})\/(accept|decline|block)$/.exec(sub)) && m === 'POST') return ok(this.respond(headers, Number(mt[1]), mt[2] as 'accept' | 'decline' | 'block'));
     if ((mt = /^\/dm\/conversations\/(\d{1,12})$/.exec(sub)) && m === 'DELETE') return ok(this.hide(headers, Number(mt[1])));

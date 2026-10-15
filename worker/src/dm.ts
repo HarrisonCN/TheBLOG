@@ -12,6 +12,8 @@ import { getMember, rateLimit, requireMember, type Member } from './community';
 import { card, relation, setRelation } from './social';
 import { requirePoster, standing } from './ugc';
 import { b64urlDecode, b64urlEncode, timingSafeEqual, toHex } from './crypto';
+import { sniffImageType } from './images';
+import { stripMetadata } from './exif';
 import {
   announceText,
   canRecall,
@@ -28,6 +30,16 @@ import {
   DM_SETTINGS_DEFAULT,
   encodeConvCursor,
   excerpt,
+  excerptOf,
+  checkBodyWith,
+  checkMedia,
+  searchMessages,
+  highlightHits,
+  parseMediaKey,
+  mediaKey,
+  DM_IMAGE_MAX,
+  DM_MEDIA_PER_HOUR,
+  type DmAttachment,
   limitsFor,
   parseId,
   receiptsVisible,
@@ -68,7 +80,21 @@ interface ConvRow {
   last_at: string;
 }
 interface MemberRow { conversation_id: number; member_id: number; role: 'member' | 'moderator'; last_read_id: number; cleared_before_id: number; hidden: number; muted: number }
-interface MsgRow { id: number; conversation_id: number; sender_id: number | null; body: string; client_id: string | null; created_at: string; recalled_at: string | null; removed_by: number | null }
+interface MsgRow { id: number; conversation_id: number; sender_id: number | null; body: string; client_id: string | null; created_at: string; recalled_at: string | null; removed_by: number | null; attachment?: string | null }
+interface MediaRow { key: string; conversation_id: number; member_id: number; kind: 'image' | 'voice'; mime: string; size: number; alt: string; duration_ms: number; width: number; height: number; message_id: number | null; created_at: string }
+/** L30：消息上的附件 JSON → 对外的附件（url 指向只有会话成员能取的媒体接口） */
+/** messages.body 有 CHECK length ≥ 1（0016 的表结构，加法迁移改不了）：只有附件的消息存这个占位符（用户正文里的控制字符都会被去掉，不会撞上） */
+const ATTACH_ONLY = '\u0001';
+function parseAttachment(raw: string | null | undefined): DmAttachment | null {
+  if (!raw) return null;
+  try {
+    const a = JSON.parse(raw) as Partial<DmAttachment> & { key?: string };
+    if (!a.key || !parseMediaKey(a.key) || (a.kind !== 'image' && a.kind !== 'voice')) return null;
+    return { kind: a.kind, url: `/api/social/dm/media/${a.key}`, mime: String(a.mime ?? ''), size: Number(a.size) || 0, alt: String(a.alt ?? ''), durationMs: Number(a.durationMs) || 0, width: Number(a.width) || 0, height: Number(a.height) || 0 };
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================ 小工具
 const cardCache = new WeakMap<Env, Map<number, DmUser | null>>();
@@ -116,11 +142,12 @@ function toMessage(r: MsgRow, me: number, sender: DmUser | null): DmMessage {
     conversationId: r.conversation_id,
     sender,
     mine: r.sender_id === me,
-    body: gone ? '' : r.body,
+    body: gone || r.body === ATTACH_ONLY ? '' : r.body,
     clientId: r.sender_id === me ? r.client_id : null,
     createdAt: r.created_at,
     recalled: !!r.recalled_at,
     removed: r.removed_by != null,
+    attachment: gone ? null : parseAttachment(r.attachment),
   };
 }
 
@@ -152,7 +179,7 @@ async function toConversation(env: Env, c: ConvRow, m: MemberRow, me: number): P
     title: c.title || peerUser?.nickname || '',
     requestedByMe: c.requested_by === me,
     unread,
-    lastMessage: last ? { id: last.id, excerpt: last.recalled_at || last.removed_by != null ? '' : excerpt(last.body), createdAt: last.created_at, mine: last.sender_id === me, recalled: !!last.recalled_at } : null,
+    lastMessage: last ? { id: last.id, excerpt: last.recalled_at || last.removed_by != null ? '' : excerptOf({ body: last.body === ATTACH_ONLY ? '' : last.body, attachment: parseAttachment(last.attachment) }), createdAt: last.created_at, mine: last.sender_id === me, recalled: !!last.recalled_at } : null,
     lastAt: c.last_at,
     peerLastReadId: receiptsVisible(mySet.readReceipts, peerSet.readReceipts) ? (peerMem?.last_read_id ?? 0) : null,
     muted: !!m.muted,
@@ -340,23 +367,33 @@ export async function listMessages(req: Request, env: Env, id: number, url: URL)
 export async function sendMessage(req: Request, env: Env, id: number, input: unknown) {
   const me = await requirePoster(req, env);
   const { c, peer } = await loadConv(env, id, me.id);
-  const o = (input ?? {}) as { body?: unknown; clientId?: unknown };
-  const b = checkBody(o.body);
-  if (!b.ok) throw bad('body', b.message);
+  const o = (input ?? {}) as { body?: unknown; clientId?: unknown; mediaId?: unknown };
   const clientId = o.clientId === undefined || o.clientId === null ? null : checkClientId(o.clientId);
   if (o.clientId != null && !clientId) throw bad('clientId', 'clientId 格式不正确');
   if (clientId) {
     const dup = await env.DB.prepare('SELECT * FROM messages WHERE conversation_id = ? AND sender_id = ? AND client_id = ?').bind(id, me.id, clientId).first<MsgRow>();
     if (dup) return { message: toMessage(dup, me.id, await userOf(env, me.id)), duplicate: true };
   }
+  // L30：附件只能是自己上传到这个会话、还没发送过的媒体
+  let media: MediaRow | null = null;
+  if (o.mediaId != null) {
+    const key = String(o.mediaId);
+    const pk = parseMediaKey(key);
+    media = pk && pk.conv === id && pk.member === me.id ? await env.DB.prepare('SELECT * FROM dm_media WHERE key = ? AND conversation_id = ? AND member_id = ? AND message_id IS NULL').bind(key, id, me.id).first<MediaRow>() : null;
+    if (!media) throw bad('mediaId', '附件不存在或已经发送过');
+  }
+  const b = checkBodyWith(o.body, !!media);
+  if (!b.ok) throw bad('body', b.message);
   const rel = peer != null ? await relation(env, me.id, peer) : null;
   const can = canSend({ kind: 'dm', status: c.status, isRequester: c.requested_by === me.id, myCountWhilePending: c.status === 'request' ? await pendingCount(env, id, me.id) : 0, blockedEither: !!(rel?.blocked || rel?.blockedBy) });
   if (!can.ok) throw new HttpError(can.status, can.code, can.message);
   const lim = limitsFor(me.joinedAt, Date.now());
   await rateLimit(env, 'dm-msg', String(me.id), lim.msgsPerMin, 60, '发送太快了，请稍等一会儿');
   const t = nowIso();
-  const row = (await env.DB.prepare('INSERT INTO messages (conversation_id, sender_id, body, client_id, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *').bind(id, me.id, b.value, clientId, t).first<MsgRow>())!;
+  const att = media ? JSON.stringify({ key: media.key, kind: media.kind, mime: media.mime, size: media.size, alt: media.alt, durationMs: media.duration_ms, width: media.width, height: media.height }) : null;
+  const row = (await env.DB.prepare('INSERT INTO messages (conversation_id, sender_id, body, client_id, created_at, attachment) VALUES (?, ?, ?, ?, ?, ?) RETURNING *').bind(id, me.id, b.value || ATTACH_ONLY, clientId, t, att).first<MsgRow>())!;
   await env.DB.batch([
+    ...(media ? [env.DB.prepare('UPDATE dm_media SET message_id = ? WHERE key = ?').bind(row.id, media.key)] : []),
     env.DB.prepare('UPDATE conversations SET last_message_id = ?, last_at = ? WHERE id = ?').bind(row.id, t, id),
     env.DB.prepare('UPDATE conversation_members SET hidden = 0 WHERE conversation_id = ?').bind(id),
     env.DB.prepare('UPDATE conversation_members SET last_read_id = ? WHERE conversation_id = ? AND member_id = ?').bind(row.id, id, me.id),
@@ -451,6 +488,13 @@ export async function recallMessage(req: Request, env: Env, mid: number) {
   if (!can.ok) throw new HttpError(can.status, can.code, can.message);
   // 撤回 = 正文从库里抹掉（双方都看不到）；被举报的消息在 dm_reports 里留有快照供审核
   await env.DB.prepare("UPDATE messages SET recalled_at = ?, body = '-' WHERE id = ?").bind(nowIso(), mid).run();
+  // L30：撤回的附件连同 R2 对象一起删除
+  const att = parseAttachment(m.attachment);
+  if (att) {
+    const key = att.url.slice('/api/social/dm/media/'.length);
+    await mediaBucket(env).delete(key).catch(() => undefined);
+    await env.DB.prepare('DELETE FROM dm_media WHERE key = ?').bind(key).run();
+  }
   const seq = await logChange(env, { conversationId: c.id, kind: 'recall', messageId: mid, actorId: me.id });
   const ev: DmEvent = { t: 'recall', seq, conversationId: c.id, messageId: mid };
   if (c.kind === 'room') await push(env, `r:${c.id}`, [ev]);
@@ -469,7 +513,9 @@ export async function reportMessage(req: Request, env: Env, mid: number, input: 
   if (m.sender_id === me.id) throw new HttpError(400, 'self', '不能举报自己的消息');
   if (m.sender_id == null) throw notFound('消息不存在');
   if (m.recalled_at) throw new HttpError(409, 'already_recalled', '消息已被撤回');
-  const text = `[私信 #${mid}] ${excerpt(m.body, 120)}${detail ? ` | ${detail}` : ''}`.slice(0, 500);
+  const att = parseAttachment(m.attachment);
+  const shownBody = att ? excerptOf({ body: m.body === ATTACH_ONLY ? '' : m.body, attachment: att }, 2000) : m.body;
+  const text = `[私信 #${mid}] ${excerpt(shownBody, 120)}${detail ? ` | ${detail}` : ''}`.slice(0, 500);
   const t = nowIso();
   // reports 表 UNIQUE(reporter, kind, target)：同一人再次举报同一发送者 → 重新打开并更新说明
   await env.DB.prepare(
@@ -479,7 +525,7 @@ export async function reportMessage(req: Request, env: Env, mid: number, input: 
     .bind(me.id, m.sender_id, reason, text, t)
     .run();
   const rep = (await env.DB.prepare("SELECT id FROM reports WHERE reporter_id = ? AND target_kind = 'user' AND target_id = ?").bind(me.id, m.sender_id).first<{ id: number }>())!;
-  await env.DB.prepare('INSERT OR IGNORE INTO dm_reports (report_id, message_id, conversation_id, reporter_id, snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(rep.id, mid, m.conversation_id, me.id, m.body, t).run();
+  await env.DB.prepare('INSERT OR IGNORE INTO dm_reports (report_id, message_id, conversation_id, reporter_id, snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(rep.id, mid, m.conversation_id, me.id, shownBody, t).run();
   return { reported: true, reportId: rep.id };
 }
 
@@ -709,7 +755,7 @@ export async function exportDm(env: Env, id: number) {
     dmSettings: await settingsOf(env, id),
     // 只导出自己发送的消息（对方的消息属于对方）
     directMessages: await all(
-      "SELECT m.conversation_id, c.kind, p.username AS peer, m.body, m.created_at, m.recalled_at FROM messages m JOIN conversations c ON c.id = m.conversation_id LEFT JOIN user_profiles p ON p.member_id = CASE WHEN c.a_id = ? THEN c.b_id ELSE c.a_id END WHERE m.sender_id = ? AND m.recalled_at IS NULL AND m.removed_by IS NULL",
+      "SELECT m.conversation_id, c.kind, p.username AS peer, CASE WHEN m.body = char(1) THEN '' ELSE m.body END AS body, json_remove(m.attachment, '$.key') AS attachment, m.created_at, m.recalled_at FROM messages m JOIN conversations c ON c.id = m.conversation_id LEFT JOIN user_profiles p ON p.member_id = CASE WHEN c.a_id = ? THEN c.b_id ELSE c.a_id END WHERE m.sender_id = ? AND m.recalled_at IS NULL AND m.removed_by IS NULL",
       id,
       id,
     ),
@@ -717,6 +763,7 @@ export async function exportDm(env: Env, id: number) {
 }
 export function purgeDm(env: Env, id: number): D1PreparedStatement[] {
   return [
+    env.DB.prepare('DELETE FROM dm_media WHERE member_id = ? OR conversation_id IN (SELECT id FROM conversations WHERE kind = \'dm\' AND (a_id = ? OR b_id = ?))').bind(id, id, id),
     env.DB.prepare('DELETE FROM messages WHERE sender_id = ?').bind(id),
     env.DB.prepare("DELETE FROM conversations WHERE kind = 'dm' AND (a_id = ? OR b_id = ?)").bind(id, id),
     env.DB.prepare('DELETE FROM conversation_members WHERE member_id = ?').bind(id),
@@ -726,6 +773,112 @@ export function purgeDm(env: Env, id: number): D1PreparedStatement[] {
     env.DB.prepare('UPDATE dm_reports SET reporter_id = NULL WHERE reporter_id = ?').bind(id),
     env.DB.prepare('UPDATE presence SET member_id = NULL WHERE member_id = ?').bind(id),
   ];
+}
+
+// ============================================================ L30：私信图片 / 语音、消息搜索
+const mediaBucket = (env: Env) => env.UPLOADS ?? env.IMAGES;
+async function readMultipart(req: Request): Promise<{ file: File; fields: FormData }> {
+  const ct = (req.headers.get('content-type') ?? '').toLowerCase();
+  if (!ct.startsWith('multipart/form-data')) throw new HttpError(415, 'unsupported_media_type', '请用 multipart/form-data 上传');
+  const len = Number(req.headers.get('content-length') ?? 0);
+  if (len > DM_IMAGE_MAX + 64 * 1024) throw new HttpError(413, 'too_large', '文件太大');
+  let fields: FormData;
+  try {
+    fields = await req.formData();
+  } catch {
+    throw new HttpError(400, 'bad_form', '表单格式错误');
+  }
+  const file = fields.get('file');
+  if (!file || typeof file === 'string') throw new HttpError(400, 'no_file', '缺少文件');
+  return { file: file as File, fields };
+}
+
+/** 上传私信媒体：会话成员且当前能发消息；图片核对真实类型并去掉 EXIF（含 GPS）；对象放 R2 dm/<会话>/<上传者>/<随机>，不公开。 */
+export async function uploadMedia(req: Request, env: Env, id: number) {
+  const me = await requirePoster(req, env);
+  const { c, peer } = await loadConv(env, id, me.id);
+  if (c.kind !== 'dm') throw notFound();
+  const rel = peer != null ? await relation(env, me.id, peer) : null;
+  const can = canSend({ kind: 'dm', status: c.status, isRequester: c.requested_by === me.id, myCountWhilePending: c.status === 'request' ? await pendingCount(env, id, me.id) : 0, blockedEither: !!(rel?.blocked || rel?.blockedBy) });
+  if (!can.ok) throw new HttpError(can.status, can.code, can.message);
+  const { file, fields } = await readMultipart(req);
+  const v = checkMedia({ kind: fields.get('kind'), mime: file.type, size: file.size, alt: fields.get('alt'), durationMs: fields.get('durationMs'), width: fields.get('width'), height: fields.get('height') });
+  if (!v.ok) throw new HttpError(v.status, v.code, v.message);
+  await rateLimit(env, 'dm-media', String(me.id), DM_MEDIA_PER_HOUR, 3600, '上传太频繁，请稍后再试');
+  let bytes = new Uint8Array(await file.arrayBuffer());
+  if (v.value.kind === 'image') {
+    if (sniffImageType(bytes) !== v.value.mime) throw new HttpError(415, 'unsupported_type', '图片内容和类型不符');
+    bytes = stripMetadata(bytes).bytes;
+  }
+  const key = mediaKey(id, me.id, crypto.randomUUID());
+  await mediaBucket(env).put(key, bytes, { httpMetadata: { contentType: v.value.mime } });
+  await env.DB.prepare('INSERT INTO dm_media (key, conversation_id, member_id, kind, mime, size, alt, duration_ms, width, height, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(key, id, me.id, v.value.kind, v.value.mime, bytes.byteLength, v.value.alt, v.value.durationMs, v.value.width, v.value.height, nowIso())
+    .run();
+  return { media: { id: key, ...v.value, size: bytes.byteLength, url: `/api/social/dm/media/${key}` } };
+}
+
+/** 取私信媒体：只有会话成员能取；已撤回 / 被移除 / 仅自己删除的消息取不到；未发送的媒体只有上传者能取。 */
+export async function getMedia(req: Request, env: Env, key: string): Promise<Response> {
+  const me = await requireMember(req, env);
+  const pk = parseMediaKey(key);
+  if (!pk) throw notFound('文件不存在');
+  const { mine } = await loadConv(env, pk.conv, me.id);
+  const row = await env.DB.prepare('SELECT * FROM dm_media WHERE key = ? AND conversation_id = ?').bind(key, pk.conv).first<MediaRow>();
+  if (!row) throw notFound('文件不存在');
+  if (row.message_id == null) {
+    if (row.member_id !== me.id) throw notFound('文件不存在');
+  } else {
+    const msg = await env.DB.prepare('SELECT * FROM messages WHERE id = ?').bind(row.message_id).first<MsgRow>();
+    const hidden = await env.DB.prepare('SELECT 1 AS x FROM message_hidden WHERE member_id = ? AND message_id = ?').bind(me.id, row.message_id).first();
+    if (!msg || msg.recalled_at || msg.removed_by != null || hidden || msg.id <= mine.cleared_before_id) throw notFound('文件不存在');
+  }
+  const obj = await mediaBucket(env).get(key);
+  if (!obj) throw notFound('文件不存在');
+  return new Response(obj.body, {
+    headers: { 'content-type': row.mime, 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'content-disposition': 'inline', 'cross-origin-resource-policy': 'same-site' },
+  });
+}
+
+/** 消息搜索：只在自己参与的私信会话里找（不含撤回 / 移除 / 仅自己删除 / 清空之前的消息），含图片替代文字。 */
+export async function searchDm(req: Request, env: Env, url: URL) {
+  const me = await requireMember(req, env);
+  const q = (url.searchParams.get('q') ?? '').trim();
+  if (!q || [...q].length > 50) return { q, items: [] };
+  await rateLimit(env, 'dm-search', String(me.id), 60, 60, '搜索太频繁，请稍等');
+  const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const { results } = await env.DB.prepare(
+    `SELECT m.* FROM messages m
+       JOIN conversation_members cm ON cm.conversation_id = m.conversation_id AND cm.member_id = ?
+       JOIN conversations c ON c.id = m.conversation_id AND c.kind = 'dm'
+     WHERE m.id > cm.cleared_before_id AND m.recalled_at IS NULL AND m.removed_by IS NULL
+       AND m.id NOT IN (SELECT message_id FROM message_hidden WHERE member_id = ?)
+       AND (m.body LIKE ? ESCAPE '\\' OR json_extract(m.attachment, '$.alt') LIKE ? ESCAPE '\\')
+     ORDER BY m.id DESC LIMIT 200`,
+  )
+    .bind(me.id, me.id, like, like)
+    .all<MsgRow>();
+  const users = new Map<number, DmUser | null>();
+  const uOf = async (uid: number | null) => {
+    if (uid == null) return null;
+    if (!users.has(uid)) users.set(uid, await userOf(env, uid));
+    return users.get(uid)!;
+  };
+  const msgs: DmMessage[] = [];
+  for (const r of results) msgs.push(toMessage(r, me.id, await uOf(r.sender_id)));
+  const hits = searchMessages(msgs, q);
+  const convs = new Map<number, ConvRow>();
+  const items = [];
+  for (const h of hits) {
+    let c = convs.get(h.message.conversationId);
+    if (!c) {
+      c = (await env.DB.prepare('SELECT * FROM conversations WHERE id = ?').bind(h.message.conversationId).first<ConvRow>())!;
+      convs.set(c.id, c);
+    }
+    const peer = await uOf(peerOf(c, me.id));
+    items.push({ message: h.message, field: h.field, html: highlightHits(h.field === 'alt' ? (h.message.attachment?.alt ?? '') : h.message.body, q), conversation: { id: c.id, peer, title: peer?.nickname ?? c.title } });
+  }
+  return { q, items };
 }
 
 // ============================================================ 路由
@@ -750,6 +903,8 @@ export async function routeDm(req: Request, env: Env, sub: string, url: URL, bod
       return ok(await unreadTotals(env, me.id));
     }
     if (sub === '/dm/sync') return ok(await sync(req, env, url));
+    if (sub === '/dm/search') return ok(await searchDm(req, env, url));
+    if ((mt = /^\/dm\/media\/(dm\/\d{1,12}\/\d{1,12}\/[A-Za-z0-9-]{8,64})$/.exec(sub))) return getMedia(req, env, mt[1]!);
     if (sub === '/dm/settings') return ok(await getSettings(req, env));
     if (sub === '/dm/presence') return ok(await presenceOf(req, env, url, resolve));
     if ((mt = new RegExp(`^/rooms/${SLUG}$`).exec(sub))) return ok(await getRoom(req, env, mt[1]!, url));
@@ -763,6 +918,7 @@ export async function routeDm(req: Request, env: Env, sub: string, url: URL, bod
     const r = await sendMessage(req, env, Number(mt[1]), await body());
     return ok(r, r.duplicate ? 200 : 201);
   }
+  if ((mt = /^\/dm\/conversations\/(\d{1,12})\/media$/.exec(sub)) && m === 'POST') return ok(await uploadMedia(req, env, Number(mt[1])), 201);
   if ((mt = /^\/dm\/conversations\/(\d{1,12})\/read$/.exec(sub)) && m === 'POST') return ok(await markConvRead(req, env, Number(mt[1]), await body()));
   if ((mt = /^\/dm\/conversations\/(\d{1,12})\/(accept|decline|block)$/.exec(sub)) && m === 'POST') return ok(await respondRequest(req, env, Number(mt[1]), mt[2] as 'accept' | 'decline' | 'block'));
   if ((mt = /^\/dm\/conversations\/(\d{1,12})$/.exec(sub)) && m === 'DELETE') return ok(await hideConversation(req, env, Number(mt[1])));

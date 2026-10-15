@@ -10,6 +10,7 @@ import { exportDiscovery, purgeDiscovery, routeDiscovery } from './discovery';
 import { exportStudio, purgeStudio, routeStudio } from './studio';
 import { exportDm, purgeDm, routeDm } from './dm';
 import { exportGroups, purgeGroups, routeGroups } from './groups';
+import { exportSync, purgeSync, routeSync } from './sync';
 import { getMember, ipKey, optionalMember, rateLimit, removeMember, requireMember, sendEmail, type Badge, type Member } from './community';
 import {
   aggregates,
@@ -543,6 +544,7 @@ export async function buildExport(env: Env, me: Member): Promise<Record<string, 
     ...(await exportStudio(env, me.id)),
     ...(await exportDm(env, me.id)),
     ...(await exportGroups(env, me.id)),
+    ...(await exportSync(env, me.id)),
   };
   return data;
 }
@@ -577,6 +579,8 @@ export async function purgeMember(env: Env, id: number): Promise<void> {
     ...purgeDm(env, me.id),
     // L28：小组成员关系 / 分享；本人是组长的小组整个解散
     ...purgeGroups(env, me.id),
+    // L30：跨设备同步文档
+    ...purgeSync(env, me.id),
     env.DB.prepare('DELETE FROM user_posts WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_post_comments WHERE author_id = ?').bind(me.id),
     env.DB.prepare('DELETE FROM user_reactions WHERE member_id = ?').bind(me.id),
@@ -613,6 +617,9 @@ export async function routeSocial(req: Request, env: Env, path: string, url: URL
   // L28 兴趣社群（小组）
   const groups = await routeGroups(req, env, sub, url, body, async (u) => (await profileByUsername(env, u)).member_id);
   if (groups) return groups;
+  // L30 跨设备同步（阅读进度 + 稍后读）
+  const sy = await routeSync(req, env, sub);
+  if (sy) return sy;
   if (m === 'GET') {
     if ((mt = new RegExp(`^/users/${U}$`).exec(sub))) return ok(await getProfile(req, env, mt[1]!));
     if ((mt = new RegExp(`^/users/${U}/(followers|following)$`).exec(sub))) return ok(await listFollows(req, env, mt[1]!, mt[2] as 'followers' | 'following', url));

@@ -182,6 +182,8 @@ export interface DmMessage {
   createdAt: string;
   recalled: boolean;
   removed: boolean;
+  /** L30：图片 / 语音附件（没有就是 null） */
+  attachment: DmAttachment | null;
 }
 export interface DmConversation {
   id: number;
@@ -202,4 +204,115 @@ export const DM_SETTINGS_DEFAULT: DmSettings = { policy: 'everyone', readReceipt
 export function excerpt(body: string, n = 60): string {
   const s = [...body.replace(/\s+/g, ' ').trim()];
   return s.slice(0, n).join('') + (s.length > n ? '…' : '');
+}
+
+// ============================================================ L30 实时社交 2.0：图片 / 语音、搜索、重连退避
+export const DM_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+export const DM_VOICE_TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/aac'] as const;
+export const DM_IMAGE_MAX = 5 * 1024 * 1024;
+export const DM_VOICE_MAX = 2 * 1024 * 1024;
+export const DM_VOICE_MAX_MS = 120_000;
+export const ALT_MAX = 200;
+/** 每人每小时最多上传的私信媒体数 */
+export const DM_MEDIA_PER_HOUR = 30;
+export const SEARCH_MAX_Q = 50;
+export const SEARCH_LIMIT = 50;
+
+export interface DmAttachment {
+  kind: 'image' | 'voice';
+  /** 真实站点：/api/social/dm/media/…（只有会话成员能取，浏览器带登录令牌拉取后显示）；演示站：data URL */
+  url: string;
+  mime: string;
+  size: number;
+  /** 图片必填的替代文字；语音可以为空 */
+  alt: string;
+  durationMs: number;
+  width: number;
+  height: number;
+}
+export type MediaInput = { kind: unknown; mime: unknown; size: unknown; alt?: unknown; durationMs?: unknown; width?: unknown; height?: unknown };
+export type MediaCheck =
+  | { ok: true; value: Omit<DmAttachment, 'url'> }
+  | { ok: false; status: number; code: string; message: string };
+
+const baseMime = (m: unknown) => String(m ?? '').split(';')[0]!.trim().toLowerCase();
+const int = (v: unknown) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : NaN);
+
+/** 私信媒体的共享校验：图片必须写替代文字；语音 1 秒 – 2 分钟。 */
+export function checkMedia(o: MediaInput): MediaCheck {
+  const no = (code: string, message: string, status = 400): MediaCheck => ({ ok: false, status, code, message });
+  const kind = o.kind;
+  if (kind !== 'image' && kind !== 'voice') return no('validation_error', '只支持图片和语音');
+  const mime = baseMime(o.mime);
+  const size = int(o.size);
+  if (!(size > 0)) return no('validation_error', '文件为空');
+  const alt = String(o.alt ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if ([...alt].length > ALT_MAX) return no('validation_error', `替代文字最多 ${ALT_MAX} 字`);
+  if (kind === 'image') {
+    if (!(DM_IMAGE_TYPES as readonly string[]).includes(mime)) return no('unsupported_type', '图片只支持 JPEG / PNG / WebP', 415);
+    if (size > DM_IMAGE_MAX) return no('too_large', '图片太大（最大 5 MB）', 413);
+    if (!alt) return no('alt_required', '请为图片写一句替代文字（给看不见图片的朋友）');
+    const width = Math.max(0, int(o.width) || 0), height = Math.max(0, int(o.height) || 0);
+    return { ok: true, value: { kind, mime, size, alt, durationMs: 0, width: Math.min(width, 20000), height: Math.min(height, 20000) } };
+  }
+  if (!(DM_VOICE_TYPES as readonly string[]).includes(mime)) return no('unsupported_type', '不支持的录音格式', 415);
+  if (size > DM_VOICE_MAX) return no('too_large', '录音太大（最大 2 MB）', 413);
+  const durationMs = int(o.durationMs);
+  if (!(durationMs >= 1000 && durationMs <= DM_VOICE_MAX_MS)) return no('validation_error', '录音时长需在 1 秒到 2 分钟之间');
+  return { ok: true, value: { kind, mime, size, alt, durationMs, width: 0, height: 0 } };
+}
+/** 0:12、1:05 */
+export function fmtDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+export function attachmentLabel(a: Pick<DmAttachment, 'kind' | 'alt' | 'durationMs'>): string {
+  return a.kind === 'image' ? `[图片]${a.alt ? ` ${a.alt}` : ''}` : `[语音 ${fmtDuration(a.durationMs)}]`;
+}
+/** 会话列表里的最后一条消息摘要：有附件时带上 [图片] / [语音] */
+export function excerptOf(m: { body: string; attachment: Pick<DmAttachment, 'kind' | 'alt' | 'durationMs'> | null }, n = 60): string {
+  if (!m.attachment) return excerpt(m.body, n);
+  if (m.attachment.kind === 'voice') return excerpt(m.body ? `[语音 ${fmtDuration(m.attachment.durationMs)}] ${m.body}` : attachmentLabel(m.attachment), n);
+  return excerpt(m.body ? `[图片] ${m.body}` : attachmentLabel(m.attachment), n);
+}
+/** R2 键：dm/<会话>/<上传者>/<随机> —— 发送时校验键属于这个会话和这个人 */
+export const mediaKey = (conv: number, member: number, rand: string) => `dm/${conv}/${member}/${rand}`;
+export function parseMediaKey(key: string): { conv: number; member: number } | null {
+  const m = /^dm\/(\d{1,12})\/(\d{1,12})\/([A-Za-z0-9-]{8,64})$/.exec(key);
+  return m ? { conv: Number(m[1]), member: Number(m[2]) } : null;
+}
+/** 断线重连 / 发送失败重试的退避：1s、2s、4s… 最多 30s */
+export const backoffMs = (attempt: number) => Math.min(30_000, 1000 * 2 ** Math.max(0, attempt));
+
+const norm = (s: string) => s.normalize('NFKC').toLowerCase();
+/** 消息搜索（服务端已按权限取出候选，这里做同一套匹配）：不区分大小写 / 全半角，含图片替代文字，不含撤回 / 移除；新消息在前。 */
+export function searchMessages<M extends Pick<DmMessage, 'id' | 'body' | 'recalled' | 'removed' | 'attachment'>>(items: M[], q: string, limit = SEARCH_LIMIT): { message: M; field: 'body' | 'alt' }[] {
+  const nq = norm(q.trim());
+  if (!nq || [...nq].length > SEARCH_MAX_Q) return [];
+  const out: { message: M; field: 'body' | 'alt' }[] = [];
+  for (const m of [...items].sort((a, b) => b.id - a.id)) {
+    if (m.recalled || m.removed) continue;
+    if (norm(m.body).includes(nq)) out.push({ message: m, field: 'body' });
+    else if (m.attachment?.alt && norm(m.attachment.alt).includes(nq)) out.push({ message: m, field: 'alt' });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+/** 把命中的部分包上 <mark>（先转义；按 NFKC + 小写比较，长度不变时才高亮原文位置） */
+export function highlightHits(text: string, q: string): string {
+  const nq = norm(q.trim());
+  const nt = norm(text);
+  if (!nq || nt.length !== text.length) return escHtml(text);
+  let out = '', i = 0;
+  for (let j = nt.indexOf(nq); j !== -1; j = nt.indexOf(nq, j + nq.length)) {
+    out += escHtml(text.slice(i, j)) + `<mark>${escHtml(text.slice(j, j + nq.length))}</mark>`;
+    i = j + nq.length;
+  }
+  return out + escHtml(text.slice(i));
+}
+/** 有附件时正文可以为空 */
+export function checkBodyWith(raw: unknown, hasAttachment: boolean): { ok: true; value: string } | { ok: false; message: string } {
+  if (hasAttachment && (raw == null || (typeof raw === 'string' && !raw.replace(CONTROL, '').trim()))) return { ok: true, value: '' };
+  return checkBody(raw);
 }

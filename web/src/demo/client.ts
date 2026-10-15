@@ -144,6 +144,19 @@ export async function demoHandle(path: string, init: RequestInit = {}): Promise<
       body = { bytes: new Uint8Array(await file.arrayBuffer()), type: file.type, name: file.name };
       return backend.handle(method, path, body, headers);
     }
+    if (path.startsWith('/api/social/dm/')) {
+      // L30 私信图片 / 语音：图片在本机缩小重编码（同时去掉 EXIF / GPS），语音原样存成 data URL
+      const fd = init.body;
+      const kind = String(fd.get('kind') ?? '');
+      try {
+        const dataUrl = kind === 'image' ? await fileToDataUrl(file) : await readAsDataUrl(file);
+        const type = kind === 'image' ? (/^data:([^;,]+)/.exec(dataUrl)?.[1] ?? file.type) : (file.type || 'audio/webm');
+        body = { kind, type, size: kind === 'image' ? Math.round((dataUrl.length * 3) / 4) : file.size, alt: fd.get('alt') ?? '', durationMs: Number(fd.get('durationMs') ?? 0), width: Number(fd.get('width') ?? 0), height: Number(fd.get('height') ?? 0), dataUrl };
+      } catch (e) {
+        return { status: 400, body: { error: { code: 'bad_file', message: (e as Error).message || '无法读取文件' } } };
+      }
+      return backend.handle(method, path, body, headers);
+    }
     if (path.startsWith('/api/members/')) {
       // 好朋友上传 / 语音：小文件存成 data URL，大文件只记录元数据
       const dataUrl = file.size <= 300_000 ? await readAsDataUrl(file).catch(() => undefined) : undefined;
