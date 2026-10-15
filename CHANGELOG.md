@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.30.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.30.0) — 2026-10-15
+
+_L30 · 实时社交 2.0：私信图片（替代文字必填、去 EXIF / GPS、不公开的 R2 存储）与语音（1 秒 – 2 分钟）、私信搜索（只搜自己的会话、含替代文字、跳转高亮）、clientId 幂等重发与指数退避重连、阅读进度 + 稍后读跨设备同步（墓碑合并）、迁移 0022_realtime2_
+
+### 新功能 Features
+
+- **realtime2:** L30 wire sync-client after login, dm.css attachments/search/hit styles, DM images always re-encoded (EXIF strip), search-hit #m-<id> survives usa-route-transition navigation + repaint (b61ffb1)
+
+### 修复 Fixes
+
+- **realtime2:** worker media bytes typed as Uint8Array (tsc), WebSocket reconnect uses shared dm-core backoffMs (eac5025)
+
+### 测试 Tests
+
+- **realtime2:** L30 实时社交 2.0 — DM image/voice validation + mock upload/send, message search scope, clientId idempotency, backoff, reading/later cross-device sync merge (fail-before: l30-failbefore.log) (e4b966b)
+
+### 文档 Docs
+
+- **realtime2:** L30 实时社交 2.0 docs (realtime.md, README, ROADMAP, sections, migration 0022) (efcd9d1)
+
+### 杂项 Chores
+
+- **release:** 1.30.0 — version bump, release-meta (1.29.0 frozen at 6412242) (5b4d0d2)
+
 ## [1.29.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.29.0) — 2026-10-15
 
 _L29 · 摄影工具箱：曝光计算器 /tools/exposure/（EV、等效组合、ND 减光、网址参数）、景深计算器 /tools/dof/（近点 / 远点 / 超焦距，含手机传感器与等效焦距）、黄金 / 蓝调时刻 /tools/golden-hour/（NOAA 离线计算，默认不请求定位）、本地 EXIF 查看器 /tools/exif/（不上传、零网络请求、GPS 只提示、下载去元数据副本）、作品灯箱曝光值_

@@ -54,6 +54,8 @@ export interface DemoDb {
   studio?: import('./mock-studio').StudioState;
   /** L28 兴趣社群（小组） */
   groups?: import('./mock-groups').GroupsState;
+  /** L30 跨设备同步（阅读进度 + 稍后读） */
+  readingSync?: import('./mock-sync').SyncState;
   /** L19 私信 / 消息请求 / 活动聊天室 */
   dm?: import('./mock-dm').DmState;
   /** L20 Webmention / 订阅 / MCP 令牌 / 角色 / AI 开关 */

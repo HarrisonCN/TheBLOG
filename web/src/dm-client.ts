@@ -22,6 +22,11 @@ import {
   RECALL_WINDOW_MS,
   REQUEST_PENDING_MAX,
   ROOM_MAX_BODY,
+  ALT_MAX,
+  DM_VOICE_MAX_MS,
+  fmtDuration,
+  backoffMs,
+  type DmAttachment,
   type DmConversation,
   type DmEvent,
   type DmMessage,
@@ -47,7 +52,19 @@ export const dm = {
   start: (username: string) => send<{ conversation: DmConversation; created: boolean }>('/api/social/dm/conversations', 'POST', { username }),
   conv: (id: number) => get<{ conversation: DmConversation; viewer: { blocked: boolean; canSend: boolean } }>(`/api/social/dm/conversations/${id}`),
   messages: (id: number, before?: number | null) => get<{ items: DmMessage[]; hasMore: boolean; nextBefore: number | null }>(`/api/social/dm/conversations/${id}/messages?limit=30${before ? `&before=${before}` : ''}`),
-  send: (id: number, body: string, clientId: string) => send<{ message: DmMessage; duplicate: boolean }>(`/api/social/dm/conversations/${id}/messages`, 'POST', { body, clientId }),
+  send: (id: number, body: string, clientId: string, mediaId?: string) => send<{ message: DmMessage; duplicate: boolean }>(`/api/social/dm/conversations/${id}/messages`, 'POST', mediaId ? { body, clientId, mediaId } : { body, clientId }),
+  /** L30：上传图片 / 语音（multipart；演示站在 demo/client.ts 里转成 data URL） */
+  upload: (id: number, file: Blob, f: { kind: 'image' | 'voice'; alt?: string; durationMs?: number; width?: number; height?: number }) => {
+    const fd = new FormData();
+    fd.set('file', file, f.kind === 'image' ? 'image' : 'voice');
+    fd.set('kind', f.kind);
+    if (f.alt) fd.set('alt', f.alt);
+    if (f.durationMs) fd.set('durationMs', String(Math.round(f.durationMs)));
+    if (f.width) fd.set('width', String(f.width));
+    if (f.height) fd.set('height', String(f.height));
+    return request<{ media: DmAttachment & { id: string } }>(`/api/social/dm/conversations/${id}/media`, { method: 'POST', headers: auth(), body: fd, timeoutMs: 60_000 });
+  },
+  search: (q: string) => get<{ q: string; items: { message: DmMessage; field: 'body' | 'alt'; html: string; conversation: { id: number; peer: DmUser | null; title: string } }[] }>(`/api/social/dm/search?q=${encodeURIComponent(q)}`),
   read: (id: number, lastReadId: number) => send<{ lastReadId: number }>(`/api/social/dm/conversations/${id}/read`, 'POST', { lastReadId }),
   respond: (id: number, action: 'accept' | 'decline' | 'block') => send<{ status: string }>(`/api/social/dm/conversations/${id}/${action}`, 'POST'),
   hide: (id: number) => send<{ hidden: boolean }>(`/api/social/dm/conversations/${id}`, 'DELETE'),
@@ -204,7 +221,7 @@ export class Live {
       // 连不上就轮询；连上过又断了 → 退避重连，期间轮询兜底
       this.startPolling();
       if (opened || this.retry < 3) {
-        const wait = Math.min(30_000, 1000 * 2 ** this.retry++);
+        const wait = backoffMs(this.retry++); // dm-core 共享退避（1 s → 30 s 上限，单元测试覆盖）
         setTimeout(() => !this.stopped && navigator.onLine !== false && void this.connect(), wait);
       }
     });
@@ -350,9 +367,25 @@ function convItem(c: DmConversation, box: 'inbox' | 'requests'): string {
 async function renderInbox(box: HTMLElement, which: 'inbox' | 'requests', ctx: DmCtx): Promise<void> {
   let r = await dm.list(which);
   const signal = freshSignal(box);
+  // L30：消息搜索（只搜自己的私信会话；服务端判断权限）
+  let sq = '';
+  let sres: Awaited<ReturnType<typeof dm.search>> | null = null;
+  const searchBlock = () =>
+    which !== 'inbox'
+      ? ''
+      : `<section class="tile tile--full dm-search" aria-labelledby="dm-search-h"><h2 class="soc-h small" id="dm-search-h">${icon('search')}搜索私信</h2><form class="dm-search__form js-dmsearch" role="search" novalidate><label class="visually-hidden" for="dm-search-q">搜索消息内容或图片说明</label><input id="dm-search-q" name="q" type="search" maxlength="50" value="${e(sq)}" placeholder="搜索消息内容或图片说明" autocomplete="off"><button class="btn btn--soft btn--sm" type="submit">${icon('search')}搜索</button></form>${
+          sres
+            ? sres.items.length
+              ? `<p class="muted small js-dmsearch-count" role="status">找到 ${sres.items.length} 条</p><ul class="dm-hits" role="list">${sres.items
+                  .map((h) => `<li><a class="dm-hit" href="${url(`/messages/c/${h.conversation.id}/`)}#m-${h.message.id}"><b>${e(h.conversation.title || '会话')}</b><span class="dm-hit__t">${h.field === 'alt' ? '[图片] ' : ''}${h.html}</span><time class="muted small" datetime="${e(h.message.createdAt)}">${when(h.message.createdAt)}</time></a></li>`)
+                  .join('')}</ul>`
+              : `<p class="muted small js-dmsearch-count" role="status">没有找到包含「${e(sq)}」的消息</p>`
+            : ''
+        }</section>`;
   const paint = () => {
     box.innerHTML = `<div class="dm">
   ${tabs(which, r.unread)}
+  ${searchBlock()}
   <section class="tile tile--full dm-list-wrap" aria-labelledby="dm-list-h">
     <div class="dm-list-head"><h2 class="soc-h" id="dm-list-h">${icon(which === 'inbox' ? 'message' : 'envelope')}${which === 'inbox' ? '会话' : '消息请求'}</h2>${modeChip()}</div>
     ${which === 'requests' ? `<p class="muted small">还没有互相关注的人发来的消息会先放在这里。接受后才能回复；婉拒后对方 30 天内不能再次发起；也可以直接拉黑。对方看不到你是否读过请求。</p>` : ''}
@@ -428,6 +461,25 @@ async function renderInbox(box: HTMLElement, which: 'inbox' | 'requests', ctx: D
     },
     { signal },
   );
+  box.addEventListener(
+    'submit',
+    async (ev) => {
+      const f = (ev.target as HTMLElement).closest<HTMLFormElement>('.js-dmsearch');
+      if (!f) return;
+      ev.preventDefault();
+      sq = String(new FormData(f).get('q') ?? '').trim();
+      try {
+        sres = sq ? await dm.search(sq) : null;
+      } catch (x) {
+        void ctx.notify(errMsg(x), 'error');
+        return;
+      }
+      paint();
+      box.querySelector<HTMLInputElement>('#dm-search-q')?.focus();
+      announce(box, sres ? (sres.items.length ? `找到 ${sres.items.length} 条消息` : '没有找到消息') : '');
+    },
+    { signal },
+  );
   // 列表也实时刷新（新消息 / 新请求）
   const live = new Live();
   bindMode(box, live);
@@ -496,6 +548,83 @@ async function renderSettings(box: HTMLElement, ctx: DmCtx): Promise<void> {
 }
 
 // ---------------------------------------------------------------- 会话
+// ---------------------------------------------------------------- L30 附件
+/** 附件 HTML：演示站是 data URL，直接显示；真实站点的媒体接口要带登录令牌，先放占位，hydrateMedia 拉取后换成 blob URL。 */
+function attachmentHtml(a: DmAttachment): string {
+  const direct = /^data:/.test(a.url);
+  const src = direct ? `src="${e(a.url)}"` : `data-auth-src="${e(a.url)}"`;
+  if (a.kind === 'image') {
+    const ratio = a.width && a.height ? ` width="${a.width}" height="${a.height}"` : '';
+    return `<figure class="dm-att dm-att--img"><img class="dm-att__img" ${src} alt="${e(a.alt)}"${ratio} loading="lazy" decoding="async"></figure>`;
+  }
+  return `<figure class="dm-att dm-att--voice"><audio class="dm-att__audio" controls preload="none" ${src} aria-label="语音消息，${fmtDuration(a.durationMs)}"></audio><figcaption class="small muted">${icon('volume')}语音 ${fmtDuration(a.durationMs)}${a.alt ? ` · ${e(a.alt)}` : ''}</figcaption></figure>`;
+}
+const mediaCache = new Map<string, string>();
+async function hydrateMedia(root: ParentNode): Promise<void> {
+  const els = [...root.querySelectorAll<HTMLImageElement | HTMLAudioElement>('[data-auth-src]')];
+  for (const el of els) {
+    const u = el.dataset.authSrc!;
+    let obj = mediaCache.get(u);
+    if (!obj) {
+      try {
+        const r = await fetch(API_BASE + u, { headers: auth() });
+        if (!r.ok) throw new Error(String(r.status));
+        obj = URL.createObjectURL(await r.blob());
+        mediaCache.set(u, obj);
+      } catch {
+        el.replaceWith(Object.assign(document.createElement('span'), { className: 'muted small', textContent: '附件已不可用' }));
+        continue;
+      }
+    }
+    el.src = obj;
+    el.removeAttribute('data-auth-src');
+  }
+}
+/** 读取图片尺寸（只在本机） */
+function imageSize(file: Blob): Promise<{ width: number; height: number }> {
+  return new Promise((res) => {
+    const img = new Image();
+    const u = URL.createObjectURL(file);
+    img.onload = () => {
+      res({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(u);
+    };
+    img.onerror = () => {
+      res({ width: 0, height: 0 });
+      URL.revokeObjectURL(u);
+    };
+    img.src = u;
+  });
+}
+/** 选好图片后要求写替代文字（必填）；返回 null = 取消 */
+function askAlt(box: HTMLElement, file: Blob): Promise<string | null> {
+  return new Promise((resolve) => {
+    const dlg = document.createElement('dialog');
+    dlg.className = 'dm-dialog';
+    dlg.setAttribute('aria-labelledby', 'dm-alt-h');
+    const prev = URL.createObjectURL(file);
+    dlg.innerHTML = `<form method="dialog" class="dm-alt"><h2 class="soc-h" id="dm-alt-h">${icon('image')}发送图片</h2><img class="dm-alt__prev" src="${prev}" alt=""><div class="field"><label class="field__label" for="dm-alt-t">替代文字（必填）</label><textarea id="dm-alt-t" name="alt" rows="2" maxlength="${ALT_MAX}" required aria-describedby="dm-alt-d"></textarea><p class="muted small" id="dm-alt-d">用一句话描述图片内容，给看不见图片的朋友（读屏软件会读出来）。图片里的位置信息（EXIF / GPS）会在发送前去掉。</p></div><p class="field__err js-alt-err" role="alert" hidden>请写一句替代文字</p><p class="dm-rep__act"><button class="btn btn--primary btn--sm js-alt-ok" value="ok" type="submit">${icon('send')}发送</button><button class="btn btn--soft btn--sm" value="cancel" type="submit" formnovalidate>取消</button></p></form>`;
+    box.append(dlg);
+    const ta = dlg.querySelector<HTMLTextAreaElement>('#dm-alt-t')!;
+    dlg.querySelector('.js-alt-ok')!.addEventListener('click', (ev) => {
+      if (!ta.value.trim()) {
+        ev.preventDefault();
+        dlg.querySelector<HTMLElement>('.js-alt-err')!.hidden = false;
+        ta.setAttribute('aria-invalid', 'true');
+        ta.focus();
+      }
+    });
+    dlg.addEventListener('close', () => {
+      const v = dlg.returnValue === 'ok' ? ta.value.trim() : null;
+      URL.revokeObjectURL(prev);
+      dlg.remove();
+      resolve(v);
+    });
+    dlg.showModal();
+    ta.focus();
+  });
+}
+
 function bubble(m: DmMessage, opts: { peerRead: number | null; lastMine: number | null; room?: boolean; moderator?: boolean }): string {
   const gone = m.recalled || m.removed;
   const canRecall = m.mine && !gone && Date.now() - Date.parse(m.createdAt) < RECALL_WINDOW_MS;
@@ -505,9 +634,10 @@ function bubble(m: DmMessage, opts: { peerRead: number | null; lastMine: number 
   const acts = gone
     ? ''
     : `<span class="dm-msg__acts">${canRecall ? `<button class="dm-act js-recall" type="button" aria-label="撤回这条消息（双方都删除）">撤回</button>` : ''}${!opts.room ? `<button class="dm-act js-del" type="button" aria-label="仅在我这里删除这条消息">删除</button>` : ''}${opts.room && (m.mine || opts.moderator) ? `<button class="dm-act js-rm" type="button" aria-label="移除这条消息">移除</button>` : ''}${!m.mine ? `<button class="dm-act js-report" type="button" aria-label="举报这条消息">举报</button>` : ''}</span>`;
-  return `<li class="dm-msg${m.mine ? ' is-mine' : ''}${gone ? ' is-gone' : ''}" data-id="${m.id}"${m.clientId ? ` data-cid="${e(m.clientId)}"` : ''}>
+  const att = !gone && m.attachment ? attachmentHtml(m.attachment) : '';
+  return `<li class="dm-msg${m.mine ? ' is-mine' : ''}${gone ? ' is-gone' : ''}" data-id="${m.id}" id="m-${m.id}"${m.clientId ? ` data-cid="${e(m.clientId)}"` : ''}>
   ${opts.room && !m.mine ? `<a class="dm-msg__who small" href="${m.sender ? userPath(m.sender.username) : '#'}">${e(who)}</a>` : `<span class="visually-hidden">${e(who)}：</span>`}
-  <div class="dm-msg__bubble">${body}</div>
+  <div class="dm-msg__bubble">${att}${body}</div>
   <span class="dm-msg__meta muted small"><time datetime="${e(m.createdAt)}">${when(m.createdAt)}</time>${read}</span>
   ${acts}
 </li>`;
@@ -553,20 +683,34 @@ async function renderConversation(box: HTMLElement, id: number, ctx: DmCtx): Pro
   <form class="tile tile--full dm-compose js-compose" novalidate${canSendNow ? '' : ' hidden'}>
     <label class="visually-hidden" for="dm-input">给 ${e(name)} 发消息</label>
     <textarea id="dm-input" name="body" rows="2" maxlength="${MAX_BODY}" placeholder="写点什么…（Enter 发送，Shift + Enter 换行）" aria-describedby="dm-count"></textarea>
-    <div class="dm-compose__foot"><span class="muted small" id="dm-count" aria-live="off">0 / ${MAX_BODY}</span><button class="btn btn--primary btn--sm" type="submit">${icon('send')}发送</button></div>
+    <div class="dm-compose__foot"><span class="dm-compose__tools"><label class="btn btn--ghost btn--sm dm-attach" title="发送图片"><input class="visually-hidden js-pick-img" type="file" accept="image/jpeg,image/png,image/webp">${icon('image')}<span>图片</span></label><button class="btn btn--ghost btn--sm js-rec" type="button" aria-pressed="false" hidden>${icon('volume')}<span class="js-rec-t">语音</span></button></span><span class="muted small" id="dm-count" aria-live="off">0 / ${MAX_BODY}</span><button class="btn btn--primary btn--sm" type="submit">${icon('send')}发送</button></div>
+    <p class="muted small js-rec-hint" role="status" aria-live="polite"></p>
   </form>
   <p class="visually-hidden js-dm-live" role="status" aria-live="polite"></p>
 </div>`;
   const log = box.querySelector<HTMLOListElement>('.js-log')!;
   const input = box.querySelector<HTMLTextAreaElement>('#dm-input')!;
   const scrollEnd = () => log.lastElementChild?.scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
+  // 从搜索结果跳过来：#m-<id> 高亮那条消息（重绘后保留高亮）
+  const hashId = /^#m-(\d+)$/.exec(location.hash)?.[1];
+  const markHit = () => hashId && log.querySelector<HTMLElement>(`#m-${hashId}`)?.classList.add('is-hit');
   const repaint = (keep = false) => {
     const y = log.scrollHeight - log.scrollTop;
     log.innerHTML = list();
+    markHit();
     if (keep) log.scrollTop = log.scrollHeight - y;
+    void hydrateMedia(log);
   };
+  void hydrateMedia(log);
   log.scrollTop = log.scrollHeight;
-  requestAnimationFrame(() => (log.scrollTop = log.scrollHeight));
+  if (hashId) requestAnimationFrame(() => {
+    const el = log.querySelector<HTMLElement>(`#m-${hashId}`);
+    if (el) {
+      el.classList.add('is-hit');
+      el.scrollIntoView({ block: 'center' });
+    }
+  });
+  if (!hashId) requestAnimationFrame(() => (log.scrollTop = log.scrollHeight));
   const markRead = () => {
     const last = [...msgs.keys()].reduce((a, b) => Math.max(a, b), 0);
     if (!last || document.hidden) return;
@@ -615,6 +759,97 @@ async function renderConversation(box: HTMLElement, id: number, ctx: DmCtx): Pro
       void ctx.notify(errMsg(x), 'error');
     }
   };
+  // L30：网络恢复后自动重发失败的消息（同一个 clientId，服务端去重，不会重复）
+  addEventListener(
+    'online',
+    () => {
+      log.querySelectorAll<HTMLButtonElement>('.dm-msg.is-failed .js-retry').forEach((b) => b.click());
+    },
+    { signal },
+  );
+  // L30：图片 / 语音 —— 先上传拿到 mediaId，再像普通消息一样发送（clientId 幂等）
+  const sendMedia = async (file: Blob, meta: { kind: 'image' | 'voice'; alt?: string; durationMs?: number; width?: number; height?: number }) => {
+    const cid = clientId();
+    const label = meta.kind === 'image' ? `[图片] ${meta.alt ?? ''}` : `[语音 ${fmtDuration(meta.durationMs ?? 0)}]`;
+    log.insertAdjacentHTML('beforeend', `<li class="dm-msg is-mine is-pending" data-cid="${e(cid)}"><span class="visually-hidden">我：</span><div class="dm-msg__bubble">${e(label)}</div><span class="dm-msg__meta muted small">正在上传…</span></li>`);
+    scrollEnd();
+    try {
+      const up = await dm.upload(id, file, meta);
+      const r = await dm.send(id, '', cid, up.media.id);
+      log.querySelector(`[data-cid="${CSS.escape(cid)}"].is-pending`)?.remove();
+      msgs.set(r.message.id, r.message);
+      repaint();
+      scrollEnd();
+      announce(box, meta.kind === 'image' ? '图片已发送' : '语音已发送');
+    } catch (x) {
+      log.querySelector(`[data-cid="${CSS.escape(cid)}"].is-pending`)?.remove();
+      void ctx.notify(errMsg(x), 'error');
+    }
+  };
+  const pick = box.querySelector<HTMLInputElement>('.js-pick-img');
+  pick?.addEventListener(
+    'change',
+    async () => {
+      const file = pick.files?.[0];
+      pick.value = '';
+      if (!file) return;
+      const alt = await askAlt(box, file);
+      if (alt == null) return;
+      const size = await imageSize(file);
+      await sendMedia(file, { kind: 'image', alt, ...size });
+    },
+    { signal },
+  );
+  // 语音：浏览器支持 MediaRecorder 才显示；点一下开始，再点一下发送；最长 2 分钟；麦克风权限只在点按钮时请求
+  const recBtn = box.querySelector<HTMLButtonElement>('.js-rec');
+  const recHint = box.querySelector<HTMLElement>('.js-rec-hint');
+  if (recBtn && typeof MediaRecorder !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    recBtn.hidden = false;
+    let rec: MediaRecorder | null = null;
+    let chunks: Blob[] = [];
+    let started = 0;
+    let timer = 0;
+    const stop = () => {
+      clearTimeout(timer);
+      if (rec && rec.state !== 'inactive') rec.stop();
+    };
+    recBtn.addEventListener(
+      'click',
+      async () => {
+        if (rec && rec.state === 'recording') return stop();
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported?.(t)) ?? '';
+          rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+          chunks = [];
+          rec.ondataavailable = (ev) => ev.data.size && chunks.push(ev.data);
+          rec.onstop = () => {
+            stream.getTracks().forEach((t) => t.stop());
+            recBtn.setAttribute('aria-pressed', 'false');
+            recBtn.querySelector('.js-rec-t')!.textContent = '语音';
+            const durationMs = Date.now() - started;
+            const blob = new Blob(chunks, { type: (rec?.mimeType || 'audio/webm').split(';')[0] });
+            if (recHint) recHint.textContent = '';
+            if (durationMs < 1000) {
+              if (recHint) recHint.textContent = '录音太短了（至少 1 秒）';
+              return;
+            }
+            void sendMedia(blob, { kind: 'voice', durationMs: Math.min(durationMs, DM_VOICE_MAX_MS) });
+          };
+          started = Date.now();
+          rec.start();
+          recBtn.setAttribute('aria-pressed', 'true');
+          recBtn.querySelector('.js-rec-t')!.textContent = '停止并发送';
+          if (recHint) recHint.textContent = '正在录音…（最长 2 分钟，再点一次发送）';
+          timer = window.setTimeout(stop, DM_VOICE_MAX_MS);
+        } catch {
+          if (recHint) recHint.textContent = '没有拿到麦克风权限，无法录音';
+        }
+      },
+      { signal },
+    );
+    signal.addEventListener('abort', stop);
+  }
   box.addEventListener(
     'submit',
     (ev) => {

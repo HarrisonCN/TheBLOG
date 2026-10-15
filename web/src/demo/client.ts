@@ -111,9 +111,10 @@ function readAsDataUrl(blob: Blob): Promise<string> {
 }
 
 /** 大图在浏览器里缩小并重新编码，避免撑爆 localStorage（约 5 MB）。 */
-export async function fileToDataUrl(file: File): Promise<string> {
+/** stripMeta：一律在画布上重新编码（私信图片用：小图也要去掉 EXIF / GPS） */
+export async function fileToDataUrl(file: File, stripMeta = false): Promise<string> {
   if (!RASTER.includes(file.type)) throw Object.assign(new Error('只支持 PNG / JPEG / WebP / GIF / AVIF 图片'), { status: 415 });
-  if (file.size <= KEEP_AS_IS_BYTES) return readAsDataUrl(file);
+  if (!stripMeta && file.size <= KEEP_AS_IS_BYTES) return readAsDataUrl(file);
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
   const canvas = document.createElement('canvas');
@@ -142,6 +143,19 @@ export async function demoHandle(path: string, init: RequestInit = {}): Promise<
     if (!(file instanceof File)) return { status: 400, body: { error: { code: 'no_file', message: '缺少 file 字段' } } };
     if (path === '/api/admin/audio') {
       body = { bytes: new Uint8Array(await file.arrayBuffer()), type: file.type, name: file.name };
+      return backend.handle(method, path, body, headers);
+    }
+    if (path.startsWith('/api/social/dm/')) {
+      // L30 私信图片 / 语音：图片在本机缩小重编码（同时去掉 EXIF / GPS），语音原样存成 data URL
+      const fd = init.body;
+      const kind = String(fd.get('kind') ?? '');
+      try {
+        const dataUrl = kind === 'image' ? await fileToDataUrl(file, true) : await readAsDataUrl(file);
+        const type = kind === 'image' ? (/^data:([^;,]+)/.exec(dataUrl)?.[1] ?? file.type) : (file.type || 'audio/webm');
+        body = { kind, type, size: kind === 'image' ? Math.round((dataUrl.length * 3) / 4) : file.size, alt: fd.get('alt') ?? '', durationMs: Number(fd.get('durationMs') ?? 0), width: Number(fd.get('width') ?? 0), height: Number(fd.get('height') ?? 0), dataUrl };
+      } catch (e) {
+        return { status: 400, body: { error: { code: 'bad_file', message: (e as Error).message || '无法读取文件' } } };
+      }
       return backend.handle(method, path, body, headers);
     }
     if (path.startsWith('/api/members/')) {

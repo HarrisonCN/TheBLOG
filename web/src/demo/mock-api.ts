@@ -19,6 +19,7 @@ import { MockSocial, SocialError, socialSeed, type SocialState } from './mock-so
 import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { groupsSeed, MockGroups } from './mock-groups';
+import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
 import { MCP_ACTING, MockOpen, openSeed } from './mock-open';
@@ -207,8 +208,9 @@ export class DemoBackend {
         this.disc.purge(id);
         this.dm.purge(id);
         this.groupsPurge(id);
+        this.sync.purge(id);
       },
-      exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id), ...this.studio.exportFor(id), ...this.dm.exportFor(id) }),
+      exportWorks: (id) => ({ ...this.ugc.exportWorks(id), ...this.disc.exportFor(id), ...this.studio.exportFor(id), ...this.dm.exportFor(id), ...this.sync.exportFor(id) }),
     });
     this.ugc = new MockUgc({
       state: () => this.db().ugc ?? ugcSeed(this.base),
@@ -256,6 +258,17 @@ export class DemoBackend {
       members: () => this.db().members,
       memberFrom: (h) => this.memberFrom(h),
       optionalMember: (h) => (/^Bearer\s+\S/i.test(h.authorization ?? '') ? this.memberFromOrNull(h) : null),
+      now: () => this.now(),
+    });
+    this.sync = new MockSync({
+      state: () => this.db().readingSync ?? { docs: {} },
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.readingSync ??= { docs: {} };
+        mutate(db.readingSync);
+        this.save(db);
+      },
+      memberFrom: (h) => this.memberFrom(h),
       now: () => this.now(),
     });
     this.groups = new MockGroups({
@@ -377,6 +390,7 @@ export class DemoBackend {
   private social: MockSocial;
   private dm: MockDm;
   private groups: MockGroups;
+  private sync: MockSync;
   private groupsPurge(id: number): void {
     const db = structuredClone(this.db());
     if (!db.groups) return;
@@ -531,6 +545,9 @@ export class DemoBackend {
       // ---- L28 兴趣社群（小组）----
       const gr = this.groups.route(m, path.slice('/api/social'.length), q, body, headers);
       if (gr) return gr;
+      // ---- L30 跨设备同步 ----
+      const sy = this.sync.route(m, path.slice('/api/social'.length), body, headers);
+      if (sy) return sy;
     }
     // ---- L15 社交（/api/social/*）----
     const soc = this.social.route(m, path, q, body, headers);
