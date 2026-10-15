@@ -63,8 +63,11 @@ for (const [width, scheme] of VIEWPORTS) {
     page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.test(m.text())) errs.push(m.text()); });
     try {
       await page.goto(ROOT + r, { waitUntil: 'load', timeout: 30000 });
-      await page.waitForTimeout(800);
+      // 演示版先显示加载骨架再拉快照重绘：等到 main 里出现 h1（最多 10 秒，较慢的引擎如 webkit），再多等 300ms 让动画落定
+      await page.waitForFunction(() => document.querySelectorAll('main h1').length > 0, null, { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(300);
       const facts = await page.evaluate(() => ({
+        mainText: (document.querySelector('main')?.innerText ?? '').replace(/\s+/g, ' ').slice(0, 200),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         skip: document.querySelector('a.skip-link')?.getAttribute('href') ?? null,
         main: !!document.querySelector('main#main'),
@@ -73,7 +76,7 @@ for (const [width, scheme] of VIEWPORTS) {
       }));
       ok(facts.overflow <= 1, `${T} no horizontal overflow (${facts.overflow}px)`);
       ok(facts.skip === '#main' && facts.main, `${T} skip link → <main id="main">`);
-      ok(facts.h1 === 1, `${T} exactly one h1 in main (${facts.h1})`);
+      ok(facts.h1 === 1, `${T} exactly one h1 in main (${facts.h1})${facts.h1 === 1 ? '' : ` main text: «${facts.mainText}»`}`);
       await page.addScriptTag({ content: AXE });
       const v = await page.evaluate(async () => {
         const res = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } });
