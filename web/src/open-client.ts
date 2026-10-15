@@ -12,7 +12,8 @@ import { currentMember } from './community';
 import { escapeHtml as e } from './markdown';
 import { icon } from './icons';
 import { url } from './render';
-import { AI_KIND_LABEL, AI_NOTE, FEED_LABEL, FREQ_LABEL, MCP_SCOPES, SCOPE_LABEL, SCOPE_NOTE, ROLE_LABEL, TOKEN_TTLS, feedPath, type AiKind, type FeedFormat, type FeedScope, type McpScope, type MemberRole } from './open-core';
+import { AI2_KIND_LABEL, applyFixes, type Ai2Kind, type ProofIssue } from './ai-core';
+import { AI_NOTE, FEED_LABEL, FREQ_LABEL, MCP_SCOPES, SCOPE_LABEL, SCOPE_NOTE, ROLE_LABEL, TOKEN_TTLS, feedPath, type FeedFormat, type FeedScope, type McpScope, type MemberRole } from './open-core';
 
 type Notify = (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 export interface OpenCtx { notify: Notify }
@@ -480,39 +481,87 @@ export async function enhance(box: HTMLElement, view: string, ctx: OpenCtx): Pro
   }
 }
 
-// ---------------------------------------------------------------- 发布器：AI 辅助建议
-let aiStatus: Promise<{ enabled: boolean; provider: string }> | null = null;
-export interface AiHost { form: HTMLFormElement; onAccept: (kind: AiKind) => void; notify: Notify }
+// ---------------------------------------------------------------- 发布器：AI 创作台 2.0（L31）
+type AiStatus2 = { enabled: boolean; provider: string; kinds?: Ai2Kind[]; budget?: { month: string; used: number; budget: number; left: number; exhausted: boolean } };
+type Sug2 = { kind: Ai2Kind; text: string; options: string[]; tags: { slug: string; name: string }[]; issues: ProofIssue[]; provider: string };
+let aiStatus: Promise<AiStatus2> | null = null;
+export interface AiHost { form: HTMLFormElement; onAccept: (kind: Ai2Kind) => void; notify: Notify }
+const AI_ORDER: Ai2Kind[] = ['summary', 'tags', 'draft', 'title', 'alt', 'proof'];
+const budgetText = (b: AiStatus2['budget']) => (b ? (b.exhausted ? `本月额度已用完（${b.used} / ${b.budget}）` : `本月还可以用 ${b.left} 次（共 ${b.budget} 次）`) : '');
 export async function mountAiPanel(slot: HTMLElement, h: AiHost): Promise<void> {
-  aiStatus ??= send<{ enabled: boolean; provider: string }>('/api/social/ai/status', 'GET').catch(() => ({ enabled: false, provider: 'local' }));
+  aiStatus ??= send<AiStatus2>('/api/social/ai/status', 'GET').catch(() => ({ enabled: false, provider: 'local' }));
   const st = await aiStatus;
   if (!st.enabled || !slot.isConnected) {
     slot.hidden = true;
     return;
   }
   slot.hidden = false;
-  slot.innerHTML = `<section class="open-ai" aria-labelledby="open-ai-h"><h3 class="open-ai__h" id="open-ai-h">${icon('sparkles')}AI 辅助 <span class="open-ai__badge">实验</span></h3><p class="muted small">${AI_NOTE}</p>
-<div class="ugc-row" role="group" aria-label="请求 AI 建议">${(['summary', 'tags', 'draft'] as AiKind[]).map((k) => `<button type="button" class="btn btn--soft btn--sm js-ai" data-kind="${k}">生成${AI_KIND_LABEL[k]}建议</button>`).join('')}</div>
-<div class="open-ai__out js-ai-out" hidden><p class="open-ai__label"><span class="open-ai__chip">AI 建议</span><span class="muted small js-ai-meta"></span></p><pre class="open-ai__text js-ai-text" tabindex="0" aria-label="AI 建议内容"></pre><div class="ugc-row"><button type="button" class="btn btn--primary btn--sm js-ai-accept">${icon('check')}采用</button><button type="button" class="btn btn--ghost btn--sm js-ai-dismiss">忽略</button></div></div>
+  const kinds = AI_ORDER.filter((k) => (st.kinds ?? ['summary', 'tags', 'draft']).includes(k));
+  slot.innerHTML = `<section class="open-ai" aria-labelledby="open-ai-h"><h3 class="open-ai__h" id="open-ai-h">${icon('sparkles')}AI 创作台 <span class="open-ai__badge">实验</span></h3><p class="muted small">${AI_NOTE}</p>
+<p class="muted small js-ai-budget">${budgetText(st.budget)}</p>
+<div class="ugc-row" role="group" aria-label="请求 AI 建议">${kinds.map((k) => `<button type="button" class="btn btn--soft btn--sm js-ai" data-kind="${k}">${k === 'proof' ? '校对正文' : `生成${AI2_KIND_LABEL[k]}建议`}</button>`).join('')}</div>
+<div class="open-ai__out js-ai-out" hidden><p class="open-ai__label"><span class="open-ai__chip">AI 建议</span><span class="muted small js-ai-meta"></span></p><pre class="open-ai__text js-ai-text" tabindex="0" aria-label="AI 建议内容"></pre><div class="js-ai-extra"></div><div class="ugc-row js-ai-actions"><button type="button" class="btn btn--primary btn--sm js-ai-accept">${icon('check')}采用</button><button type="button" class="btn btn--ghost btn--sm js-ai-dismiss">忽略</button></div></div>
 <p class="visually-hidden js-ai-live" role="status" aria-live="polite"></p></section>`;
-  let last: { kind: AiKind; text: string; tags: { slug: string; name: string }[] } | null = null;
+  let last: Sug2 | null = null;
+  let proofBase = '';
   const out = slot.querySelector<HTMLElement>('.js-ai-out')!;
+  const extra = slot.querySelector<HTMLElement>('.js-ai-extra')!;
   const live = slot.querySelector<HTMLElement>('.js-ai-live')!;
+  const acceptBtn = slot.querySelector<HTMLButtonElement>('.js-ai-accept')!;
   const val = (n: string) => (h.form.elements.namedItem(n) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? '';
+  const set = (n: string, v: string) => {
+    const el = h.form.elements.namedItem(n) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!el) return false;
+    el.value = v;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  };
+  const firstEmptyAlt = () => [...h.form.querySelectorAll<HTMLInputElement>('.js-alt')].find((a) => !a.value.trim()) ?? null;
+  const done = (kind: Ai2Kind, msg?: string) => {
+    last = null;
+    out.hidden = true;
+    extra.innerHTML = '';
+    h.onAccept(kind);
+    live.textContent = msg ?? `已采用 AI ${AI2_KIND_LABEL[kind]}建议。发布前请检查，并勾选确认。`;
+  };
+  const renderExtra = (s: Sug2) => {
+    extra.innerHTML = '';
+    acceptBtn.hidden = false;
+    acceptBtn.innerHTML = `${icon('check')}采用`;
+    if (s.kind === 'title' && s.options.length) {
+      acceptBtn.hidden = true;
+      extra.innerHTML = `<ul class="open-ai__opts" aria-label="标题候选">${s.options.map((o, i) => `<li><span>${e(o)}</span><button type="button" class="btn btn--soft btn--sm js-ai-title" data-i="${i}" aria-label="采用标题：${e(o)}">采用</button></li>`).join('')}</ul>`;
+    } else if (s.kind === 'proof') {
+      if (!s.issues.length) acceptBtn.hidden = true;
+      else {
+        acceptBtn.innerHTML = `${icon('check')}采用选中的修改`;
+        extra.innerHTML = `<fieldset class="open-ai__proof"><legend class="small">勾选要采用的修改（不会自动改正文）</legend>${s.issues.map((x) => `<label class="open-ai__fix"><input type="checkbox" class="js-ai-fix" value="${e(x.id)}" checked> <span>${e(x.message)}</span></label>`).join('')}</fieldset>`;
+      }
+    } else if (s.kind === 'alt' && !firstEmptyAlt()) {
+      acceptBtn.hidden = true;
+      extra.innerHTML = `<p class="muted small">没有空着的替代文字输入框；需要时可以复制上面的建议。</p>`;
+    }
+  };
   slot.addEventListener('click', async (ev) => {
     const b = (ev.target as HTMLElement).closest<HTMLButtonElement>('button');
     if (!b) return;
     if (b.classList.contains('js-ai')) {
-      const kind = b.dataset.kind as AiKind;
+      const kind = b.dataset.kind as Ai2Kind;
       b.disabled = true;
-      live.textContent = `正在生成${AI_KIND_LABEL[kind]}建议…`;
+      live.textContent = `正在生成${AI2_KIND_LABEL[kind]}建议…`;
       try {
-        const r = await send<{ suggestion: { kind: AiKind; text: string; tags: { slug: string; name: string }[]; provider: string } }>('/api/social/ai/suggest', 'POST', { kind, title: val('title'), body: [val('caption'), val('body'), val('notes')].filter(Boolean).join('\n\n') });
-        last = r.suggestion;
+        const body = kind === 'proof' ? val('body') || val('caption') : [val('caption'), val('body'), val('notes')].filter(Boolean).join('\n\n');
+        proofBase = kind === 'proof' ? (val('body') ? 'body' : 'caption') : '';
+        const altFor = firstEmptyAlt();
+        const meta = kind === 'alt' ? { caption: val('caption') || (val('body').split(/\n/)[0] ?? ''), title: val('title'), filename: altFor?.closest('li')?.querySelector('img')?.getAttribute('src')?.split('/').pop() ?? '' } : undefined;
+        const r = await send<{ suggestion: Sug2; budget?: AiStatus2['budget'] }>('/api/social/ai/suggest', 'POST', { kind, title: val('title'), body, ...(meta ? { meta } : {}) });
+        last = { ...r.suggestion, options: r.suggestion.options ?? [], issues: r.suggestion.issues ?? [], tags: r.suggestion.tags ?? [] };
         out.hidden = false;
-        slot.querySelector('.js-ai-meta')!.textContent = `${AI_KIND_LABEL[kind]} · ${r.suggestion.provider === 'local' ? '本地规则生成' : r.suggestion.provider}`;
-        slot.querySelector('.js-ai-text')!.textContent = r.suggestion.text || (kind === 'tags' ? '没有匹配的站内话题' : '（空）');
-        live.textContent = `AI ${AI_KIND_LABEL[kind]}建议已生成。还没有填进表单：确认后点「采用」。`;
+        slot.querySelector('.js-ai-meta')!.textContent = `${AI2_KIND_LABEL[kind]} · ${r.suggestion.provider === 'local' ? '本地规则生成' : r.suggestion.provider}`;
+        slot.querySelector('.js-ai-text')!.textContent = last.text || (kind === 'tags' ? '没有匹配的站内话题' : kind === 'title' ? '正文里还没有合适的句子' : '（空）');
+        renderExtra(last);
+        if (r.budget) slot.querySelector('.js-ai-budget')!.textContent = budgetText(r.budget);
+        live.textContent = `AI ${AI2_KIND_LABEL[kind]}建议已生成。还没有填进表单：确认后点「采用」。`;
       } catch (x) {
         h.notify(errMsg(x), 'error');
         live.textContent = errMsg(x);
@@ -522,18 +571,19 @@ export async function mountAiPanel(slot: HTMLElement, h: AiHost): Promise<void> 
     } else if (b.classList.contains('js-ai-dismiss')) {
       last = null;
       out.hidden = true;
+      extra.innerHTML = '';
       live.textContent = '已忽略 AI 建议';
+    } else if (b.classList.contains('js-ai-title') && last) {
+      const t = last.options[Number(b.dataset.i)];
+      if (t !== undefined) {
+        set('title', t);
+        done('title', `已采用标题「${t}」。发布前请检查，并勾选确认。`);
+      }
     } else if (b.classList.contains('js-ai-accept') && last) {
-      const set = (n: string, v: string) => {
-        const el = h.form.elements.namedItem(n) as HTMLInputElement | HTMLTextAreaElement | null;
-        if (!el) return false;
-        el.value = v;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        return true;
-      };
-      if (last.kind === 'summary') {
+      const kind = last.kind;
+      if (kind === 'summary') {
         if (!set('caption', last.text)) set('body', val('body') ? `${last.text}\n\n${val('body')}` : last.text);
-      } else if (last.kind === 'tags') {
+      } else if (kind === 'tags') {
         let n = h.form.querySelectorAll('.js-topic:checked').length;
         for (const t of last.tags) {
           const c = h.form.querySelector<HTMLInputElement>(`.js-topic[value="${CSS.escape(t.slug)}"]`);
@@ -543,12 +593,22 @@ export async function mountAiPanel(slot: HTMLElement, h: AiHost): Promise<void> 
             n++;
           }
         }
+      } else if (kind === 'alt') {
+        const a = firstEmptyAlt();
+        if (a) {
+          a.value = last.text;
+          a.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } else if (kind === 'proof') {
+        const ids = [...extra.querySelectorAll<HTMLInputElement>('.js-ai-fix:checked')].map((c) => c.value);
+        const field = proofBase || 'body';
+        const before = val(field);
+        const after = applyFixes(before, last.issues, ids);
+        set(field, after);
+        const skipped = before === after && ids.length ? '正文已经改动，选中的修改对不上原文，已跳过。' : '';
+        return done('proof', skipped || `已采用 ${ids.length} 处校对修改。发布前请检查，并勾选确认。`);
       } else set('body', val('body') ? `${val('body')}\n\n${last.text}` : last.text);
-      const kind = last.kind;
-      last = null;
-      out.hidden = true;
-      h.onAccept(kind);
-      live.textContent = `已采用 AI ${AI_KIND_LABEL[kind]}建议。发布前请检查，并勾选确认。`;
+      done(kind);
     }
   });
 }
