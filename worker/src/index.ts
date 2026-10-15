@@ -17,6 +17,7 @@ import { routeAdminDiscovery } from './discovery';
 import { routeAdminStudio } from './studio';
 import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
+import { routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
 import { reportUnhandled, routeAdminOps, routeOps, scheduledOps } from './ops';
@@ -98,6 +99,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     if (ed) return ed;
   }
 
+  // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
+  const ap = await routeAp(req, env, path, url);
+  if (ap) return ap;
   // ---------- 公开接口 ----------
   if (m === 'GET' || m === 'HEAD') {
     if (path === '/api/posts') {
@@ -141,6 +145,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     if (m !== 'GET' && m !== 'HEAD') checkOrigin(req, env);
     // 投稿正文（长文最多 2 万字 + 影集 30 张图的元数据）需要比社交接口更大的请求体上限
     // L20 订阅 / MCP 令牌 / AI 建议 / 项目 GitHub 卡片
+    // L31 AI 创作台 2.0（预算 + 新的建议类型）在 L20 路由之前
+    const ais = await routeAiStudioSocial(req, env, path.slice('/api/social'.length), () => readJson(req, 64 * 1024));
+    if (ais) return ais;
     const os = await routeOpenSocial(req, env, path.slice('/api/social'.length), url, () => readJson(req, path.startsWith('/api/social/ai/') ? 64 * 1024 : 16 * 1024));
     if (os) return os;
     const social = await routeSocial(req, env, path, url, () => readJson(req, path.startsWith('/api/social/works') ? 128 * 1024 : 16 * 1024));
@@ -195,6 +202,8 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const dmAdmin = await routeAdminDm(req, env, sub, () => readJson(req, 8 * 1024));
     if (dmAdmin) return dmAdmin;
     // L20 Webmention 审核 / 外发、站点角色、AI 开关
+    const aiAdmin = await routeAiStudioAdmin(req, env, sub, () => readJson(req, 8 * 1024));
+    if (aiAdmin) return aiAdmin;
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
     // L21 运行状态 / 错误事件 / 手动健康检查
@@ -281,6 +290,6 @@ export default {
   // L22：security = 清理过期 challenge / 超期安全记录 + 清除冷静期已满的注销账号
   // L21：每次触发先记录健康检查，再跑各个任务；每个任务的最近一次运行写进 ops_runs（状态页显示）
   async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env), security: () => scheduledSecurity(env), editor: () => scheduledEditor(env) }));
+    ctx.waitUntil(scheduledOps(env, { open: () => scheduledOpen(env), security: () => scheduledSecurity(env), editor: () => scheduledEditor(env), webhooks: () => scheduledWebhooks(env) }));
   },
 } satisfies ExportedHandler<Env>;
