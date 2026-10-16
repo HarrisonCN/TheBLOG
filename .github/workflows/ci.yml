@@ -33,6 +33,8 @@ jobs:
         env:
           PRERENDER_STRICT: '1'
         run: npm run build:demo
+      - name: Performance budget (gzip; scripts/perf-budget.json)
+        run: node scripts/perf-budget.mjs --dist web/dist --base /TheBLOG/
       - name: Build frontend (no API → lenient shell fallback, local-dev path)
         env:
           PRERENDER_STRICT: '0'
@@ -43,3 +45,27 @@ jobs:
         env:
           BLOG_MCP_TOKEN: ci-placeholder-token
         run: npx -y @winstonsayno/mcp-gateway@11 validate --strict -c gateway/gateway.config.yaml
+
+  # L32 平台质量基线：演示站在三种浏览器引擎里逐页验收（1280 浅色 + 390 深色：axe 0、无横向溢出、无报错、跳到正文、单一 h1）
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build demo
+        env:
+          PRERENDER_STRICT: '1'
+        run: npm run build:demo
+      - name: Install Playwright + axe-core (not in the lockfile)
+        run: npm i --no-save --no-package-lock playwright@1.47.2 axe-core@4.14.0 && npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Browser E2E (${{ matrix.browser }})
+        run: node scripts/browser-e2e.mjs --browser ${{ matrix.browser }} --dist web/dist

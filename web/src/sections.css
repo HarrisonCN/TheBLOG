@@ -321,3 +321,15 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
   .tl__card:hover, .explore a:hover, .sp-hit a:hover { transform: none; }
 }
 :root[data-motion="off"] .pbar i, :root[data-motion="off"] .bars__c i, :root[data-motion="off"] .share__bar i { animation: none; }
+
+/* L32 使用指南 /guide/ */
+.guide-toc ol { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; padding: 0; margin: 0 0 1.2rem; list-style: none; counter-reset: g; }
+.guide-toc li { counter-increment: g; }
+.guide-toc li::before { content: counter(g) '. '; color: var(--muted); }
+.guide-sec { scroll-margin-top: 5rem; margin-top: 1.4rem; }
+.guide-h { display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; margin: 0 0 0.5rem; }
+.guide-h svg { width: 1.1em; height: 1.1em; flex: none; }
+.guide-list { margin: 0; padding-left: 1.2rem; line-height: 1.75; }
+.guide-list li + li { margin-top: 0.3rem; }
+.guide-list kbd { font: 0.85em ui-monospace, SFMono-Regular, Menlo, monospace; padding: 0.05em 0.4em; border: 1px solid var(--line, currentColor); border-radius: 4px; }
+.guide-list a { text-decoration: underline; text-underline-offset: 0.18em; }

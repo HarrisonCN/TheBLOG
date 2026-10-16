@@ -1,0 +1,7 @@
+{
+  "$comment": "L32 v1.32.0 性能预算（KB，gzip 默认级别）。基线 1.31.0 演示站：首屏 JS 168.0、首屏 CSS 37.7、最大懒加载块 100.6、JS 总量 530.0（55 块）；预算 ≈ 基线 +15%。调高预算要在 PR 里写明原因。",
+  "initialJsKb": 195,
+  "initialCssKb": 45,
+  "lazyChunkKb": 120,
+  "totalJsKb": 620
+}

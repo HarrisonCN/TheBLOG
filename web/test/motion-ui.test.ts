@@ -81,7 +81,7 @@ describe('便签样式渲染', () => {
 describe('演示 mock API：POST /api/notes 的 style', () => {
   let api: DemoBackend;
   beforeEach(() => {
-    api = new DemoBackend({ storage: memoryKV(), now: () => new Date(Date.parse('Sat 2026-10-10 8:00 AM EDT (UTC-04:00)')) });
+    api = new DemoBackend({ storage: memoryKV(), now: () => new Date(Date.parse('2026-10-10T12:00:00Z')) });
   });
   it('合法样式保存并返回；默认 / 缺省为 null', async () => {
     const r = await api.handle('POST', '/api/notes', { name: 'a', content: 'b', color: 'green', style: { font: 'round', effect: 'wobble', color: '#9D174D' } });

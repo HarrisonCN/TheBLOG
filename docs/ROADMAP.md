@@ -15,7 +15,8 @@
 | **1.30.0** | 实时社交 2.0 | 账号（私信：图片 / 语音、搜索）· 工具（稍后读跨设备同步） | 私信图片（替代文字必填）/ 语音、消息搜索、clientId 幂等重发与退避重连、阅读进度 + 稍后读跨设备同步；Web Push、正在输入留到以后 | D1 0022、R2、Durable Object：SKIPPED-verifiable |
 | **1.31.0** | AI 创作台 2.0 | 账号 → 站长后台（AI 额度、Webhook）· 社区（发布器 AI 面板）· 技术（Webhook / ActivityPub 文档） | 六种 AI 建议（只在点击时、确认后写入，校对逐条采用）、每月额度、Webhook 签名 + 重试、ActivityPub 只读试验 | 模型密钥、真实投递、联邦、D1 0023：SKIPPED-verifiable |
 | 1.31.0 | AI 创作工作台 2.0 + 开放网络 2.0 | 账号 → 站长后台 · 技术 · 文章（订阅） | AI 建议必须手动确认、预算上限；Webhook 签名；ActivityPub 只读试验 | 模型密钥、联邦、发信：SKIPPED-verifiable；付费会员等站长选定支付方后再做 |
-| 1.32.0 | 平台成熟版 | 全部 9 个栏目 + 关于（使用指南） | 全站 axe 0、性能预算进 CI、权限矩阵测试、稳定 API 文档 | 正式环境灾备演练：SKIPPED-verifiable |
+| **1.32.0** | 平台质量基线 | 关于（使用指南 /guide/）· 全站 | 权限矩阵（后台路由自动收集）、性能预算进 CI、chromium / firefox / webkit × 1280 / 390 浏览器验收、使用指南 | 正式环境灾备演练、真实设备：SKIPPED-verifiable |
+| 1.32.0（原计划） | 平台成熟版 | 全部 9 个栏目 + 关于（使用指南） | 全站 axe 0、性能预算进 CI、权限矩阵测试、稳定 API 文档 | 正式环境灾备演练：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。

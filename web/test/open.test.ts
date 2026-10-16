@@ -7,7 +7,7 @@ import { feedPath, parseMf2 } from '../src/open-core';
 
 let kv: KV;
 let api: DemoBackend;
-const clock = Date.parse('Sun 2026-10-11 4:00 AM EDT (UTC-04:00)');
+const clock = Date.parse('2026-10-11T08:00:00Z');
 beforeEach(() => {
   kv = memoryKV();
   api = new DemoBackend({ storage: kv, base: '/TheBLOG/', now: () => new Date(clock) });
