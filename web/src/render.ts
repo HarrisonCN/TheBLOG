@@ -1545,7 +1545,7 @@ export function loadingMain(): string {
 }
 
 export function errorMain(message: string): string {
-  return bento(tile('full', `<div class="state" role="alert"><usa-check kind="error" size="64" label="加载失败"></usa-check><h2>加载失败</h2><p>${e(message)}</p><button class="btn retry" type="button">${icon('refresh')}重试</button></div>`, { cls: 'state-tile' }));
+  return bento(tile('full', `<div class="state" role="alert"><usa-check kind="error" size="64" label="加载失败"></usa-check><h1>加载失败</h1><p>${e(message)}</p><button class="btn retry" type="button">${icon('refresh')}重试</button></div>`, { cls: 'state-tile' }));
 }
 
 /** 路由 → 页面。 */

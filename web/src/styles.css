@@ -620,7 +620,7 @@ a.album:hover { color: #fff; }
 .voice__panel p { margin: 0; }
 .voice audio { width: 100%; }
 .state { display: grid; justify-items: center; gap: 0.6rem; text-align: center; padding: 3rem 1rem; }
-.state h2, .state__code { margin: 0; font-size: clamp(2.4rem, 8vw, 4.4rem); letter-spacing: -0.04em; color: var(--heading); line-height: 1; }
+.state h1, .state h2, .state__code { margin: 0; font-size: clamp(2.4rem, 8vw, 4.4rem); letter-spacing: -0.04em; color: var(--heading); line-height: 1; }
 .state__skeleton { display: block; width: 100%; max-width: 520px; }
 .about-bio .prose { max-width: none; }
 .scene { display: block; }
@@ -715,7 +715,7 @@ usa-festival-banner .usa-fb-bat {
 .post-tile { border-radius: 16px; }
 .prose h1, .prose h2, .prose h3 { font-family: var(--serif); letter-spacing: 0; }
 .prose h2 { font-size: 1.5rem; }
-.year-tile .timeline__year h2, .state__code, .state h2 { font-family: var(--serif); }
+.year-tile .timeline__year h2, .state__code, .state h1, .state h2 { font-family: var(--serif); }
 .photo { border-radius: 16px; }
 .pager__num { border-radius: 10px; background: var(--tile); border: 1px solid var(--hairline); box-shadow: none; }
 .pager__num[aria-current="page"] { background: var(--accent); color: #fff; border-color: var(--accent); }
