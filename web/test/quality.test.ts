@@ -6,7 +6,7 @@
  * - CI 浏览器矩阵：.github/workflows/ci.yml 有 browser 任务，chromium / firefox / webkit；
  *   scripts/browser-e2e.mjs 覆盖 1280 与 390 两种宽度；docs/quality.md 写明权限矩阵、预算、浏览器矩阵与验收清单。
  */
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -119,5 +119,38 @@ describe('浏览器矩阵与质量文档', () => {
   it('docs/quality.md 写明权限矩阵、性能预算、浏览器矩阵、验收清单', () => {
     const d = read('docs/quality.md');
     for (const x of ['权限矩阵', '性能预算', '浏览器矩阵', '验收清单', 'SKIPPED']) expect(d, x).toContain(x);
+  });
+});
+
+/**
+ * 跨引擎日期（webkit CI 发现）：演示数据里混进了「星期 日期 时:分 AM/PM 时区 (UTC±hh:mm)」这种人读格式的时间字符串，
+ * V8 的宽松解析器能认，JavaScriptCore（Safari / webkit）认成 Invalid Date → toISOString 抛 RangeError → 演示站整站「加载失败」。
+ * 规则：源码与测试里的时间字面量一律 ISO 8601（YYYY-MM-DDTHH:mm[:ss[.sss]](Z|±hh:mm)）。
+ */
+describe('跨引擎日期：时间字面量只用 ISO 8601', () => {
+  const HUMAN = /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (?:AM|PM)\b/;
+  const files = (dir: string): string[] => {
+    const out: string[] = [];
+    for (const ent of readdirSync(new URL(dir, ROOT), { withFileTypes: true })) {
+      const p = `${dir}/${ent.name}`;
+      if (ent.isDirectory()) out.push(...files(p));
+      else if (/\.(ts|mjs|json)$/.test(ent.name)) out.push(p);
+    }
+    return out;
+  };
+  it('web/src、web/test、worker/src、worker/test 里没有人读格式的时间字符串', () => {
+    const bad = ['web/src', 'web/test', 'worker/src', 'worker/test'].flatMap(files).flatMap((f) =>
+      read(f).split('\n').flatMap((l, i) => (HUMAN.test(l) ? [`${f}:${i + 1}`] : [])),
+    );
+    expect(bad).toEqual([]);
+  });
+  it('演示种子 / 演示 mock 里传给 Date 的字面量都是严格 ISO 8601（不依赖引擎的宽松解析）', () => {
+    const ISO = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+    const CALL = /(?:new Date|Date\.parse|\b(?:iso|day|at|ago))\(\s*['`"]([^'`"]+)['`"]\s*\)/g;
+    const bad: string[] = [];
+    for (const f of files('web/src/demo')) {
+      for (const m of read(f).matchAll(CALL)) if (!ISO.test(m[1]!)) bad.push(`${f}: ${m[1]}`);
+    }
+    expect(bad).toEqual([]);
   });
 });
