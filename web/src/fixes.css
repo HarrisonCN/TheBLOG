@@ -106,7 +106,9 @@ usa-festival-banner .usa-fb-bat { z-index: 1; }
 :root[data-theme="dark"] .tl-k--life { --tlc: #f58ac0; }
 :root[data-theme="dark"] .tl-k--award { --tlc: #f6c35c; }
 /* 归档日历：本月以外的日期 */
-.usa-dp-day[data-out] { opacity: 0.62 !important; }
+/* 不用透明度（各引擎合成结果不同，webkit 上 axe 算出对比度不足）：直接用通过 AA 的弱化色 */
+.usa-dp-day[data-out] { opacity: 1 !important; color: var(--muted) !important; }
+.usa-dp-title { color: var(--heading); }
 /* 深色模式：收藏页原生预览的标签按钮底色是白的 */
 :root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="false"]:not(.usa-np-replay) { color: #2b3443 !important; }
 :root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="true"] { color: #f1f5f9 !important; }
