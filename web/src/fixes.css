@@ -106,9 +106,11 @@ usa-festival-banner .usa-fb-bat { z-index: 1; }
 :root[data-theme="dark"] .tl-k--life { --tlc: #f58ac0; }
 :root[data-theme="dark"] .tl-k--award { --tlc: #f6c35c; }
 /* 归档日历：本月以外的日期 */
-/* 不用透明度（各引擎合成结果不同，webkit 上 axe 算出对比度不足）：直接用通过 AA 的弱化色 */
-.usa-dp-day[data-out] { opacity: 1 !important; color: var(--muted) !important; }
-.usa-dp-title { color: var(--heading); }
+/* Motionary 日历是白底卡片（--usa-dp-bg 默认 #fff，两种主题都是）。文字色写死在卡片上：
+   各引擎注入组件样式的先后不同，webkit 上深色主题的浅色文字会继承进来（标题 1.09:1）。本月以外的日期不用透明度，直接用 AA 灰。 */
+.archive-filter usa-date-picker, .archive-filter usa-date-picker .usa-dp-title, .archive-filter usa-date-picker .usa-dp-nav, .archive-filter usa-date-picker .usa-dp-day { color: #111827; }
+.archive-filter usa-date-picker .usa-dp-day[data-out] { opacity: 1 !important; color: #5d6879 !important; }
+.archive-filter usa-date-picker .usa-dp-day[aria-selected="true"] { color: #fff; }
 /* 深色模式：收藏页原生预览的标签按钮底色是白的 */
 :root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="false"]:not(.usa-np-replay) { color: #2b3443 !important; }
 :root[data-theme="dark"] usa-native-preview [role="tab"][aria-selected="true"] { color: #f1f5f9 !important; }
