@@ -87,7 +87,7 @@ for (const [width, scheme] of VIEWPORTS) {
       await page.addScriptTag({ content: AXE });
       const v = await page.evaluate(async () => {
         const res = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } });
-        return res.violations.filter((x) => x.impact === 'serious' || x.impact === 'critical').map((x) => `${x.id}(${x.nodes.length}) ${x.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`);
+        return res.violations.filter((x) => x.impact === 'serious' || x.impact === 'critical').map((x) => `${x.id}(${x.nodes.length}) ${x.nodes.slice(0, 2).map((n) => { const d = n.any?.[0]?.data; return n.target.join(' ') + (d && d.contrastRatio ? ` [fg ${d.fgColor} bg ${d.bgColor} ${d.contrastRatio}:1]` : ''); }).join(' | ')}`);
       });
       ok(v.length === 0, `${T} axe: ${v.length ? v.join(' ;; ') : '0 issues'}`);
       ok(errs.length === 0, `${T} no page errors${errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''}`);
