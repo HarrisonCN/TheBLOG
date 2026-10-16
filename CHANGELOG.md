@@ -12,15 +12,24 @@ _L32 · 平台质量基线：权限矩阵测试（每个 /api/admin/* 路由自�
 
 ### 修复 Fixes
 
+- **demo:** ISO 8601 timestamps in demo seed + tests (Safari/WebKit showed 加载失败 Invalid Date on every demo page since c1fb32b); load-error state uses an h1 (26abd4c)
 - **a11y:** demo banner no longer precedes the skip link (first Tab = 跳到正文); in-page anchors update #hash and move focus; guide links underlined + /me/security/ (8ff681a)
 
 ### 测试 Tests
 
+- **quality:** time literals must be ISO 8601 — webkit CI found human-formatted timestamps that JavaScriptCore cannot parse (fail-before: 9 hits) (1ca2dd0)
+- **quality:** browser-e2e records the call stack of the first invalid-Date toISOString (engine date-parsing differences) (c278f65)
+- **quality:** browser-e2e waits for the demo repaint (main h1, ≤10 s) instead of a fixed 800 ms; failing h1 check prints the main text (9a800af)
 - **quality:** L32 平台质量基线 — permission matrix (worker, auto-collected admin routes), perf-budget calculator, /guide/, CI browser matrix + docs (fail-before: perf-budget-lib missing) (53cacd6)
 
 ### 文档 Docs
 
+- **changelog:** 1.32.0 (2a6252f)
 - **quality:** L32 README feature + test counts (worker 382, web 619), ROADMAP (d609913)
+
+### 杂项 Chores
+
+- **release:** 1.32.0 — version bump, release-meta (1.31.0 frozen at 299e5c6) (63b62d2)
 
 ## [1.31.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.31.0) — 2026-10-15
 
