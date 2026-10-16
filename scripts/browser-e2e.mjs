@@ -55,6 +55,11 @@ const ok = (c, m) => { results.push(`${c ? 'PASS' : 'FAIL'} ${m}`); if (!c) cons
 
 for (const [width, scheme] of VIEWPORTS) {
   const ctx = await browser.newContext({ viewport: { width, height: width < 500 ? 844 : 900 }, locale: 'zh-CN', colorScheme: scheme, serviceWorkers: 'block', reducedMotion: 'reduce' });
+  // 诊断：引擎间日期解析差异（V8 能解析、JavaScriptCore 不能）会让 toISOString 抛 RangeError —— 记下第一次的调用栈
+  await ctx.addInitScript(() => {
+    const iso = Date.prototype.toISOString;
+    Date.prototype.toISOString = function () { if (Number.isNaN(this.getTime()) && !window.__badDate) window.__badDate = String(new Error('invalid date').stack); return iso.call(this); };
+  });
   for (const r of routes) {
     const T = `[${BROWSER} ${width} ${scheme}] /${r}`;
     const page = await ctx.newPage();
@@ -68,6 +73,7 @@ for (const [width, scheme] of VIEWPORTS) {
       await page.waitForTimeout(300);
       const facts = await page.evaluate(() => ({
         mainText: (document.querySelector('main')?.innerText ?? '').replace(/\s+/g, ' ').slice(0, 200),
+        badDate: window.__badDate ?? null,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         skip: document.querySelector('a.skip-link')?.getAttribute('href') ?? null,
         main: !!document.querySelector('main#main'),
@@ -76,6 +82,7 @@ for (const [width, scheme] of VIEWPORTS) {
       }));
       ok(facts.overflow <= 1, `${T} no horizontal overflow (${facts.overflow}px)`);
       ok(facts.skip === '#main' && facts.main, `${T} skip link → <main id="main">`);
+      if (facts.badDate) console.log(`DIAG ${T} invalid Date → toISOString stack:\n${facts.badDate}`);
       ok(facts.h1 === 1, `${T} exactly one h1 in main (${facts.h1})${facts.h1 === 1 ? '' : ` main text: «${facts.mainText}»`}`);
       await page.addScriptTag({ content: AXE });
       const v = await page.evaluate(async () => {
