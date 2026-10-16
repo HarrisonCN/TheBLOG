@@ -18,7 +18,7 @@
 | `quote` 引语 | 引文 + 出处 |
 | `brief` 短讯 | 一段文字 |
 
-`pageMap` 给每篇分配页码（封面 1、目录 2，之后按篇目所占版面递增）。`validateIssue` 校验：期号正整数且不重复、slug、每张图都要有替代文字和宽高、每期至少一篇。
+`pageMap` 给每篇分配页码（封面 1、目录 2，之后按篇目所占版面递增）。`validateIssue` 校验：期号是 1–999 的整数（写入时不能与别的期重复）、slug、每张图都要有替代文字和宽高、每期至少一篇。
 
 ## 交互与无障碍
 
@@ -29,7 +29,7 @@
 ## 接口（Worker）
 
 - `GET /api/magazine`：已发布期刊摘要（期号倒序）；`GET /api/magazine/:slug`：已发布的一期。
-- 站长：`GET /api/admin/magazine`（含草稿）、`GET / PUT / DELETE /api/admin/magazine/:slug`（PUT 整期写入，`validateIssue` 校验，期号冲突 409）。在权限矩阵测试里（匿名 401、会员 403）。
+- 站长：`GET /api/admin/magazine`（含草稿）、`GET / PUT / DELETE /api/admin/magazine/:slug`（PUT 整期写入，`validateIssue` 校验；期号已被别的期刊占用 → 400 validation_error）。在权限矩阵测试里（匿名 401、会员 403）。
 - 存储：D1 `magazine_issues`，迁移 `0024_magazine.sql`（只新增表）。
 
 ## 演示数据
