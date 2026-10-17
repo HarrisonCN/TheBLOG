@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.36.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.36.0) — 2026-10-17
+
+_L36 · 摄影术语表_
+
+### 新功能 Features
+
+- **l36:** 摄影术语表 — glossary-core（web=worker）、/glossary/ A–Z 索引 + 即时搜索（拼音首字母 / 英文 / 别名）、/glossary/:slug/ 相关术语互链、/api/glossary + 站长接口、迁移 0027_glossary (563aeec)
+
+### 测试 Tests
+
+- **l36:** 摄影术语表 — glossary-core / /glossary/ 页面 / /api/glossary 测试先行（fail-before） (0e06aa7)
+
+### 文档 Docs
+
+- **glossary:** L36 docs/glossary.md, README feature + unit counts (worker 402 + web 739), ROADMAP (7eafa78)
+
+### 杂项 Chores
+
+- **release:** 1.36.0 — version bump, release-meta (1.35.0 frozen at 68c1611) (ba731e5)
+
 ## [1.35.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.35.0) — 2026-10-17
 
 _L35 · 3D 与沉浸式展厅_
