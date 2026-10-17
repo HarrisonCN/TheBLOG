@@ -38,6 +38,8 @@ import { Mock as MockWalks } from './mock-walks';
 import { seed as walksSeed } from './seed-walks';
 import { Mock as MockColors } from './mock-colors';
 import { seed as colorsSeed } from './seed-colors';
+import { Mock as MockInterviews } from './mock-interviews';
+import { seed as interviewsSeed } from './seed-interviews';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -498,6 +500,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.interviews = new MockInterviews({
+      state: () => this.db().interviews ?? interviewsSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.interviews ??= interviewsSeed(this.base);
+        mutate(db.interviews);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -546,6 +557,7 @@ export class DemoBackend {
   private critique: MockCritique;
   private walks: MockWalks;
   private colors: MockColors;
+  private interviews: MockInterviews;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -726,6 +738,11 @@ export class DemoBackend {
       const r43 = this.colors.routePublic(m, path);
       if (r43) return r43;
     }
+    // ---- L44 摄影人访谈（公开：只有已发布）----
+    if (path === '/api/interviews' || path.startsWith('/api/interviews/')) {
+      const r44 = this.interviews.routePublic(m, path);
+      if (r44) return r44;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -890,6 +907,9 @@ export class DemoBackend {
       // L43 色彩研究
       const a43 = this.colors.routeAdmin(m, sub, body);
       if (a43) return a43;
+      // L44 摄影人访谈
+      const a44 = this.interviews.routeAdmin(m, sub, body);
+      if (a44) return a44;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
