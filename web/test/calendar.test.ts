@@ -91,7 +91,9 @@ describe('路由与页面', () => {
     expect(p.main).toContain('alt="示例 a"');
     expect(p.main).toContain('10 月 1 日 · 星期四');
     expect(p.main).toContain('data-date="2026-10-17"');
-    expect(p.title).toContain('&lt;b&gt;');
+    // 标题原样交给外壳（预渲染 esc()、document.title 文本），页内标题在 top 中转义
+    expect(String((p as { top?: string }).top ?? '')).toContain('&lt;b&gt;');
+    expect(p.title).toContain('<b>十月</b>');
   });
   it('列表页与 404', () => {
     const l = renderRoute({ name: 'calendar' } as never, site, { calMonths: [summarize(validateItem(mo()).item!)] } as never);
