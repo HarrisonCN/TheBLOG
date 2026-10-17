@@ -55,6 +55,8 @@ export interface DemoDb {
   /** L28 兴趣社群（小组） */
   groups?: import('./mock-groups').GroupsState;
   magazine?: import('./mock-magazine').MagazineState;
+  /** L34 视频与声音作品 */
+  av?: import('./mock-av').AvState;
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
   /** L19 私信 / 消息请求 / 活动聊天室 */

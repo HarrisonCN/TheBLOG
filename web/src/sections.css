@@ -392,3 +392,39 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
   .mag-keys, .mag-nav { display: none; }
   .mag-img { border-radius: 0; }
 }
+
+/* ---------- L34 视频与声音作品 ---------- */
+.av-tile { display: grid; gap: 1.25rem; }
+.av-h { font-size: 1.05rem; margin: 0 0 0.6rem; }
+.av-group + .av-group { margin-top: 0.5rem; }
+.av-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.av-card__a { display: grid; gap: 0.35rem; color: inherit; text-decoration: none; border-radius: 14px; padding: 0.5rem; transition: background-color 0.25s var(--ease); }
+.av-card__a:hover { background: var(--accent-soft); }
+.av-card__a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.av-card__cover { display: grid; place-items: center; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.av-card__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.av-card__cover--audio svg { width: 2.5rem; height: 2.5rem; }
+.av-card__title { font-weight: 700; }
+.av-work { display: grid; gap: 1rem; min-width: 0; }
+.av-media--video { width: 100%; height: auto; max-height: 70vh; aspect-ratio: var(--ar, 16 / 9); background: #000; border-radius: 12px; }
+.av-audio { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); }
+.av-audio svg { flex: none; width: 1.75rem; height: 1.75rem; }
+.av-media--audio { flex: 1; min-width: 0; width: 100%; }
+.av-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; margin: 0; }
+.av-badge { font-weight: 700; color: var(--fg); }
+.av-summary { margin: 0; max-width: 70ch; }
+.av-chapters__list, .av-cues { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.av-chapter { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.4rem 0.6rem; border-radius: 10px; color: inherit; text-decoration: none; }
+.av-chapter:hover, .av-chapter[aria-current] { background: var(--accent-soft); }
+.av-chapter[aria-current] { font-weight: 700; }
+.av-time { font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--accent); text-decoration: none; flex: none; min-width: 3.2em; }
+.av-transcript__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.5rem; }
+.av-transcript__head .av-h { margin: 0; }
+.av-search input { font: inherit; padding: 0.35rem 0.7rem; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--fg) 25%, transparent); background: transparent; color: var(--fg); width: min(16rem, 100%); }
+.av-search__status { margin: 0; }
+.av-cue { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.35rem 0.6rem; border-radius: 10px; border-left: 3px solid transparent; }
+.av-cue__text { min-width: 0; overflow-wrap: anywhere; }
+.av-cue[aria-current] { background: var(--accent-soft); border-left-color: var(--accent); }
+.av-cue--hit { box-shadow: inset 0 0 0 1px var(--accent); }
+.av-back { margin: 0; }
+@media print { .av-media, .av-search, .av-back { display: none; } }
