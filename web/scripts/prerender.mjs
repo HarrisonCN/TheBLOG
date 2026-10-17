@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -193,6 +193,8 @@ if (API || DEMO) {
     extra.quotes = (await soft('/api/quotes', { quotes: [] })).quotes ?? [];
     // L33：视觉杂志（已发布期刊摘要；旧 Worker 没有该接口时为空）
     extra.issues = (await soft('/api/magazine', { issues: [] })).issues ?? [];
+    // L34：视频与声音（已发布作品摘要；旧 Worker 没有该接口时为空）
+    extra.avWorks = (await soft('/api/av', { works: [] })).works ?? [];
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
       const label = R.routePath(route);
@@ -291,6 +293,16 @@ if (API || DEMO) {
       issueCount++;
     }
     console.log(`[prerender] L33：视觉杂志 ${issueCount} 期`);
+    // L34：每一个视频 / 声音作品（播放器、章节、完整文字稿都在静态 HTML 里）
+    let avCount = 0;
+    for (const s of extra.avWorks) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/av/${s.slug}`, null);
+      if (!d?.work) continue;
+      await emit({ name: 'av', slug: s.slug }, async () => ({ avWork: d.work }), async () => ({ title: `${s.title} · 视频与声音`, description: s.summary || s.title, image: s.poster?.src || '', type: 'article' }));
+      avCount++;
+    }
+    console.log(`[prerender] L34：视频与声音 ${avCount} 个`);
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
     try {

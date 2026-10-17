@@ -20,6 +20,7 @@ import { MockUgc, ugcSeed } from './mock-ugc';
 import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { groupsSeed, MockGroups } from './mock-groups';
 import { magazineSeed, MockMagazine } from './mock-magazine';
+import { avSeed, MockAv } from './mock-av';
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
@@ -389,6 +390,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.av = new MockAv({
+      state: () => this.db().av ?? avSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.av ??= avSeed(this.base);
+        mutate(db.av);
+        this.save(db);
+      },
+    });
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
       commit: (mutate) => {
@@ -426,6 +436,7 @@ export class DemoBackend {
   private dm: MockDm;
   private groups: MockGroups;
   private magazine: MockMagazine;
+  private av: MockAv;
   private sync: MockSync;
   private groupsPurge(id: number): void {
     const db = structuredClone(this.db());
@@ -554,6 +565,11 @@ export class DemoBackend {
     if (path.startsWith('/api/magazine')) {
       const mg = this.magazine.routePublic(m, path);
       if (mg) return mg;
+    }
+    // ---- L34 视频与声音（公开：只有已发布作品）----
+    if (path === '/api/av' || path.startsWith('/api/av/')) {
+      const av = this.av.routePublic(m, path);
+      if (av) return av;
     }
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -688,6 +704,9 @@ export class DemoBackend {
       // L33 视觉杂志
       const magAdmin = this.magazine.routeAdmin(m, sub, body);
       if (magAdmin) return magAdmin;
+      // L34 视频与声音
+      const avAdmin = this.av.routeAdmin(m, sub, body);
+      if (avAdmin) return avAdmin;
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);

@@ -18,6 +18,7 @@ import { routeAdminStudio } from './studio';
 import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
 import { routeAdminMagazine, routeMagazinePublic } from './magazine';
+import { routeAdminAv, routeAvPublic } from './av';
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
@@ -104,6 +105,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/magazine' || path.startsWith('/api/magazine/')) {
     const mg = await routeMagazinePublic(req, env, path);
     if (mg) return mg;
+  }
+
+  // ---------- L34 视频与声音（公开：只有已发布作品） ----------
+  if (path === '/api/av' || path.startsWith('/api/av/')) {
+    const av = await routeAvPublic(req, env, path);
+    if (av) return av;
   }
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -214,6 +221,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L33 视觉杂志（整期 JSON 最多 64 KB）
     const magAdmin = await routeAdminMagazine(req, env, sub, () => readJson(req, 64 * 1024));
     if (magAdmin) return magAdmin;
+    // L34 视频与声音（字幕最多 2000 条，整份 JSON 最多 256 KB）
+    const avAdmin = await routeAdminAv(req, env, sub, () => readJson(req, 256 * 1024));
+    if (avAdmin) return avAdmin;
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
     // L21 运行状态 / 错误事件 / 手动健康检查

@@ -25,6 +25,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('form[data-ptool]')) void import('./photo-tools-client').then((m) => m.bindPhotoTools(root, ctx));
   // L33：视觉杂志键盘翻篇（按需加载）
   if (root.querySelector('[data-magazine]')) void import('./magazine-client').then((m) => m.bindMagazine(root));
+  // L34：视频与声音播放器增强（按需加载）
+  if (root.querySelector('[data-av]')) void import('./av-client').then((m) => m.bindAv(root));
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）
