@@ -43,7 +43,7 @@ ${player(w)}
 ${meta}
 ${w.summary ? `<p class="av-summary">${e(w.summary)}</p>` : ''}
 ${chapters}
-<section class="av-transcript" aria-labelledby="av-transcript-h"><div class="av-transcript__head"><h2 class="av-h" id="av-transcript-h">文字稿</h2><label class="av-search" hidden><span class="sr-only">搜索文字稿</span><input type="search" data-av-search placeholder="搜索文字稿" autocomplete="off"></label><p class="av-search__status small muted" data-av-status aria-live="polite"></p></div>
+<section class="av-transcript" aria-labelledby="av-transcript-h"><div class="av-transcript__head"><h2 class="av-h" id="av-transcript-h">文字稿</h2><label class="av-search" hidden><span class="visually-hidden">搜索文字稿</span><input type="search" data-av-search placeholder="搜索文字稿" autocomplete="off"></label><p class="av-search__status small muted" data-av-status aria-live="polite"></p></div>
 <ol class="av-cues" role="list">${cues}</ol></section>
 <p class="av-back"><a class="btn btn--sm" href="${url('/av/')}">${icon('arrowRight')}全部视频与声音</a></p>
 </div>`;
