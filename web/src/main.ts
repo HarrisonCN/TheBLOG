@@ -196,6 +196,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'retouchCases':
+          x.retouchCases = (await api.retouchCases().catch(() => ({ cases: [] }))).cases;
+          return;
+        case 'retouchCase': {
+          if (route.name !== 'retouchcase') return;
+          try {
+            x.retouchCase = (await api.retouchCase(route.slug)).case;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

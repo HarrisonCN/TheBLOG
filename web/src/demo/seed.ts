@@ -61,6 +61,8 @@ export interface DemoDb {
   halls?: import('./mock-halls').HallsState;
   /** L36 摄影术语表 */
   glossary?: import('./mock-glossary').State;
+  /** L37 修图前后对比 */
+  retouch?: import('./mock-retouch').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
