@@ -1,7 +1,7 @@
 {
   "name": "winston-blog",
   "private": true,
-  "version": "1.40.0",
+  "version": "1.41.0",
   "description": "Winston 的个人博客：Cloudflare Pages + Worker (D1/R2) + MCP",
   "license": "MIT",
   "type": "module",
