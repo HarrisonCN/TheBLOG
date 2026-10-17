@@ -660,3 +660,27 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .co-back { margin-top: 1.2rem; }
 @media print { .co-sw__copy { display: none !important; } .co-sw__chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 .co-mx-wrap:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }
+/* L44 摄影人访谈 */
+.iv-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.iv-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.iv-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.iv-card__title { font-weight: 700; }
+.iv-note { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.iv-note svg { flex: none; width: 1.1em; height: 1.1em; }
+.iv-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; }
+.iv-person { margin: 0 0 1rem; }
+.iv-person__name, .iv-person__bio { margin: 0 0 0.25rem; }
+.iv-cover { margin: 0 0 1rem; max-width: 720px; }
+.iv-cover img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.iv-toc { margin: 0 0 1.25rem; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); max-width: 720px; }
+.iv-toc__h { font-size: 1rem; margin: 0 0 0.4rem; }
+.iv-toc ol { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; }
+.iv-body { max-width: 720px; display: grid; gap: 1.25rem; }
+.iv-qa { scroll-margin-top: 5rem; }
+.iv-q { font-size: 1.05rem; margin: 0 0 0.5rem; display: flex; gap: 0.5rem; align-items: baseline; }
+.iv-q__no { flex: none; font-size: 0.85rem; font-weight: 700; padding: 0.05rem 0.45rem; border-radius: 6px; background: var(--accent-soft); color: var(--heading); }
+.iv-a { margin: 0 0 0.6rem; line-height: 1.8; }
+.iv-quote { margin: 0.75rem 0; padding: 0.75rem 1rem; border-left: 4px solid currentColor; border-radius: 0 12px 12px 0; background: var(--accent-soft); color: var(--heading); }
+.iv-quote p { margin: 0 0 0.3rem; font-size: 1.1rem; font-weight: 600; line-height: 1.6; }
+.iv-quote footer { margin: 0; }
+@media print { .iv-toc, .iv-back { display: none; } .iv-quote { background: none; } }

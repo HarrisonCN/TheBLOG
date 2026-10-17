@@ -94,6 +94,9 @@ export const api = {
   // L43 色彩研究
   colorStudies: () => request<{ studies: import('./color-core').Summary[] }>('/api/colors'),
   colorStudy: (slug: string) => request<{ study: import('./color-core').Item }>(`/api/colors/${encodeURIComponent(slug)}`),
+  // L44 摄影人访谈
+  interviews: () => request<{ interviews: import('./interview-core').Summary[] }>('/api/interviews'),
+  interview: (slug: string) => request<{ interview: import('./interview-core').Item }>(`/api/interviews/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
