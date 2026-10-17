@@ -19,6 +19,7 @@
 | 1.32.0（原计划） | 平台成熟版 | 全部 9 个栏目 + 关于（使用指南） | 全站 axe 0、性能预算进 CI、权限矩阵测试、稳定 API 文档 | 正式环境灾备演练：SKIPPED-verifiable |
 | **1.33.0** | 视觉杂志 | 摄影（视觉杂志 /magazine/） | 封面 / 编者按 / 带页码目录；专题 · 对页 · 画廊 · 引语 · 短讯，按宽高比排版；J / K 翻篇；打印一篇一页；/api/magazine + 站长 PUT / DELETE | 后台可视化编辑推迟；D1 迁移 0024：SKIPPED-verifiable |
 | **1.34.0** | 视频与声音作品 | 摄影（视频与声音 /av/） | 原生 video / audio（不自动播放）；字幕 / 文字稿是发布条件；章节 + ?t= 深链；文字稿搜索与当前句高亮；WebVTT 解析与生成；/api/av（+ captions.vtt）+ 站长 PUT / DELETE | 媒体上传到 R2、后台编辑界面推迟；D1 迁移 0025：SKIPPED-verifiable |
+| **1.35.0** | 3D 与沉浸式展厅 | 摄影（沉浸式展厅 /halls/） | 平面展品列表是基线（无 JS / 无 3D 也完整）；CSS 3D 四面墙房间按需增强；减少动态效果 / 不支持 3D → 平面，可手动切换并记住；键盘导览（方向键、PageUp/Down 换墙、Home/End、Enter 近看、Esc）+ roving tabindex + aria-live 播报；无自动播放 / 自动旋转；每件展品必须有替代文字；/api/halls + 站长 PUT / DELETE | WebGL / 全景照片、后台编辑界面推迟；D1 迁移 0026：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。

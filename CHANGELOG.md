@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.35.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.35.0) — 2026-10-17
+
+_L35 · 3D 与沉浸式展厅_
+
+### 新功能 Features
+
+- **l35:** 沉浸式展厅 — gallery-core（web=worker）、/halls/ 平面列表 + 按需 3D 舞台（减少动态效果/不支持 3D 回退平面、键盘导览、无自动播放）、/api/halls + 站长接口、迁移 0026_halls (b3bae75)
+
+### 测试 Tests
+
+- **l35:** 3D 沉浸式展厅 — gallery-core / hall-client / /api/halls 测试先行（fail-before） (dd2b645)
+
+### 文档 Docs
+
+- **gallery3d:** L35 docs/gallery3d.md, README feature + unit counts (worker 397 + web 726), ROADMAP (9f65c99)
+
+### 杂项 Chores
+
+- **release:** 1.35.0 — version bump, release-meta (1.34.0 frozen at 82a2e13) (3c358d6)
+
 ## [1.34.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.34.0) — 2026-10-17
 
 _L34 · 视频与声音作品_

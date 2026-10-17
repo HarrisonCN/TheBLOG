@@ -57,6 +57,8 @@ export interface DemoDb {
   magazine?: import('./mock-magazine').MagazineState;
   /** L34 视频与声音作品 */
   av?: import('./mock-av').AvState;
+  /** L35 沉浸式展厅 */
+  halls?: import('./mock-halls').HallsState;
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
   /** L19 私信 / 消息请求 / 活动聊天室 */

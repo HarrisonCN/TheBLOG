@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.34.0", "milestone": "L34", "from": "28c4fa5", "date": "2026-10-17", "title": "视频与声音作品" },
+    { "version": "1.35.0", "milestone": "L35", "from": "82a2e13", "date": "2026-10-17", "title": "3D 与沉浸式展厅" },
+    { "version": "1.34.0", "milestone": "L34", "sha": "82a2e13", "from": "28c4fa5", "date": "2026-10-17", "title": "视频与声音作品" },
     { "version": "1.33.0", "milestone": "L33", "sha": "28c4fa5", "from": "3d9bcd7", "date": "2026-10-16", "title": "视觉杂志：/magazine/ 期刊（封面、编者按、带页码的目录、专题 / 跨页 / 图集 / 引语 / 简讯，按图片比例自动排版、打印分页、J/K 键盘翻阅），两期虚构示例刊，Worker /api/magazine + 管理端 PUT/DELETE（编辑界面延后）" },
     { "version": "1.32.0", "milestone": "L32", "sha": "3d9bcd7", "from": "299e5c6", "date": "2026-10-15", "title": "平台质量基线：权限矩阵测试（每个 /api/admin/* 路由自动收集，匿名 401、会员 403）、性能预算（首屏 JS / CSS / 懒加载分片 / 总量 gzip 上限，CI 检查）、跨浏览器 E2E（chromium / firefox / webkit × 1280 浅色 / 390 深色，axe 0、无横向溢出、无控制台错误）、使用指南 /guide/、跳到正文与页内锚点焦点修复" },
     { "version": "1.31.0", "milestone": "L31", "sha": "299e5c6", "from": "51599aa", "date": "2026-10-15", "title": "AI 创作台 2.0：标题 / 摘要 / 替代文字 / 标签 / 校对 / 提纲六种建议（只在点击时生成、确认后写入，校对逐条采用，不编造）、站长每月建议额度（上海时间分月，用完 429）、Webhook（https 公网地址、HMAC 签名、退避重试、投递记录）、ActivityPub 只读试验（WebFinger / Actor / Outbox）、迁移 0023_aistudio" },

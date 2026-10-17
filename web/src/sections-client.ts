@@ -27,6 +27,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-magazine]')) void import('./magazine-client').then((m) => m.bindMagazine(root));
   // L34：视频与声音播放器增强（按需加载）
   if (root.querySelector('[data-av]')) void import('./av-client').then((m) => m.bindAv(root));
+  // L35：沉浸式展厅 3D 增强（按需加载）
+  if (root.querySelector('[data-hall]')) void import('./hall-client').then((m) => m.bindHall(root));
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）

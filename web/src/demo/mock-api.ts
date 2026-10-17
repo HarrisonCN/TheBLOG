@@ -21,6 +21,7 @@ import { discoverySeed, MockDiscovery } from './mock-discovery';
 import { groupsSeed, MockGroups } from './mock-groups';
 import { magazineSeed, MockMagazine } from './mock-magazine';
 import { avSeed, MockAv } from './mock-av';
+import { hallsSeed, MockHalls } from './mock-halls';
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
@@ -399,6 +400,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.halls = new MockHalls({
+      state: () => this.db().halls ?? hallsSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.halls ??= hallsSeed(this.base);
+        mutate(db.halls);
+        this.save(db);
+      },
+    });
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
       commit: (mutate) => {
@@ -437,6 +447,7 @@ export class DemoBackend {
   private groups: MockGroups;
   private magazine: MockMagazine;
   private av: MockAv;
+  private halls: MockHalls;
   private sync: MockSync;
   private groupsPurge(id: number): void {
     const db = structuredClone(this.db());
@@ -570,6 +581,11 @@ export class DemoBackend {
     if (path === '/api/av' || path.startsWith('/api/av/')) {
       const av = this.av.routePublic(m, path);
       if (av) return av;
+    }
+    // ---- L35 沉浸式展厅（公开：只有已发布展厅）----
+    if (path === '/api/halls' || path.startsWith('/api/halls/')) {
+      const hl = this.halls.routePublic(m, path);
+      if (hl) return hl;
     }
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -707,6 +723,9 @@ export class DemoBackend {
       // L34 视频与声音
       const avAdmin = this.av.routeAdmin(m, sub, body);
       if (avAdmin) return avAdmin;
+      // L35 沉浸式展厅
+      const hallAdmin = this.halls.routeAdmin(m, sub, body);
+      if (hallAdmin) return hallAdmin;
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);
