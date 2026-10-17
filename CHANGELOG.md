@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.38.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.38.0) — 2026-10-17
+
+_L38 · 拍摄清单_
+
+### 新功能 Features
+
+- **l38:** 拍摄清单 — checklist-core（web=worker）、/checklists/ 清单 + 本机勾选进度（localStorage、无网络、两次确认清空、打印）、/api/checklists + 站长接口、迁移 0029_checklists (d90eb95)
+
+### 测试 Tests
+
+- **l38:** 拍摄清单 — checklist-core / /checklists/ 页面 / /api/checklists 测试先行（fail-before） (d62a86a)
+
+### 文档 Docs
+
+- **checklists:** L38 docs/checklists.md, README feature + unit counts (worker 412 + web 761), ROADMAP (15c3d4d)
+
+### 杂项 Chores
+
+- **release:** 1.38.0 — version bump, release-meta (1.37.0 frozen at e1d193a) (d73584e)
+
 ## [1.37.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.37.0) — 2026-10-17
 
 _L37 · 修图前后对比_
