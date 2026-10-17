@@ -2,6 +2,28 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.39.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.39.0) — 2026-10-17
+
+_L39 · 照片日历_
+
+### 新功能 Features
+
+- **l39:** 照片日历 — calendar-core（web=worker）、/calendar/ 月份 + 月历表格（周一开头、caption/th、闰年校验、每天最多一张）、今天标记（Asia/Shanghai、aria-current=date）、/api/calendar + 站长接口、迁移 0030_calendar (fa391df)
+
+### 测试 Tests
+
+- **worker:** 测试文件按文件名固定顺序（共用一份本地 D1；默认排序器按缓存耗时重排，导致 api.test 的「默认为空」断言视顺序失败） (5d958ff)
+- **l39:** 标题由外壳转义（预渲染 esc / document.title），断言改为页头 top 转义 + title 原样 (c683860)
+- **l39:** 照片日历 — calendar-core / /calendar/ 页面 / /api/calendar 测试先行（fail-before） (bf0e81f)
+
+### 文档 Docs
+
+- **calendar:** L39 docs/calendar.md, README feature + unit counts (worker 417 + web 773), ROADMAP (13146e1)
+
+### 杂项 Chores
+
+- **release:** 1.39.0 — version bump, release-meta (1.38.0 frozen at 9b86a94) (698d962)
+
 ## [1.38.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.38.0) — 2026-10-17
 
 _L38 · 拍摄清单_
