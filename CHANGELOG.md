@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.37.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.37.0) — 2026-10-17
+
+_L37 · 修图前后对比_
+
+### 新功能 Features
+
+- **l37:** 修图前后对比 — retouch-core（web=worker）、/retouch/ 案例 + 原生 range 对比滑块（aria-valuetext、快捷位置、拖动）、无 JS 并排两图 + 步骤、/api/retouch + 站长接口、迁移 0028_retouch (faa0933)
+
+### 测试 Tests
+
+- **l37:** 修图前后对比 — retouch-core / /retouch/ 页面 / /api/retouch 测试先行（fail-before） (781952c)
+
+### 文档 Docs
+
+- **retouch:** L37 docs/retouch.md, README feature + unit counts (worker 407 + web 750), ROADMAP (0d0bc5f)
+
+### 杂项 Chores
+
+- **release:** 1.37.0 — version bump, release-meta (1.36.0 frozen at 2cbb843) (3cab74d)
+
 ## [1.36.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.36.0) — 2026-10-17
 
 _L36 · 摄影术语表_
