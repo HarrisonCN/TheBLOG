@@ -40,6 +40,8 @@ import { Mock as MockColors } from './mock-colors';
 import { seed as colorsSeed } from './seed-colors';
 import { Mock as MockInterviews } from './mock-interviews';
 import { seed as interviewsSeed } from './seed-interviews';
+import { Mock as MockChallenges } from './mock-challenges';
+import { seed as challengesSeed } from './seed-challenges';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -509,6 +511,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.challenges = new MockChallenges({
+      state: () => this.db().challenges ?? challengesSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.challenges ??= challengesSeed(this.base);
+        mutate(db.challenges);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -558,6 +569,7 @@ export class DemoBackend {
   private walks: MockWalks;
   private colors: MockColors;
   private interviews: MockInterviews;
+  private challenges: MockChallenges;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -743,6 +755,11 @@ export class DemoBackend {
       const r44 = this.interviews.routePublic(m, path);
       if (r44) return r44;
     }
+    // ---- L45 52 周挑战（公开：只有已发布）----
+    if (path === '/api/challenges' || path.startsWith('/api/challenges/')) {
+      const r45 = this.challenges.routePublic(m, path);
+      if (r45) return r45;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -910,6 +927,9 @@ export class DemoBackend {
       // L44 摄影人访谈
       const a44 = this.interviews.routeAdmin(m, sub, body);
       if (a44) return a44;
+      // L45 52 周挑战
+      const a45 = this.challenges.routeAdmin(m, sub, body);
+      if (a45) return a45;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

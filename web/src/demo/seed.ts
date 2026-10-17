@@ -77,6 +77,8 @@ export interface DemoDb {
   colors?: import('./mock-colors').State;
   /** L44 摄影人访谈 */
   interviews?: import('./mock-interviews').State;
+  /** L45 52 周挑战 */
+  challenges?: import('./mock-challenges').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
