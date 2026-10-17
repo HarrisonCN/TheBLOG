@@ -21,6 +21,7 @@
 | **1.34.0** | 视频与声音作品 | 摄影（视频与声音 /av/） | 原生 video / audio（不自动播放）；字幕 / 文字稿是发布条件；章节 + ?t= 深链；文字稿搜索与当前句高亮；WebVTT 解析与生成；/api/av（+ captions.vtt）+ 站长 PUT / DELETE | 媒体上传到 R2、后台编辑界面推迟；D1 迁移 0025：SKIPPED-verifiable |
 | **1.35.0** | 3D 与沉浸式展厅 | 摄影（沉浸式展厅 /halls/） | 平面展品列表是基线（无 JS / 无 3D 也完整）；CSS 3D 四面墙房间按需增强；减少动态效果 / 不支持 3D → 平面，可手动切换并记住；键盘导览（方向键、PageUp/Down 换墙、Home/End、Enter 近看、Esc）+ roving tabindex + aria-live 播报；无自动播放 / 自动旋转；每件展品必须有替代文字；/api/halls + 站长 PUT / DELETE | WebGL / 全景照片、后台编辑界面推迟；D1 迁移 0026：SKIPPED-verifiable |
 | **1.36.0** | 摄影术语表 | 专题（术语表 /glossary/） | A–Z 首字母索引（普通锚点）；名称 / 英文 / 别名 / 拼音 / 拼音首字母即时搜索（无 JS 隐藏搜索框，列表完整）；相关术语互链且写入时校验存在；配图替代文字必填 | D1 迁移 0027：SKIPPED-verifiable |
+| **1.37.0** | 修图前后对比 | 摄影（修图前后 /retouch/） | 无 JS = 并排两图 + 步骤；原生 range 滑块（aria-valuetext、Home/End、快捷位置 aria-pressed、指针拖动）；两图替代文字必填、宽高比一致 | D1 迁移 0028：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。
