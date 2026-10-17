@@ -47,6 +47,8 @@ import { hallListPage, hallPage } from './hall-view';
 import { HALL_SLUG_RE, type Hall, type HallSummary } from './gallery-core';
 import { listPage as glossaryListPage, detailPage as glossaryDetailPage } from './glossary-view';
 import { SLUG_RE as Glossary_SLUG_RE, type Item as GlossaryItem, type Summary as GlossarySummary } from './glossary-core';
+import { listPage as retouchListPage, detailPage as retouchDetailPage } from './retouch-view';
+import { SLUG_RE as Retouch_SLUG_RE, type Item as RetouchItem, type Summary as RetouchSummary } from './retouch-core';
 // @content:imports — L36+ 内容栏目挂载点（scaffold）
 import { GROUP_SLUG_RE } from './group-core';
 
@@ -157,6 +159,8 @@ export type Route =
   | { name: 'hall'; slug: string }
   | { name: 'glossary' }
   | { name: 'term'; slug: string }
+  | { name: 'retouch' }
+  | { name: 'retouchcase'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -164,7 +168,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -238,6 +242,8 @@ const STATIC: Record<string, Route['name']> = {
   '/halls': 'halls',
   // L36 摄影术语表
   '/glossary': 'glossary',
+  // L37 修图前后对比
+  '/retouch': 'retouch',
   // @content:static — L36+ 内容栏目挂载点（scaffold）
 };
 /** 扩展栏目的静态路由（预渲染用） */
@@ -301,6 +307,9 @@ export function parseRoute(pathname: string): Route {
   // L36：摄影术语表
   m = /^\/glossary\/([^/]+)$/.exec(p);
   if (m) return Glossary_SLUG_RE.test(m[1]!) ? { name: 'term', slug: m[1]! } : { name: 'notfound' };
+  // L37：修图前后对比
+  m = /^\/retouch\/([^/]+)$/.exec(p);
+  if (m) return Retouch_SLUG_RE.test(m[1]!) ? { name: 'retouchcase', slug: m[1]! } : { name: 'notfound' };
   // L28：小组详情
   m = /^\/groups\/([^/]+)$/.exec(p);
   if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
@@ -406,6 +415,10 @@ export function routePath(r: Route): string {
       return '/glossary/';
     case 'term':
       return `/glossary/${r.slug}/`;
+    case 'retouch':
+      return '/retouch/';
+    case 'retouchcase':
+      return `/retouch/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -512,6 +525,9 @@ export interface Extra {
   /** L36 摄影术语表：列表（已发布）/ 详情 */
   terms?: GlossarySummary[];
   term?: GlossaryItem;
+  /** L37 修图前后对比：列表（已发布）/ 详情 */
+  retouchCases?: RetouchSummary[];
+  retouchCase?: RetouchItem;
   issueNav?: { prev: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null; next: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null };
 }
 
@@ -569,6 +585,10 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['terms'];
     case 'term':
       return ['term'];
+    case 'retouch':
+      return ['retouchCases'];
+    case 'retouchcase':
+      return ['retouchCase'];
     default:
       return [];
   }
@@ -1741,6 +1761,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return glossaryListPage(site, route, x.terms ?? []);
     case 'term':
       return x.term ? glossaryDetailPage(site, route, x.term) : notFoundPage(site, route);
+    case 'retouch':
+      return retouchListPage(site, route, x.retouchCases ?? []);
+    case 'retouchcase':
+      return x.retouchCase ? retouchDetailPage(site, route, x.retouchCase) : notFoundPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':

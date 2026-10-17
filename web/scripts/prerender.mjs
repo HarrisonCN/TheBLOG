@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -199,6 +199,8 @@ if (API || DEMO) {
     extra.halls = (await soft('/api/halls', { halls: [] })).halls ?? [];
     // L36：摄影术语表
     extra.terms = (await soft('/api/glossary', { terms: [] })).terms ?? [];
+    // L37：修图前后对比
+    extra.retouchCases = (await soft('/api/retouch', { cases: [] })).cases ?? [];
     // @content:pre-extra — L36+ 内容栏目挂载点（scaffold）
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
@@ -328,6 +330,16 @@ if (API || DEMO) {
       n36++;
     }
     console.log(`[prerender] L36：摄影术语表 ${n36} 条`);
+    // L37：修图前后对比（详情页全文都在静态 HTML 里）
+    let n37 = 0;
+    for (const s of extra.retouchCases) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/retouch/${s.slug}`, null);
+      if (!d?.case) continue;
+      await emit({ name: 'retouchcase', slug: s.slug }, async () => ({ retouchCase: d.case }), async () => ({ title: `${s.title} · 修图前后对比`, description: s.summary || s.title, image: s.cover?.src || '', type: 'article' }));
+      n37++;
+    }
+    console.log(`[prerender] L37：修图前后对比 ${n37} 条`);
     // @content:pre-emit — L36+ 内容栏目挂载点（scaffold）
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。

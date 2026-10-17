@@ -24,6 +24,8 @@ import { avSeed, MockAv } from './mock-av';
 import { hallsSeed, MockHalls } from './mock-halls';
 import { Mock as MockGlossary } from './mock-glossary';
 import { seed as glossarySeed } from './seed-glossary';
+import { Mock as MockRetouch } from './mock-retouch';
+import { seed as retouchSeed } from './seed-retouch';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -421,6 +423,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.retouch = new MockRetouch({
+      state: () => this.db().retouch ?? retouchSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.retouch ??= retouchSeed(this.base);
+        mutate(db.retouch);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -462,6 +473,7 @@ export class DemoBackend {
   private av: MockAv;
   private halls: MockHalls;
   private glossary: MockGlossary;
+  private retouch: MockRetouch;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -607,6 +619,11 @@ export class DemoBackend {
       const r36 = this.glossary.routePublic(m, path);
       if (r36) return r36;
     }
+    // ---- L37 修图前后对比（公开：只有已发布）----
+    if (path === '/api/retouch' || path.startsWith('/api/retouch/')) {
+      const r37 = this.retouch.routePublic(m, path);
+      if (r37) return r37;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -750,6 +767,9 @@ export class DemoBackend {
       // L36 摄影术语表
       const a36 = this.glossary.routeAdmin(m, sub, body);
       if (a36) return a36;
+      // L37 修图前后对比
+      const a37 = this.retouch.routeAdmin(m, sub, body);
+      if (a37) return a37;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

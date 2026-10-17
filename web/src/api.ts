@@ -73,6 +73,9 @@ export const api = {
   // L36 摄影术语表
   terms: () => request<{ terms: import('./glossary-core').Summary[] }>('/api/glossary'),
   term: (slug: string) => request<{ term: import('./glossary-core').Item }>(`/api/glossary/${encodeURIComponent(slug)}`),
+  // L37 修图前后对比
+  retouchCases: () => request<{ cases: import('./retouch-core').Summary[] }>('/api/retouch'),
+  retouchCase: (slug: string) => request<{ case: import('./retouch-core').Item }>(`/api/retouch/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

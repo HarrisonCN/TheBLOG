@@ -227,5 +227,32 @@
   "width": 400,
   "height": 600,
   "generated": true
+ },
+ "hero-lake-before": {
+  "title": "Lake Sylvester during the sunrise, Kahurangi, New Zealand.jpg — 演示用「修图前」（由原图降低对比度、饱和度并加偏色 / 倾斜反向调出）",
+  "author": "Michal Klajban",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Lake_Sylvester_during_the_sunrise,_Kahurangi,_New_Zealand.jpg",
+  "width": 1280,
+  "height": 1779
+ },
+ "street-tricycle-before": {
+  "title": "Shanghai recycling transport tricycle.jpg — 演示用「修图前」（由原图降低对比度、饱和度并加偏色 / 倾斜反向调出）",
+  "author": "Ermell",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Shanghai_recycling_transport_tricycle.jpg",
+  "width": 1280,
+  "height": 2880
+ },
+ "guilin-pagodas-before": {
+  "title": "Sun and Moon Pagodas Guilin November 2017 HDR.jpg — 演示用「修图前」（由原图降低对比度、饱和度并加偏色 / 倾斜反向调出）",
+  "author": "King of Hearts",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+  "source": "https://commons.wikimedia.org/wiki/File:Sun_and_Moon_Pagodas_Guilin_November_2017_HDR.jpg",
+  "width": 1280,
+  "height": 2563
  }
 }
