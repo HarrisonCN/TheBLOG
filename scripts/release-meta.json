@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.37.0", "milestone": "L37", "from": "2cbb843", "date": "2026-10-17", "title": "修图前后对比" },
+    { "version": "1.38.0", "milestone": "L38", "from": "e1d193a", "date": "2026-10-17", "title": "拍摄清单" },
+    { "version": "1.37.0", "milestone": "L37", "sha": "e1d193a", "from": "2cbb843", "date": "2026-10-17", "title": "修图前后对比" },
     { "version": "1.36.0", "milestone": "L36", "sha": "2cbb843", "from": "68c1611", "date": "2026-10-17", "title": "摄影术语表" },
     { "version": "1.35.0", "milestone": "L35", "sha": "68c1611", "from": "82a2e13", "date": "2026-10-17", "title": "3D 与沉浸式展厅" },
     { "version": "1.34.0", "milestone": "L34", "sha": "82a2e13", "from": "28c4fa5", "date": "2026-10-17", "title": "视频与声音作品" },
