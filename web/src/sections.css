@@ -615,3 +615,22 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .cq-self__f legend { font-weight: 600; margin-bottom: 0.2rem; }
 .cq-self__opt { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.2rem 0.45rem; border-radius: 8px; background: var(--accent-soft); cursor: pointer; }
 .cq-self__out { margin: 0.6rem 0 0; padding-left: 1.2rem; }
+/* L42 扫街路线 */
+.wk-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.wk-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.wk-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.wk-card__title { font-weight: 700; }
+.wk-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; }
+.wk-fig { margin: 0 0 0.75rem; max-width: 720px; }
+.wk-map { display: block; width: 100%; height: auto; border-radius: 12px; background: var(--accent-soft); }
+.wk-map__line { stroke: var(--heading); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 10 6; opacity: 0.8; }
+.wk-map__stop circle { fill: #8a3a0e; stroke: #fff; stroke-width: 3; }
+.wk-map__stop text { fill: #fff; font-size: 13px; font-weight: 700; }
+.wk-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.wk-stops { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.9rem; }
+.wk-stop { display: flex; gap: 0.75rem; align-items: flex-start; scroll-margin-top: 5rem; }
+.wk-stop__no { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #8a3a0e; color: #fff; font-weight: 700; }
+.wk-stop__body { min-width: 0; display: grid; gap: 0.2rem; }
+.wk-stop__h { font-size: 1rem; margin: 0.2rem 0 0; }
+.wk-stop__leg, .wk-stop__tip { margin: 0; }
+.wk-stop__img { display: block; width: 100%; max-width: 480px; height: auto; border-radius: 10px; margin-top: 0.3rem; }
