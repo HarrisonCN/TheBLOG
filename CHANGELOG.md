@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.40.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.40.0) — 2026-10-17
+
+_L40 · 课程笔记_
+
+### 新功能 Features
+
+- **l40:** 课程笔记 — course-core（web=worker）、/courses/ 课程列表 + 课程页（课时笔记、作业、评分量表加权得分与等级、完成度）、/api/courses + 站长接口、迁移 0031_courses (7a18349)
+
+### 测试 Tests
+
+- **l40:** 课程笔记 — course-core / /courses/ 页面 / /api/courses 测试先行（fail-before） (b38e66c)
+
+### 文档 Docs
+
+- **courses:** L40 docs/courses.md, README feature + unit counts (worker 422 + web 784), ROADMAP (691dec7)
+
+### 杂项 Chores
+
+- **release:** 1.40.0 — version bump, release-meta (1.39.0 frozen at 49c6ebd) (27de8c0)
+
 ## [1.39.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.39.0) — 2026-10-17
 
 _L39 · 照片日历_
