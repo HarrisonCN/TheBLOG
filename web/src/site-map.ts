@@ -99,6 +99,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'quotes', label: '书摘', icon: 'book', desc: '文章和书影音里摘下来的句子，可生成分享卡片', href: '/quotes/', routes: ['quotes'], keywords: 'quotes highlight 书摘 摘录 划线 引用' },
       { id: 'glossary', label: '术语表', icon: 'list', desc: '曝光、光线、构图、器材、后期和胶片里的常用术语，一句话讲清楚', href: '/glossary/', routes: ['glossary', 'term'], keywords: 'glossary terms 术语 名词 解释 词典 aperture iso 光圈 快门' },
       { id: 'courses', label: '课程笔记', icon: 'book', desc: '摄影专业课的课堂笔记、作业要求和评分量表', href: '/courses/', routes: ['courses', 'course'], keywords: 'course notes class syllabus rubric 课程 笔记 作业 评分 学期' },
+      { id: 'interviews', label: '摄影人访谈', icon: 'message', desc: '和拍照的人聊聊：怎么开始、怎么拍、怎么坚持（受访者均为虚构）', href: '/interviews/', routes: ['interviews', 'interview'], keywords: 'interview q&a photographer 访谈 采访 问答 摄影师 对话' },
       { id: 'favorites', label: '收藏与项目', icon: 'star', desc: '收藏的好东西和站长的项目', href: '/favorites/', routes: ['favorites'], keywords: 'favorites 收藏' },
     ],
   },
@@ -302,6 +303,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);
