@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.36.0", "milestone": "L36", "from": "68c1611", "date": "2026-10-17", "title": "摄影术语表" },
+    { "version": "1.37.0", "milestone": "L37", "from": "2cbb843", "date": "2026-10-17", "title": "修图前后对比" },
+    { "version": "1.36.0", "milestone": "L36", "sha": "2cbb843", "from": "68c1611", "date": "2026-10-17", "title": "摄影术语表" },
     { "version": "1.35.0", "milestone": "L35", "sha": "68c1611", "from": "82a2e13", "date": "2026-10-17", "title": "3D 与沉浸式展厅" },
     { "version": "1.34.0", "milestone": "L34", "sha": "82a2e13", "from": "28c4fa5", "date": "2026-10-17", "title": "视频与声音作品" },
     { "version": "1.33.0", "milestone": "L33", "sha": "28c4fa5", "from": "3d9bcd7", "date": "2026-10-16", "title": "视觉杂志：/magazine/ 期刊（封面、编者按、带页码的目录、专题 / 跨页 / 图集 / 引语 / 简讯，按图片比例自动排版、打印分页、J/K 键盘翻阅），两期虚构示例刊，Worker /api/magazine + 管理端 PUT/DELETE（编辑界面延后）" },
