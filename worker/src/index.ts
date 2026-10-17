@@ -24,6 +24,7 @@ import { routeAdmin as routeAdminGlossary, routePublic as routePublicGlossary } 
 import { routeAdmin as routeAdminRetouch, routePublic as routePublicRetouch } from './retouch';
 import { routeAdmin as routeAdminChecklists, routePublic as routePublicChecklists } from './checklists';
 import { routeAdmin as routeAdminCalendar, routePublic as routePublicCalendar } from './calendar';
+import { routeAdmin as routeAdminCourses, routePublic as routePublicCourses } from './courses';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -143,6 +144,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/calendar' || path.startsWith('/api/calendar/')) {
     const r39 = await routePublicCalendar(req, env, path);
     if (r39) return r39;
+  }
+  // ---------- L40 课程笔记（公开：只有已发布） ----------
+  if (path === '/api/courses' || path.startsWith('/api/courses/')) {
+    const r40 = await routePublicCourses(req, env, path);
+    if (r40) return r40;
   }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
@@ -272,6 +278,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L39 照片日历（整份 JSON 最多 64 KB）
     const a39 = await routeAdminCalendar(req, env, sub, () => readJson(req, 64 * 1024));
     if (a39) return a39;
+    // L40 课程笔记（整份 JSON 最多 64 KB）
+    const a40 = await routeAdminCourses(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a40) return a40;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
