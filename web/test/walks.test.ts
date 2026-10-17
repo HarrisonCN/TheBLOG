@@ -91,7 +91,8 @@ describe('路由与页面', () => {
     const p = renderRoute({ name: 'walk', slug: 'test-walk' } as never, site, { walk: walk({ summary: '<b>x</b>' }) } as never);
     expect(p.main).toMatch(/<svg class="wk-map" viewBox="0 0 640 400" role="img" aria-labelledby="wk-desc-test-walk"/);
     expect(p.main).toContain('共 3 站，约 2.2 公里');
-    expect((p.main.match(/<circle /g) ?? []).length).toBe(3);
+    const map = p.main.slice(p.main.indexOf('<svg class="wk-map"')).split('</svg>')[0]!; // 页面其他图标里也有 <circle>
+    expect((map.match(/<circle /g) ?? []).length).toBe(3);
     expect(p.main).toContain('距上一站 1.1 公里');
     expect(p.main).toMatch(/href="data:application\/gpx\+xml;charset=utf-8,[^"]+" download="test-walk.gpx"/);
     expect(p.main).toContain('&lt;b&gt;x&lt;/b&gt;');
