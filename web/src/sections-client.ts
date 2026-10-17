@@ -37,6 +37,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-checklist]')) void import('./checklist-client').then((m) => m.bind(root));
   // L39：照片日历（按需加载）
   if (root.querySelector('[data-daily]')) void import('./calendar-client').then((m) => m.bind(root));
+  // L41：作品点评（按需加载）
+  if (root.querySelector('[data-critique]')) void import('./critique-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

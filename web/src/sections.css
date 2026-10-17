@@ -589,3 +589,29 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .cs-rubric caption { text-align: left; font-weight: 600; padding-bottom: 0.3rem; }
 .cs-rubric th, .cs-rubric td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border, #d9dce2); }
 .cs-rubric tfoot th, .cs-rubric tfoot td { font-weight: 700; color: var(--heading); border-bottom: 0; }
+/* L41 作品点评 */
+.cq-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.cq-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.cq-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.cq-card__title { font-weight: 700; }
+.cq-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; }
+.cq-fig { margin: 0 0 1rem; }
+.cq-fig img { display: block; width: 100%; max-width: 960px; height: auto; border-radius: 12px; }
+.cq-ask { padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--accent-soft); }
+.cq-h { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; }
+.cq-avg { border-collapse: collapse; width: 100%; max-width: 680px; }
+.cq-avg caption { text-align: left; font-weight: 600; padding-bottom: 0.3rem; }
+.cq-avg th, .cq-avg td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border, #d9dce2); vertical-align: middle; }
+.cq-dist { display: inline-flex; align-items: flex-end; gap: 2px; height: 1.5rem; margin-right: 0.5rem; vertical-align: middle; }
+.cq-dist__bar { width: 0.55rem; height: calc(0.15rem + var(--n) * 0.4rem); max-height: 1.5rem; background: var(--heading); opacity: 0.7; border-radius: 2px; }
+.cq-dist__txt { display: block; }
+.cq-revs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.cq-rev { padding: 0.6rem 0.9rem; border-radius: 12px; background: var(--accent-soft); }
+.cq-rev p { margin: 0.2rem 0; }
+.cq-self { margin: 1rem 0; padding: 0.75rem 1rem; border: 1px solid var(--border, #d9dce2); border-radius: 12px; }
+.cq-self[hidden] { display: none; }
+.cq-self__grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin-bottom: 0.6rem; }
+.cq-self__f { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+.cq-self__f legend { font-weight: 600; margin-bottom: 0.2rem; }
+.cq-self__opt { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.2rem 0.45rem; border-radius: 8px; background: var(--accent-soft); cursor: pointer; }
+.cq-self__out { margin: 0.6rem 0 0; padding-left: 1.2rem; }

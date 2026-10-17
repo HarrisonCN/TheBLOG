@@ -85,6 +85,9 @@ export const api = {
   // L40 课程笔记
   courses: () => request<{ courses: import('./course-core').Summary[] }>('/api/courses'),
   course: (slug: string) => request<{ course: import('./course-core').Item }>(`/api/courses/${encodeURIComponent(slug)}`),
+  // L41 作品点评
+  critiqueWorks: () => request<{ works: import('./critique-core').Summary[] }>('/api/critique'),
+  critiqueWork: (slug: string) => request<{ work: import('./critique-core').Item }>(`/api/critique/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

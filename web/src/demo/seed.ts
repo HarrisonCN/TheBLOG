@@ -69,6 +69,8 @@ export interface DemoDb {
   calendar?: import('./mock-calendar').State;
   /** L40 课程笔记 */
   courses?: import('./mock-courses').State;
+  /** L41 作品点评 */
+  critique?: import('./mock-critique').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
