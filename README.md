@@ -119,6 +119,7 @@ scripts/e2e.mjs         端到端测试
 - **3D 与沉浸式展厅（L35 · 1.35.0）**：摄影栏目新增 **沉浸式展厅** `/halls/`：一组照片挂上四面墙。预渲染内容是按墙面排列的完整平面列表（没有 JS、不支持 3D 也能看全）；浏览器支持且没有要求减少动态效果时，打开 CSS 3D 房间：方向键逐件观看、PageUp / PageDown 换墙、Enter 近看、Esc 退出，当前展品用 `aria-live` 播报；「立体视图」开关可随时切回平面并被记住；没有自动播放或自动旋转。每件展品必须有替代文字才能发布。Worker `GET /api/halls(/:slug)` + 站长 `PUT / DELETE /api/admin/halls/:slug`，迁移 `0026_halls`。见 [docs/gallery3d.md](docs/gallery3d.md)。
 - **摄影术语表（L36 · 1.36.0）**：专题栏目新增 **术语表** `/glossary/`：六类常用摄影术语按拼音首字母 A–Z 分组，一句话定义；详情页有英文名、读音、别名、配图和相关术语互链。即时搜索支持名称、英文、别名、拼音和拼音首字母（`gq` → 光圈），没有 JS 时列表完整可读。见 [docs/glossary.md](docs/glossary.md)。
 - **修图前后对比（L37 · 1.37.0）**：摄影栏目新增 **修图前后** `/retouch/`：并排的原图与修图后 + 有序的修图步骤（没有 JS 也完整），按需打开原生 range 对比滑块（键盘、读屏数值、快捷位置、拖动）。见 [docs/retouch.md](docs/retouch.md)。
+- **拍摄清单（L38 · 1.38.0）**：工具栏目新增 **拍摄清单** `/checklists/`：按拍摄类型分组的器材 / 设置 / 现场流程清单（没有 JS 也能读、能打印），勾选进度只存在本机浏览器。见 [docs/checklists.md](docs/checklists.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -204,7 +205,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 407 个 + web 750 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 412 个 + web 761 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
