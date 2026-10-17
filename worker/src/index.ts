@@ -19,6 +19,7 @@ import { routeAdminDm } from './dm';
 import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpToken } from './open';
 import { routeAdminMagazine, routeMagazinePublic } from './magazine';
 import { routeAdminAv, routeAvPublic } from './av';
+import { routeAdminHalls, routeHallsPublic } from './halls';
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
@@ -111,6 +112,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/av' || path.startsWith('/api/av/')) {
     const av = await routeAvPublic(req, env, path);
     if (av) return av;
+  }
+
+  // ---------- L35 沉浸式展厅（公开：只有已发布展厅） ----------
+  if (path === '/api/halls' || path.startsWith('/api/halls/')) {
+    const hl = await routeHallsPublic(req, env, path);
+    if (hl) return hl;
   }
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -224,6 +231,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L34 视频与声音（字幕最多 2000 条，整份 JSON 最多 256 KB）
     const avAdmin = await routeAdminAv(req, env, sub, () => readJson(req, 256 * 1024));
     if (avAdmin) return avAdmin;
+    // L35 沉浸式展厅（最多 24 件展品，整份 JSON 最多 64 KB）
+    const hallAdmin = await routeAdminHalls(req, env, sub, () => readJson(req, 64 * 1024));
+    if (hallAdmin) return hallAdmin;
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
     // L21 运行状态 / 错误事件 / 手动健康检查

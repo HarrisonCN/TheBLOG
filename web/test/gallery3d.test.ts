@@ -140,7 +140,7 @@ describe('gallery-core 导览与键盘', () => {
 });
 
 describe('演示 mock /api/halls', () => {
-  const api = () => new DemoBackend(memoryKV(), '/TheBLOG/');
+  const api = () => new DemoBackend({ storage: memoryKV(), base: '/TheBLOG/', now: () => new Date(Date.UTC(2026, 9, 16, 12)) });
   it('示例展厅：都已发布、都是合法展厅、图片是站内示例照片、标题标「示例」', async () => {
     const b = api();
     const l = (await b.handle('GET', '/api/halls')).body as { halls: { slug: string; title: string; exhibits: number }[] };
