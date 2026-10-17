@@ -51,6 +51,8 @@ import { listPage as retouchListPage, detailPage as retouchDetailPage } from './
 import { SLUG_RE as Retouch_SLUG_RE, type Item as RetouchItem, type Summary as RetouchSummary } from './retouch-core';
 import { listPage as checklistsListPage, detailPage as checklistsDetailPage } from './checklist-view';
 import { SLUG_RE as Checklists_SLUG_RE, type Item as ChecklistsItem, type Summary as ChecklistsSummary } from './checklist-core';
+import { listPage as calendarListPage, detailPage as calendarDetailPage } from './calendar-view';
+import { SLUG_RE as Calendar_SLUG_RE, type Item as CalendarItem, type Summary as CalendarSummary } from './calendar-core';
 // @content:imports — L36+ 内容栏目挂载点（scaffold）
 import { GROUP_SLUG_RE } from './group-core';
 
@@ -165,6 +167,8 @@ export type Route =
   | { name: 'retouchcase'; slug: string }
   | { name: 'checklists' }
   | { name: 'checklist'; slug: string }
+  | { name: 'calendar' }
+  | { name: 'calendarmonth'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -172,7 +176,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -250,6 +254,8 @@ const STATIC: Record<string, Route['name']> = {
   '/retouch': 'retouch',
   // L38 拍摄清单
   '/checklists': 'checklists',
+  // L39 照片日历
+  '/calendar': 'calendar',
   // @content:static — L36+ 内容栏目挂载点（scaffold）
 };
 /** 扩展栏目的静态路由（预渲染用） */
@@ -319,6 +325,9 @@ export function parseRoute(pathname: string): Route {
   // L38：拍摄清单
   m = /^\/checklists\/([^/]+)$/.exec(p);
   if (m) return Checklists_SLUG_RE.test(m[1]!) ? { name: 'checklist', slug: m[1]! } : { name: 'notfound' };
+  // L39：照片日历
+  m = /^\/calendar\/([^/]+)$/.exec(p);
+  if (m) return Calendar_SLUG_RE.test(m[1]!) ? { name: 'calendarmonth', slug: m[1]! } : { name: 'notfound' };
   // L28：小组详情
   m = /^\/groups\/([^/]+)$/.exec(p);
   if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
@@ -432,6 +441,10 @@ export function routePath(r: Route): string {
       return '/checklists/';
     case 'checklist':
       return `/checklists/${r.slug}/`;
+    case 'calendar':
+      return '/calendar/';
+    case 'calendarmonth':
+      return `/calendar/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -544,6 +557,9 @@ export interface Extra {
   /** L38 拍摄清单：列表（已发布）/ 详情 */
   checklists?: ChecklistsSummary[];
   checklist?: ChecklistsItem;
+  /** L39 照片日历：列表（已发布）/ 详情 */
+  calMonths?: CalendarSummary[];
+  calMonth?: CalendarItem;
   issueNav?: { prev: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null; next: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null };
 }
 
@@ -609,6 +625,10 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['checklists'];
     case 'checklist':
       return ['checklist'];
+    case 'calendar':
+      return ['calMonths'];
+    case 'calendarmonth':
+      return ['calMonth'];
     default:
       return [];
   }
@@ -1789,6 +1809,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return checklistsListPage(site, route, x.checklists ?? []);
     case 'checklist':
       return x.checklist ? checklistsDetailPage(site, route, x.checklist) : notFoundPage(site, route);
+    case 'calendar':
+      return calendarListPage(site, route, x.calMonths ?? []);
+    case 'calendarmonth':
+      return x.calMonth ? calendarDetailPage(site, route, x.calMonth) : notFoundPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':
