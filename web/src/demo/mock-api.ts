@@ -22,6 +22,9 @@ import { groupsSeed, MockGroups } from './mock-groups';
 import { magazineSeed, MockMagazine } from './mock-magazine';
 import { avSeed, MockAv } from './mock-av';
 import { hallsSeed, MockHalls } from './mock-halls';
+import { Mock as MockGlossary } from './mock-glossary';
+import { seed as glossarySeed } from './seed-glossary';
+// @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
 import { dmSeed, MockDm } from './mock-dm';
@@ -409,6 +412,16 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.glossary = new MockGlossary({
+      state: () => this.db().glossary ?? glossarySeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.glossary ??= glossarySeed(this.base);
+        mutate(db.glossary);
+        this.save(db);
+      },
+    });
+    // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
       commit: (mutate) => {
@@ -448,6 +461,8 @@ export class DemoBackend {
   private magazine: MockMagazine;
   private av: MockAv;
   private halls: MockHalls;
+  private glossary: MockGlossary;
+  // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
     const db = structuredClone(this.db());
@@ -587,6 +602,12 @@ export class DemoBackend {
       const hl = this.halls.routePublic(m, path);
       if (hl) return hl;
     }
+    // ---- L36 摄影术语表（公开：只有已发布）----
+    if (path === '/api/glossary' || path.startsWith('/api/glossary/')) {
+      const r36 = this.glossary.routePublic(m, path);
+      if (r36) return r36;
+    }
+    // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
       const o = this.open.routePublic(m, path, q, body, headers);
@@ -726,6 +747,10 @@ export class DemoBackend {
       // L35 沉浸式展厅
       const hallAdmin = this.halls.routeAdmin(m, sub, body);
       if (hallAdmin) return hallAdmin;
+      // L36 摄影术语表
+      const a36 = this.glossary.routeAdmin(m, sub, body);
+      if (a36) return a36;
+      // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
       const opsAdmin = this.ops.routeAdmin(m, sub, q);
