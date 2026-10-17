@@ -122,6 +122,7 @@ scripts/e2e.mjs         端到端测试
 - **拍摄清单（L38 · 1.38.0）**：工具栏目新增 **拍摄清单** `/checklists/`：按拍摄类型分组的器材 / 设置 / 现场流程清单（没有 JS 也能读、能打印），勾选进度只存在本机浏览器。见 [docs/checklists.md](docs/checklists.md)。
 - **照片日历（L39 · 1.39.0）**：摄影栏目新增 **照片日历** `/calendar/`：一个月一份、每天最多一张照片，排成周一开头的月历表格（没有 JS 也完整），浏览器里按北京时间标出今天。见 [docs/calendar.md](docs/calendar.md)。
 - **课程笔记（L40 · 1.40.0）**：专题栏目新增 **课程笔记** `/courses/`：按学期整理的摄影专业课课堂笔记，每节课可带作业和评分量表（权重合计 100，按 0–5 分加权折算成百分制与等级），显示完成度。见 [docs/courses.md](docs/courses.md)。
+- **作品点评（L41 · 1.41.0）**：社区栏目新增 **作品点评** `/critique/`：每件作品收集几位点评人按构图、光线、色彩、叙事四个维度的 1–5 分和文字意见，显示平均分与票数分布；页内可先自评再和大家比较（只在浏览器里计算，不上传）。见 [docs/critique.md](docs/critique.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -207,7 +208,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 422 个 + web 784 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 427 个 + web 794 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
