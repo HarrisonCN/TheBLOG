@@ -20,6 +20,8 @@ import { routeAdminOpen, routeOpen, routeOpenSocial, scheduledOpen, verifyMcpTok
 import { routeAdminMagazine, routeMagazinePublic } from './magazine';
 import { routeAdminAv, routeAvPublic } from './av';
 import { routeAdminHalls, routeHallsPublic } from './halls';
+import { routeAdmin as routeAdminGlossary, routePublic as routePublicGlossary } from './glossary';
+// @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
 import { MCP_LIMITS } from './open-core';
@@ -119,6 +121,12 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const hl = await routeHallsPublic(req, env, path);
     if (hl) return hl;
   }
+  // ---------- L36 摄影术语表（公开：只有已发布） ----------
+  if (path === '/api/glossary' || path.startsWith('/api/glossary/')) {
+    const r36 = await routePublicGlossary(req, env, path);
+    if (r36) return r36;
+  }
+  // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
   const ap = await routeAp(req, env, path, url);
@@ -234,6 +242,10 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L35 沉浸式展厅（最多 24 件展品，整份 JSON 最多 64 KB）
     const hallAdmin = await routeAdminHalls(req, env, sub, () => readJson(req, 64 * 1024));
     if (hallAdmin) return hallAdmin;
+    // L36 摄影术语表（整份 JSON 最多 64 KB）
+    const a36 = await routeAdminGlossary(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a36) return a36;
+    // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
     // L21 运行状态 / 错误事件 / 手动健康检查

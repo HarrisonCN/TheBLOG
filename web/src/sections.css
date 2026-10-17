@@ -483,3 +483,25 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .hall3d.no-motion .hall3d__room, .hall3d.no-motion .hall3d__ex { transition: none; }
 @media (prefers-reduced-motion: reduce) { .hall3d__room, .hall3d__ex { transition: none; } }
 @media print { .hall3d, .hall-toggle, .hall-back { display: none; } .hall-flat[hidden] { display: grid; } }
+/* L36 摄影术语表 */
+.gl-search { display: grid; gap: 0.35rem; margin-bottom: 0.5rem; }
+.gl-search[hidden], .gl-group[hidden], .gl-item[hidden], .gl-empty[hidden] { display: none; }
+.gl-search__l { font-weight: 600; }
+.gl-search__q { font: inherit; padding: 0.55rem 0.8rem; border-radius: 10px; border: 1px solid var(--border, #c9ccd3); background: var(--card, #fff); color: inherit; width: 100%; max-width: 32rem; box-sizing: border-box; }
+.gl-count { margin: 0 0 0.5rem; }
+.gl-nav ul { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.gl-letter { color: var(--heading); display: inline-grid; place-items: center; min-width: 2.25rem; min-height: 2.25rem; border-radius: 8px; background: var(--accent-soft); font-weight: 700; text-decoration: none; }
+.gl-group { margin: 0 0 1.25rem; scroll-margin-top: 5rem; }
+.gl-group__h { font-size: 1.1rem; margin: 0 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border, #d9dce2); }
+.gl-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.gl-item { padding: 0.65rem 0.8rem; border-radius: 12px; background: var(--accent-soft); display: grid; gap: 0.15rem; min-width: 0; }
+.gl-item__a { color: var(--heading); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; font-weight: 700; text-decoration: none; }
+.gl-item__cat { justify-self: start; }
+.gl-item__sum { margin: 0; overflow-wrap: anywhere; }
+.gl-term__meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; }
+.gl-term__def { font-size: 1.05rem; }
+.gl-fig { margin: 1rem 0; }
+.gl-fig img { display: block; width: 100%; height: auto; max-width: 720px; border-radius: 10px; }
+.gl-rel__h { font-size: 1rem; }
+.gl-rel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+@media print { .gl-search, .gl-nav, .gl-back { display: none; } }

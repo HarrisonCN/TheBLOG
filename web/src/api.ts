@@ -70,6 +70,10 @@ export const api = {
   avWork: (slug: string) => request<{ work: import('./media-core').AvWork }>(`/api/av/${encodeURIComponent(slug)}`),
   halls: () => request<{ halls: import('./gallery-core').HallSummary[] }>('/api/halls'),
   hall: (slug: string) => request<{ hall: import('./gallery-core').Hall }>(`/api/halls/${encodeURIComponent(slug)}`),
+  // L36 摄影术语表
+  terms: () => request<{ terms: import('./glossary-core').Summary[] }>('/api/glossary'),
+  term: (slug: string) => request<{ term: import('./glossary-core').Item }>(`/api/glossary/${encodeURIComponent(slug)}`),
+  // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
   reactions: (slug: string) => request<{ counts: Record<string, number> }>(`/api/posts/${encodeURIComponent(slug)}/reactions`),

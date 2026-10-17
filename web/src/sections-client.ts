@@ -29,6 +29,9 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-av]')) void import('./av-client').then((m) => m.bindAv(root));
   // L35：沉浸式展厅 3D 增强（按需加载）
   if (root.querySelector('[data-hall]')) void import('./hall-client').then((m) => m.bindHall(root));
+  // L36：摄影术语表（按需加载）
+  if (root.querySelector('[data-glossary]')) void import('./glossary-client').then((m) => m.bind(root));
+  // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
   // L27：稍后读 / 书摘筛选（按需加载）

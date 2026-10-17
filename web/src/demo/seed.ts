@@ -59,6 +59,9 @@ export interface DemoDb {
   av?: import('./mock-av').AvState;
   /** L35 沉浸式展厅 */
   halls?: import('./mock-halls').HallsState;
+  /** L36 摄影术语表 */
+  glossary?: import('./mock-glossary').State;
+  // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
   /** L19 私信 / 消息请求 / 活动聊天室 */

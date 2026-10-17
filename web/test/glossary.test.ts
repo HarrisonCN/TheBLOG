@@ -86,7 +86,7 @@ describe('glossary-core 索引与搜索', () => {
     expect(matchScore(list[0]!, '快门')).toBe(0);
   });
   it('搜索：按匹配度排序，同分保持读音顺序；空查询返回全部', () => {
-    expect(searchTerms(list, 'g').map((x) => x.slug)).toEqual(['iso', 'aperture']);
+    expect(searchTerms(list, 'g').map((x) => x.slug)).toEqual(['iso', 'aperture', 'bokeh']); // 前缀（2 分）在前，包含（sanjing，1 分）在后
     expect(searchTerms(list, 'iso').map((x) => x.slug)).toEqual(['iso']);
     expect(searchTerms(list, '  ').length).toBe(5);
     expect(searchTerms(list, 'zzz')).toEqual([]);
