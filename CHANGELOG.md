@@ -2,6 +2,29 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.33.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.33.0) — 2026-10-16
+
+_L33 · 视觉杂志：/magazine/ 期刊（封面、编者按、带页码的目录、专题 / 跨页 / 图集 / 引语 / 简讯，按图片比例自动排版、打印分页、J/K 键盘翻阅），两期虚构示例刊，Worker /api/magazine + 管理端 PUT/DELETE（编辑界面延后）_
+
+### 新功能 Features
+
+- **magazine:** L33 视觉杂志 — magazine-core (web = worker), /magazine/ + /magazine/:slug/ (摄影 栏目, prerendered, cover/editor note/TOC with page numbers/feature·spread·gallery·quote·brief, layout by aspect ratio, print CSS, J/K keyboard), demo mock + 2 fictional sample issues, Worker /api/magazine + admin PUT/DELETE, migration 0024_magazine (c1c2d37)
+
+### 测试 Tests
+
+- **magazine:** L33 worker /api/magazine + admin PUT/DELETE (fail-before: magazine-core / routes missing) (2b9abc3)
+- **magazine:** L33 视觉杂志 — issue validation, spread/gallery layout planner, page map, mock API, routes (fail-before: magazine-core missing) (9a490c2)
+
+### 文档 Docs
+
+- **readme:** unit test counts (worker 387 + web 656; 1.32.0 had 382 + 621, README still said 619) (253a088)
+- **magazine:** accurate clash status + issue number range (c9f979f)
+- **magazine:** L33 docs/magazine.md, README feature, ROADMAP (admin editing UI deferred) (a7ed506)
+
+### 杂项 Chores
+
+- **release:** 1.33.0 — version bump, release-meta (1.32.0 frozen at 3d9bcd7) (a46271b)
+
 ## [1.32.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.32.0) — 2026-10-15
 
 _L32 · 平台质量基线：权限矩阵测试（每个 /api/admin/* 路由自动收集，匿名 401、会员 403）、性能预算（首屏 JS / CSS / 懒加载分片 / 总量 gzip 上限，CI 检查）、跨浏览器 E2E（chromium / firefox / webkit × 1280 浅色 / 390 深色，axe 0、无横向溢出、无控制台错误）、使用指南 /guide/、跳到正文与页内锚点焦点修复_

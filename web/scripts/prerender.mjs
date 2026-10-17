@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -191,6 +191,8 @@ if (API || DEMO) {
     for (const k of ['now', 'works', 'gear', 'shelf', 'timeline', 'changelog', 'repos']) extra[k] = (await soft(`/api/content/${k}`, { items: [] })).items;
     // L27：书摘（已发布文章里的 :::quote 块；旧 Worker 没有该接口时为空）
     extra.quotes = (await soft('/api/quotes', { quotes: [] })).quotes ?? [];
+    // L33：视觉杂志（已发布期刊摘要；旧 Worker 没有该接口时为空）
+    extra.issues = (await soft('/api/magazine', { issues: [] })).issues ?? [];
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
       const label = R.routePath(route);
@@ -276,6 +278,19 @@ if (API || DEMO) {
     const groupList = (await soft('/api/social/groups', { groups: [] })).groups ?? [];
     for (const g of groupList) if (/^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$/.test(g.slug)) await emit({ name: 'group', slug: g.slug }, null, async () => ({ title: `${g.name} · 小组`, description: g.intro || `小组「${g.name}」`, image: '', type: 'website' }));
     console.log(`[prerender] L28：小组 ${groupList.length} 个`);
+    // L33：每一期杂志
+    let issueCount = 0;
+    for (const s of extra.issues) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/magazine/${s.slug}`, null);
+      if (!d?.issue) continue;
+      const older = extra.issues.filter((x) => x.no < s.no).sort((a, b) => b.no - a.no)[0] ?? null;
+      const newer = extra.issues.filter((x) => x.no > s.no).sort((a, b) => a.no - b.no)[0] ?? null;
+      const pick = (v) => (v ? { slug: v.slug, no: v.no, title: v.title } : null);
+      await emit({ name: 'issue', slug: s.slug }, async () => ({ issue: d.issue, issueNav: { prev: pick(older), next: pick(newer) } }), async () => ({ title: `${s.title} · 视觉杂志`, description: d.issue.editorNote || s.title, image: s.cover?.src || '', type: 'article' }));
+      issueCount++;
+    }
+    console.log(`[prerender] L33：视觉杂志 ${issueCount} 期`);
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
     try {

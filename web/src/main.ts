@@ -11,6 +11,7 @@ import './ia.css';
 import './editor.css';
 import './series.css';
 import './reading.css';
+import { adjacentIssues } from './magazine-core';
 import { api, ApiError, DEMO, request } from './api';
 import { PAGE_LIMIT_MAX, walkPages } from './post-page-core';
 import { applyMotion, effectiveLevel, prefersReducedMotion } from './motion';
@@ -143,6 +144,27 @@ async function loadExtra(route: Route): Promise<Extra> {
         case 'quotes':
           x.quotes = (await api.quotes().catch(() => ({ quotes: [] }))).quotes;
           return;
+        case 'issues':
+          x.issues = (await api.magazine().catch(() => ({ issues: [] }))).issues;
+          return;
+        case 'issue': {
+          if (route.name !== 'issue') return;
+          try {
+            x.issue = (await api.issue(route.slug)).issue;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
+        case 'issueNav': {
+          if (route.name !== 'issue') return;
+          const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
+          const { prev, next } = adjacentIssues(list, route.slug);
+          const pick = (v: (typeof list)[number] | null) => (v ? { slug: v.slug, no: v.no, title: v.title } : null);
+          x.issueNav = { prev: pick(prev), next: pick(next) };
+          return;
+        }
         case 'guestbook':
           x.guestbook = (await api.guestbook().catch(() => ({ entries: [] }))).entries;
           return;
