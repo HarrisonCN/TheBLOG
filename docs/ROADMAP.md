@@ -24,6 +24,7 @@
 | **1.37.0** | 修图前后对比 | 摄影（修图前后 /retouch/） | 无 JS = 并排两图 + 步骤；原生 range 滑块（aria-valuetext、Home/End、快捷位置 aria-pressed、指针拖动）；两图替代文字必填、宽高比一致 | D1 迁移 0028：SKIPPED-verifiable |
 | **1.38.0** | 拍摄清单 | 工具（拍摄清单 /checklists/） | 无 JS = 可读可打印的分组清单；本机勾选（localStorage，读回丢掉未知编号）、`<progress>` + role=status 进度、两次确认清空；条目编号整份唯一、1–8 组 / 每组 1–20 项 / 最多 80 项 | D1 迁移 0029：SKIPPED-verifiable |
 | **1.39.0** | 照片日历 | 摄影（照片日历 /calendar/） | 地址 = YYYY-MM；日期在当月范围内（含闰年）、每天最多一张、替代文字必填；月历 `<table>`（caption、星期 th、周一开头、前后补空）；今天 = Asia/Shanghai，`aria-current="date"`（客户端） | D1 迁移 0030：SKIPPED-verifiable |
+| **1.40.0** | 课程笔记 | 专题（课程笔记 /courses/） | 课程 → 课时（≤24）/ 作业；评分量表 1–8 项、整数权重合计 100、得分 0–5 整数；加权百分制保留一位小数，有未评分项 = 未评分；等级 优秀/良好/中等/及格/不及格；学期倒序 | D1 迁移 0031：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。
