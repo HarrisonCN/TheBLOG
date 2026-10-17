@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.41.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.41.0) — 2026-10-17
+
+_L41 · 作品点评_
+
+### 新功能 Features
+
+- **l41:** 作品点评 — critique-core（web=worker）、/critique/ 作品列表 + 点评页（构图/光线/色彩/叙事 1–5 分、平均与分布表、文字意见）、浏览器端自评对比（本地计算不上传）、/api/critique + 站长接口、迁移 0032_critique (6a8c950)
+
+### 测试 Tests
+
+- **l41:** 作品点评 — critique-core / /critique/ 页面 / /api/critique 测试先行（fail-before） (26b46ea)
+
+### 文档 Docs
+
+- **critique:** L41 docs/critique.md, README feature + unit counts (worker 427 + web 794), ROADMAP (254a0c2)
+
+### 杂项 Chores
+
+- **release:** 1.41.0 — version bump, release-meta (1.40.0 frozen at b233c8f) (28c33f7)
+
 ## [1.40.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.40.0) — 2026-10-17
 
 _L40 · 课程笔记_
