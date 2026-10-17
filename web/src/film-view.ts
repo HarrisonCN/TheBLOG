@@ -15,7 +15,7 @@ export function detailPage(site: SiteData, route: Extract<Route, { name: 'filmro
   const dev = devMinutes(it.baseMinutes, stops);
   const p = it.stock.p;
   const recip = p
-    ? `<section class="fm-sec" aria-labelledby="fm-recip-h"><h2 id="fm-recip-h">互易律失效补偿</h2><p class="small muted">${e(it.stock.name)} 的指数 p = ${p}：补偿时间 = 测光时间<sup>p</sup>（只对 1 秒以上的曝光）。</p><div class="fm-scroll" role="region" aria-labelledby="fm-recip-h" tabindex="0"><table class="fm-table fm-recip"><caption>测光时间 → 实际曝光时间</caption><thead><tr><th scope="col">测光</th><th scope="col">实际</th></tr></thead><tbody>${METERED.map((t) => `<tr><th scope="row">${secondsText(t)}</th><td>${secondsText(reciprocity(t, p))}</td></tr>`).join('')}</tbody></table></div><form class="fm-calc" data-fm-calc="${p}" hidden><label for="fm-tm">任意测光时间（秒）</label> <input id="fm-tm" type="number" min="0.1" max="3600" step="0.1" value="10" inputmode="decimal"> <output for="fm-tm" class="fm-out" aria-live="polite"></output></form></section>`
+    ? `<section class="fm-sec" aria-labelledby="fm-recip-h"><h2 id="fm-recip-h">互易律失效补偿</h2><p class="small muted">${e(it.stock.name)} 的指数 p = ${p}：补偿时间 = 测光时间<sup>p</sup>（只对 1 秒以上的曝光）。</p><div class="fm-scroll" role="region" aria-label="互易律补偿表（可横向滚动）" tabindex="0"><table class="fm-table fm-recip"><caption>测光时间 → 实际曝光时间</caption><thead><tr><th scope="col">测光</th><th scope="col">实际</th></tr></thead><tbody>${METERED.map((t) => `<tr><th scope="row">${secondsText(t)}</th><td>${secondsText(reciprocity(t, p))}</td></tr>`).join('')}</tbody></table></div><form class="fm-calc" data-fm-calc="${p}" hidden><label for="fm-tm">任意测光时间（秒）</label> <input id="fm-tm" type="number" min="0.1" max="3600" step="0.1" value="10" inputmode="decimal"> <output for="fm-tm" class="fm-out" aria-live="polite"></output></form></section>`
     : `<section class="fm-sec" aria-labelledby="fm-recip-h"><h2 id="fm-recip-h">互易律失效补偿</h2><p class="small muted">这卷没有登记互易律指数，长曝光按测光时间拍。</p></section>`;
   const rows = it.frames
     .map((f) => {
@@ -37,7 +37,7 @@ ${cover}
 </dl>
 <p class="fm-warn small" role="note">${icon('flag')}<span>显影时间与互易律补偿都是经验估算，正式冲洗请以厂商资料为准。</span></p>
 ${recip}
-<section class="fm-sec" aria-labelledby="fm-frames-h"><h2 id="fm-frames-h">逐张记录</h2><div class="fm-scroll" role="region" aria-labelledby="fm-frames-h" tabindex="0"><table class="fm-table fm-frames"><caption>${it.frames.length} 张</caption><thead><tr><th scope="col">张</th><th scope="col">拍了什么</th><th scope="col">快门</th><th scope="col">光圈</th><th scope="col">补偿后</th><th scope="col">备注</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+<section class="fm-sec" aria-labelledby="fm-frames-h"><h2 id="fm-frames-h">逐张记录</h2><div class="fm-scroll" role="region" aria-label="逐张记录表（可横向滚动）" tabindex="0"><table class="fm-table fm-frames"><caption>${it.frames.length} 张</caption><thead><tr><th scope="col">张</th><th scope="col">拍了什么</th><th scope="col">快门</th><th scope="col">光圈</th><th scope="col">补偿后</th><th scope="col">备注</th></tr></thead><tbody>${rows}</tbody></table></div></section>
 <p class="fm-back"><a class="btn btn--sm" href="${url('/film/')}">${icon('camera')}全部胶卷</a></p>
 </div>`;
   return shell(site, route, {
