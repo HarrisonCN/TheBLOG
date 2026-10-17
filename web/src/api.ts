@@ -91,6 +91,9 @@ export const api = {
   // L42 扫街路线
   walks: () => request<{ walks: import('./walk-core').Summary[] }>('/api/walks'),
   walk: (slug: string) => request<{ walk: import('./walk-core').Item }>(`/api/walks/${encodeURIComponent(slug)}`),
+  // L43 色彩研究
+  colorStudies: () => request<{ studies: import('./color-core').Summary[] }>('/api/colors'),
+  colorStudy: (slug: string) => request<{ study: import('./color-core').Item }>(`/api/colors/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
