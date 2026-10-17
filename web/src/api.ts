@@ -82,6 +82,9 @@ export const api = {
   // L39 照片日历
   calMonths: () => request<{ months: import('./calendar-core').Summary[] }>('/api/calendar'),
   calMonth: (slug: string) => request<{ month: import('./calendar-core').Item }>(`/api/calendar/${encodeURIComponent(slug)}`),
+  // L40 课程笔记
+  courses: () => request<{ courses: import('./course-core').Summary[] }>('/api/courses'),
+  course: (slug: string) => request<{ course: import('./course-core').Item }>(`/api/courses/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
