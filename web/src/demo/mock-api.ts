@@ -34,6 +34,8 @@ import { Mock as MockCourses } from './mock-courses';
 import { seed as coursesSeed } from './seed-courses';
 import { Mock as MockCritique } from './mock-critique';
 import { seed as critiqueSeed } from './seed-critique';
+import { Mock as MockWalks } from './mock-walks';
+import { seed as walksSeed } from './seed-walks';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -476,6 +478,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.walks = new MockWalks({
+      state: () => this.db().walks ?? walksSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.walks ??= walksSeed(this.base);
+        mutate(db.walks);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -522,6 +533,7 @@ export class DemoBackend {
   private calendar: MockCalendar;
   private courses: MockCourses;
   private critique: MockCritique;
+  private walks: MockWalks;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -692,6 +704,11 @@ export class DemoBackend {
       const r41 = this.critique.routePublic(m, path);
       if (r41) return r41;
     }
+    // ---- L42 扫街路线（公开：只有已发布）----
+    if (path === '/api/walks' || path.startsWith('/api/walks/')) {
+      const r42 = this.walks.routePublic(m, path);
+      if (r42) return r42;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -850,6 +867,9 @@ export class DemoBackend {
       // L41 作品点评
       const a41 = this.critique.routeAdmin(m, sub, body);
       if (a41) return a41;
+      // L42 扫街路线
+      const a42 = this.walks.routeAdmin(m, sub, body);
+      if (a42) return a42;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
