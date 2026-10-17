@@ -684,3 +684,31 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .iv-quote p { margin: 0 0 0.3rem; font-size: 1.1rem; font-weight: 600; line-height: 1.6; }
 .iv-quote footer { margin: 0; }
 @media print { .iv-toc, .iv-back { display: none; } .iv-quote { background: none; } }
+/* L45 52 周挑战 */
+.ch-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.ch-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.ch-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.ch-card__title { font-weight: 700; }
+.ch-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; }
+.ch-sum { margin: 0 0 1rem; max-width: 720px; }
+.ch-cover { margin: 0 0 1rem; max-width: 720px; }
+.ch-cover img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.ch-bar { display: grid; gap: 0.4rem; margin: 0 0 1rem; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); max-width: 720px; box-sizing: border-box; }
+.ch-bar[hidden] { display: none; }
+.ch-bar p { margin: 0; }
+.ch-bar .btn { justify-self: start; }
+.ch-progress { width: 100%; height: 0.75rem; accent-color: currentColor; }
+.ch-weeks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; max-width: 720px; }
+.ch-week { padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); scroll-margin-top: 5rem; min-width: 0; }
+.ch-week.is-current { border: 2px solid currentColor; background: var(--accent-soft); color: var(--heading); }
+.ch-week.is-done .ch-week__h { text-decoration: line-through; text-decoration-thickness: 1px; }
+.ch-week__h { font-size: 1.05rem; margin: 0 0 0.25rem; overflow-wrap: anywhere; }
+.ch-week__no { font-size: 0.85rem; font-weight: 700; padding: 0.05rem 0.45rem; border-radius: 6px; background: var(--accent-soft); color: var(--heading); }
+.ch-today { font-size: 0.8rem; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 6px; border: 1px solid currentColor; }
+.ch-week__date, .ch-week__tip, .ch-week__link { margin: 0 0 0.25rem; }
+.ch-week__link a { display: inline-flex; gap: 0.3rem; align-items: center; }
+.ch-week__link svg { width: 1em; height: 1em; }
+.ch-week__done { display: inline-flex; gap: 0.4rem; align-items: center; margin-top: 0.25rem; cursor: pointer; }
+.ch-week__done[hidden] { display: none; }
+.ch-week__done input { width: 1.1rem; height: 1.1rem; }
+@media print { .ch-bar, .ch-back, .ch-week__done { display: none; } .ch-week { break-inside: avoid; } }

@@ -97,6 +97,9 @@ export const api = {
   // L44 摄影人访谈
   interviews: () => request<{ interviews: import('./interview-core').Summary[] }>('/api/interviews'),
   interview: (slug: string) => request<{ interview: import('./interview-core').Item }>(`/api/interviews/${encodeURIComponent(slug)}`),
+  // L45 52 周挑战
+  challenges: () => request<{ challenges: import('./challenge-core').Summary[] }>('/api/challenges'),
+  challenge: (slug: string) => request<{ challenge: import('./challenge-core').Item }>(`/api/challenges/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
