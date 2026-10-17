@@ -26,6 +26,8 @@ import { Mock as MockGlossary } from './mock-glossary';
 import { seed as glossarySeed } from './seed-glossary';
 import { Mock as MockRetouch } from './mock-retouch';
 import { seed as retouchSeed } from './seed-retouch';
+import { Mock as MockChecklists } from './mock-checklists';
+import { seed as checklistsSeed } from './seed-checklists';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -432,6 +434,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.checklists = new MockChecklists({
+      state: () => this.db().checklists ?? checklistsSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.checklists ??= checklistsSeed(this.base);
+        mutate(db.checklists);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -474,6 +485,7 @@ export class DemoBackend {
   private halls: MockHalls;
   private glossary: MockGlossary;
   private retouch: MockRetouch;
+  private checklists: MockChecklists;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -624,6 +636,11 @@ export class DemoBackend {
       const r37 = this.retouch.routePublic(m, path);
       if (r37) return r37;
     }
+    // ---- L38 拍摄清单（公开：只有已发布）----
+    if (path === '/api/checklists' || path.startsWith('/api/checklists/')) {
+      const r38 = this.checklists.routePublic(m, path);
+      if (r38) return r38;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -770,6 +787,9 @@ export class DemoBackend {
       // L37 修图前后对比
       const a37 = this.retouch.routeAdmin(m, sub, body);
       if (a37) return a37;
+      // L38 拍摄清单
+      const a38 = this.checklists.routeAdmin(m, sub, body);
+      if (a38) return a38;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

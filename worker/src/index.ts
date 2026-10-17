@@ -22,6 +22,7 @@ import { routeAdminAv, routeAvPublic } from './av';
 import { routeAdminHalls, routeHallsPublic } from './halls';
 import { routeAdmin as routeAdminGlossary, routePublic as routePublicGlossary } from './glossary';
 import { routeAdmin as routeAdminRetouch, routePublic as routePublicRetouch } from './retouch';
+import { routeAdmin as routeAdminChecklists, routePublic as routePublicChecklists } from './checklists';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -131,6 +132,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/retouch' || path.startsWith('/api/retouch/')) {
     const r37 = await routePublicRetouch(req, env, path);
     if (r37) return r37;
+  }
+  // ---------- L38 拍摄清单（公开：只有已发布） ----------
+  if (path === '/api/checklists' || path.startsWith('/api/checklists/')) {
+    const r38 = await routePublicChecklists(req, env, path);
+    if (r38) return r38;
   }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
@@ -254,6 +260,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L37 修图前后对比（整份 JSON 最多 64 KB）
     const a37 = await routeAdminRetouch(req, env, sub, () => readJson(req, 64 * 1024));
     if (a37) return a37;
+    // L38 拍摄清单（整份 JSON 最多 64 KB）
+    const a38 = await routeAdminChecklists(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a38) return a38;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

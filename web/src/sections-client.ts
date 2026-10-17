@@ -33,6 +33,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-glossary]')) void import('./glossary-client').then((m) => m.bind(root));
   // L37：修图前后对比（按需加载）
   if (root.querySelector('[data-retouch]')) void import('./retouch-client').then((m) => m.bind(root));
+  // L38：拍摄清单（按需加载）
+  if (root.querySelector('[data-checklist]')) void import('./checklist-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

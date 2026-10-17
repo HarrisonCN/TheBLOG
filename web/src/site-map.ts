@@ -169,6 +169,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'dof', label: '景深计算器', icon: 'camera', desc: '近点、远点与超焦距，含手机传感器', href: '/tools/dof/', routes: ['dof'], keywords: 'dof depth of field hyperfocal 景深 超焦距 弥散圆 手机' },
       { id: 'goldenhour', label: '黄金 / 蓝调时刻', icon: 'sun', desc: '按日期和城市离线计算日出日落与最佳拍摄时段', href: '/tools/golden-hour/', routes: ['goldenhour'], keywords: 'golden hour blue hour sunrise sunset 黄金时刻 蓝调 日出 日落 太阳' },
       { id: 'exifviewer', label: 'EXIF 查看器', icon: 'image', desc: '在本机读取照片参数，不上传；可下载去除元数据的副本', href: '/tools/exif/', routes: ['exifviewer'], keywords: 'exif metadata gps 元数据 参数 去除 隐私' },
+      { id: 'checklists', label: '拍摄清单', icon: 'check', desc: '出门拍摄前对一遍：器材、设置和现场流程，勾选只存在本机', href: '/checklists/', routes: ['checklists', 'checklist'], keywords: 'checklist packing gear 清单 器材 准备 出门 拍摄前' },
       { id: 'palette', label: '命令面板', icon: 'search', desc: '⌘K / Ctrl K 一处搜索页面与操作', action: 'palette', routes: [], keywords: 'palette command 命令 快捷键' },
       { id: 'music', label: '音乐播放器', icon: 'music', desc: 'CC 授权的完整曲目，不会自动播放', action: 'music', routes: [], keywords: 'music 音乐 播放器 歌单' },
       { id: 'reading', label: '阅读设置与朗读', icon: 'settings', desc: '字号、行距、宽度，以及朗读全文', action: 'reading', routes: [], keywords: 'reading tts 阅读 朗读 字号' },
@@ -296,6 +297,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);
