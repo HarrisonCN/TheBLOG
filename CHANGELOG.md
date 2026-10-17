@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.34.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.34.0) — 2026-10-17
+
+_L34 · 视频与声音作品_
+
+### 新功能 Features
+
+- **media:** L34 视频与声音作品 — media-core (web = worker: WebVTT parse/serialise, ?t= deep links, accessibility-gated validation, binary-search cue/chapter, transcript search), /av/ + /av/:slug/ (摄影 栏目, prerendered player + chapters + full transcript, no autoplay), av-client (captions track from transcript, seek, highlight, search), demo mock + 2 ffmpeg-synthesised sample works, Worker /api/av (+captions.vtt) + admin PUT/DELETE, migration 0025_media (590138f)
+
+### 修复 Fixes
+
+- **media:** transcript time links use foreground colour (contrast on highlighted rows); search label visually-hidden (c6277aa)
+
+### 测试 Tests
+
+- **media:** L34 视频与声音作品 — media-core, /api/av, routes (fail-before) (d3c77e7)
+
+### 文档 Docs
+
+- **media:** L34 docs/media.md, README feature + unit counts (worker 392 + web 705), ROADMAP (9cb8698)
+
+### 杂项 Chores
+
+- **release:** 1.34.0 — version bump, release-meta (1.33.0 frozen at 28c4fa5) (68a3296)
+
 ## [1.33.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.33.0) — 2026-10-16
 
 _L33 · 视觉杂志：/magazine/ 期刊（封面、编者按、带页码的目录、专题 / 跨页 / 图集 / 引语 / 简讯，按图片比例自动排版、打印分页、J/K 键盘翻阅），两期虚构示例刊，Worker /api/magazine + 管理端 PUT/DELETE（编辑界面延后）_
