@@ -79,6 +79,9 @@ export const api = {
   // L38 拍摄清单
   checklists: () => request<{ checklists: import('./checklist-core').Summary[] }>('/api/checklists'),
   checklist: (slug: string) => request<{ checklist: import('./checklist-core').Item }>(`/api/checklists/${encodeURIComponent(slug)}`),
+  // L39 照片日历
+  calMonths: () => request<{ months: import('./calendar-core').Summary[] }>('/api/calendar'),
+  calMonth: (slug: string) => request<{ month: import('./calendar-core').Item }>(`/api/calendar/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

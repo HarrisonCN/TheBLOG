@@ -28,6 +28,8 @@ import { Mock as MockRetouch } from './mock-retouch';
 import { seed as retouchSeed } from './seed-retouch';
 import { Mock as MockChecklists } from './mock-checklists';
 import { seed as checklistsSeed } from './seed-checklists';
+import { Mock as MockCalendar } from './mock-calendar';
+import { seed as calendarSeed } from './seed-calendar';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -443,6 +445,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.calendar = new MockCalendar({
+      state: () => this.db().calendar ?? calendarSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.calendar ??= calendarSeed(this.base);
+        mutate(db.calendar);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -486,6 +497,7 @@ export class DemoBackend {
   private glossary: MockGlossary;
   private retouch: MockRetouch;
   private checklists: MockChecklists;
+  private calendar: MockCalendar;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -641,6 +653,11 @@ export class DemoBackend {
       const r38 = this.checklists.routePublic(m, path);
       if (r38) return r38;
     }
+    // ---- L39 照片日历（公开：只有已发布）----
+    if (path === '/api/calendar' || path.startsWith('/api/calendar/')) {
+      const r39 = this.calendar.routePublic(m, path);
+      if (r39) return r39;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -790,6 +807,9 @@ export class DemoBackend {
       // L38 拍摄清单
       const a38 = this.checklists.routeAdmin(m, sub, body);
       if (a38) return a38;
+      // L39 照片日历
+      const a39 = this.calendar.routeAdmin(m, sub, body);
+      if (a39) return a39;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

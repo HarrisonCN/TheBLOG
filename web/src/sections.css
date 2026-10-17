@@ -554,3 +554,23 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .ck-note { grid-column: 2; }
 .ck.is-done .ck-status::before { content: '✓ '; }
 @media print { .ck-bar, .ck-back { display: none !important; } .ck-group { break-inside: avoid; } .ck-item input:checked + label { text-decoration: none; opacity: 1; } }
+/* L39 照片日历 */
+.dl-cal-wrap { overflow-x: auto; max-width: 100%; }
+.dl-cal { width: 100%; max-width: 760px; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
+.dl-cal caption { text-align: left; font-weight: 700; color: var(--heading); padding-bottom: 0.4rem; }
+.dl-cal th { font-size: 0.8rem; font-weight: 600; padding: 0.2rem 0; }
+.dl-cell { position: relative; vertical-align: top; height: 3.6rem; border-radius: 8px; background: var(--accent-soft); padding: 0; overflow: hidden; }
+.dl-cell--pad { background: transparent; }
+.dl-cell__n { position: absolute; top: 0.2rem; left: 0.3rem; z-index: 1; font-size: 0.78rem; font-weight: 700; color: var(--heading); }
+.dl-cell--has .dl-cell__n { color: #fff; background: rgb(0 0 0 / 0.72); padding: 0 0.25rem; border-radius: 4px; }
+.dl-cell__a { display: block; width: 100%; height: 100%; }
+.dl-cell__a img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.dl-cell.is-today { outline: 3px solid var(--accent, #b4541a); outline-offset: -3px; }
+.dl-today { position: absolute; bottom: 0.15rem; right: 0.2rem; font-size: 0.7rem; padding: 0 0.25rem; border-radius: 4px; background: #8a3a0e; color: #fff; }
+.dl-days { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.dl-day { scroll-margin-top: 5rem; }
+.dl-day__fig { margin: 0; display: grid; gap: 0.35rem; }
+.dl-day__fig img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.dl-day__fig figcaption { display: grid; gap: 0.1rem; }
+.dl-day__t { font-weight: 700; color: var(--heading); }
+@media (max-width: 500px) { .dl-cal { border-spacing: 2px; } .dl-cell { height: 2.8rem; } }

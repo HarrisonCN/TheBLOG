@@ -222,6 +222,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'calMonths':
+          x.calMonths = (await api.calMonths().catch(() => ({ months: [] }))).months;
+          return;
+        case 'calMonth': {
+          if (route.name !== 'calendarmonth') return;
+          try {
+            x.calMonth = (await api.calMonth(route.slug)).month;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

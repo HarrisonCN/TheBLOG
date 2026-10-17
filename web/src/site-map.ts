@@ -114,6 +114,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'av', label: '视频与声音', icon: 'play', desc: '短片和声音作品，带字幕、章节和完整文字稿', href: '/av/', routes: ['avlist', 'av'], keywords: 'video audio av film sound podcast 视频 声音 音频 短片 字幕 文字稿' },
       { id: 'halls', label: '沉浸式展厅', icon: 'box', desc: '把一组照片挂上四面墙，可以用键盘环顾，也能切回平面列表', href: '/halls/', routes: ['halls', 'hall'], keywords: 'hall gallery 3d immersive exhibition 展厅 沉浸 立体 环顾 展览' },
       { id: 'retouch', label: '修图前后', icon: 'image', desc: '同一张照片修图前后的对比，以及每一步做了什么', href: '/retouch/', routes: ['retouch', 'retouchcase'], keywords: 'retouch before after edit lightroom 修图 后期 前后 对比 调色' },
+      { id: 'calendar', label: '照片日历', icon: 'calendar', desc: '每天一张照片，按月份排成日历', href: '/calendar/', routes: ['calendar', 'calendarmonth'], keywords: 'photo calendar daily diary 365 照片日历 每天一张 日历 日记' },
       { id: 'essays', label: '影集', icon: 'image', desc: '一组照片讲一个故事，支持故事模式', href: '/essays/', routes: ['essays'], keywords: 'essay 影集 故事模式' },
       { id: 'features', label: '摄影专题', icon: 'book', desc: '好朋友用照片和文字做的专题', href: '/f/', routes: ['features', 'feature'], keywords: 'feature 专题' },
       { id: 'monthly', label: '月度合集', icon: 'calendar', desc: '每个月的文章、影集和作品自动整理成一页', href: '/monthly/', routes: ['monthly', 'month'], keywords: 'monthly digest 月度 合集 每月 回顾' },
@@ -297,6 +298,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);
