@@ -209,6 +209,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'checklists':
+          x.checklists = (await api.checklists().catch(() => ({ checklists: [] }))).checklists;
+          return;
+        case 'checklist': {
+          if (route.name !== 'checklist') return;
+          try {
+            x.checklist = (await api.checklist(route.slug)).checklist;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

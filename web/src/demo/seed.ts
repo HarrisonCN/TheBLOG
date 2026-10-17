@@ -63,6 +63,8 @@ export interface DemoDb {
   glossary?: import('./mock-glossary').State;
   /** L37 修图前后对比 */
   retouch?: import('./mock-retouch').State;
+  /** L38 拍摄清单 */
+  checklists?: import('./mock-checklists').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
