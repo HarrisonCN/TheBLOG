@@ -352,6 +352,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'behind':
+          x.behind = (await api.behind().catch(() => ({ behind: [] }))).behind;
+          return;
+        case 'behindwork': {
+          if (route.name !== 'behindwork') return;
+          try {
+            x.behindwork = (await api.behindwork(route.slug)).work;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

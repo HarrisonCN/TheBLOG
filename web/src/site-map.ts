@@ -124,6 +124,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'walks', label: '扫街路线', icon: 'compass', desc: '走一圈能拍到什么：站点、拍摄提示、距离和预计用时', href: '/walks/', routes: ['walks', 'walk'], keywords: 'photo walk route street gpx 扫街 路线 步行 机位 外拍' },
       { id: 'colors', label: '色彩研究', icon: 'aperture', desc: '从照片里取出的配色：色值、用途和 WCAG 对比度', href: '/colors/', routes: ['colors', 'colorstudy'], keywords: 'color palette swatch hex hsl contrast wcag 色彩 配色 色卡 对比度' },
       { id: 'composition', label: '构图辅助线', icon: 'grid', desc: '在照片上叠加三分线、黄金分割线和对角线，看主体落在哪里', href: '/composition/', routes: ['composition', 'compositionstudy'], keywords: 'composition rule of thirds golden ratio diagonal grid 构图 三分法 黄金分割 对角线 辅助线' },
+      { id: 'behind', label: '作品幕后', icon: 'aperture', desc: '一张照片是怎么拍出来的：参数、布光示意、步骤和器材', href: '/behind/', routes: ['behind', 'behindwork'], keywords: 'behind the scenes lighting diagram setup exif bts 幕后 布光 参数 拍摄过程 器材' },
       { id: 'gallery', label: '画廊', icon: 'image', desc: '按相册整理的照片', href: '/gallery/', routes: ['gallery', 'album'], keywords: 'gallery album 相册 画廊' },
       { id: 'gear', label: '器材', icon: 'camera', desc: '相机、镜头和日常装备', href: '/gear/', routes: ['gear'], keywords: 'gear 器材 相机' },
     ],
@@ -307,6 +308,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);
