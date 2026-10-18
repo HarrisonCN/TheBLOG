@@ -26,6 +26,7 @@ import { routeAdmin as routeAdminChecklists, routePublic as routePublicChecklist
 import { routeAdmin as routeAdminCalendar, routePublic as routePublicCalendar } from './calendar';
 import { routeAdmin as routeAdminCourses, routePublic as routePublicCourses } from './courses';
 import { routeAdmin as routeAdminCritique, routePublic as routePublicCritique } from './critique';
+import { routeAdmin as routeAdminWalks, routePublic as routePublicWalks } from './walks';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -155,6 +156,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/critique' || path.startsWith('/api/critique/')) {
     const r41 = await routePublicCritique(req, env, path);
     if (r41) return r41;
+  }
+  // ---------- L42 扫街路线（公开：只有已发布） ----------
+  if (path === '/api/walks' || path.startsWith('/api/walks/')) {
+    const r42 = await routePublicWalks(req, env, path);
+    if (r42) return r42;
   }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
@@ -290,6 +296,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L41 作品点评（整份 JSON 最多 64 KB）
     const a41 = await routeAdminCritique(req, env, sub, () => readJson(req, 64 * 1024));
     if (a41) return a41;
+    // L42 扫街路线（整份 JSON 最多 64 KB）
+    const a42 = await routeAdminWalks(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a42) return a42;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

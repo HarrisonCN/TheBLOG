@@ -88,6 +88,9 @@ export const api = {
   // L41 作品点评
   critiqueWorks: () => request<{ works: import('./critique-core').Summary[] }>('/api/critique'),
   critiqueWork: (slug: string) => request<{ work: import('./critique-core').Item }>(`/api/critique/${encodeURIComponent(slug)}`),
+  // L42 扫街路线
+  walks: () => request<{ walks: import('./walk-core').Summary[] }>('/api/walks'),
+  walk: (slug: string) => request<{ walk: import('./walk-core').Item }>(`/api/walks/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

@@ -2,6 +2,27 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.42.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.42.0) — 2026-10-17
+
+_L42 · 扫街路线_
+
+### 新功能 Features
+
+- **l42:** 扫街路线 — walk-core（web=worker）、/walks/ 路线列表 + 路线页（有序站点、haversine 分段距离、步行 + 停留用时估算、内联 SVG 示意图（无地图瓦片）、GPX 1.1 下载）、/api/walks + 站长接口、迁移 0033_walks (361c00c)
+
+### 测试 Tests
+
+- **l42:** 站点圆点只在路线示意图 SVG 内计数（页面图标也含 <circle>） (6cfc554)
+- **l42:** 扫街路线 — walk-core / /walks/ 页面 / /api/walks 测试先行（fail-before） (63733eb)
+
+### 文档 Docs
+
+- **walks:** L42 docs/walks.md, README feature + unit counts (worker 432 + web 806), ROADMAP (055ce0e)
+
+### 杂项 Chores
+
+- **release:** 1.42.0 — version bump, release-meta (1.41.0 frozen at 0adbcfc) (498f6f4)
+
 ## [1.41.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.41.0) — 2026-10-17
 
 _L41 · 作品点评_
