@@ -769,3 +769,28 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .cp-sec p { margin: 0 0 0.6rem; line-height: 1.8; }
 .cp-points { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; }
 @media print { .cp-bar, .cp-back { display: none; } }
+/* L48 投稿与展览征集 */
+.cl { min-width: 0; max-width: 860px; }
+.cl-note { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.cl-note svg { flex: none; width: 1.1em; height: 1.1em; }
+.cl-sec { margin: 0 0 1.25rem; }
+.cl-sec h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+.cl-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.cl-card { padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); min-width: 0; }
+.cl-cards--closed .cl-card { border-style: dashed; }
+.cl-card__title { font-size: 1.05rem; margin: 0 0 0.25rem; overflow-wrap: anywhere; }
+.cl-card p { margin: 0 0 0.3rem; overflow-wrap: anywhere; }
+.cl-state { display: inline-block; margin-left: 0.35rem; padding: 0 0.45rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.cl-state--closing { background: var(--accent-soft); color: var(--heading); border-width: 2px; }
+.cl-state--closed { border-style: dashed; }
+.cl-ics, .cl-ext { display: inline-flex; gap: 0.3rem; align-items: center; }
+.cl-ics svg, .cl-ext svg { width: 1em; height: 1em; }
+.cl-facts { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); margin: 0 0 1rem; }
+.cl-facts div { padding: 0.45rem 0.7rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); min-width: 0; }
+.cl-facts dt { font-size: 0.8rem; font-weight: 700; }
+.cl-facts dd { margin: 0.1rem 0 0; overflow-wrap: anywhere; }
+.cl-facts .cl-state { margin-left: 0; }
+.cl-sum { margin: 0 0 1rem; }
+.cl-rules { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; }
+.cl-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+@media print { .cl-back, .cl-ics { display: none; } }
