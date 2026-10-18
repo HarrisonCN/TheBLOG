@@ -248,6 +248,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'critiqueWorks':
+          x.critiqueWorks = (await api.critiqueWorks().catch(() => ({ works: [] }))).works;
+          return;
+        case 'critiqueWork': {
+          if (route.name !== 'critiquework') return;
+          try {
+            x.critiqueWork = (await api.critiqueWork(route.slug)).work;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
