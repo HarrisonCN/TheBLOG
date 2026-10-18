@@ -32,6 +32,7 @@ import { routeAdmin as routeAdminInterviews, routePublic as routePublicInterview
 import { routeAdmin as routeAdminChallenges, routePublic as routePublicChallenges } from './challenges';
 import { routeAdmin as routeAdminFilm, routePublic as routePublicFilm } from './film';
 import { routeAdmin as routeAdminComposition, routePublic as routePublicComposition } from './composition';
+import { routeAdmin as routeAdminCalls, routePublic as routePublicCalls } from './calls';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -192,6 +193,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r47 = await routePublicComposition(req, env, path);
     if (r47) return r47;
   }
+  // ---------- L48 投稿与展览征集（公开：只有已发布） ----------
+  if (path === '/api/calls' || path.startsWith('/api/calls/')) {
+    const r48 = await routePublicCalls(req, env, path);
+    if (r48) return r48;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -344,6 +350,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L47 构图辅助线（整份 JSON 最多 64 KB）
     const a47 = await routeAdminComposition(req, env, sub, () => readJson(req, 64 * 1024));
     if (a47) return a47;
+    // L48 投稿与展览征集（整份 JSON 最多 64 KB）
+    const a48 = await routeAdminCalls(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a48) return a48;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

@@ -106,6 +106,9 @@ export const api = {
   // L47 构图辅助线
   composition: () => request<{ composition: import('./composition-core').Summary[] }>('/api/composition'),
   compositionstudy: (slug: string) => request<{ study: import('./composition-core').Item }>(`/api/composition/${encodeURIComponent(slug)}`),
+  // L48 投稿与展览征集
+  calls: () => request<{ calls: import('./call-core').Summary[] }>('/api/calls'),
+  call: (slug: string) => request<{ call: import('./call-core').Item }>(`/api/calls/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
