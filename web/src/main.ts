@@ -261,6 +261,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'walks':
+          x.walks = (await api.walks().catch(() => ({ walks: [] }))).walks;
+          return;
+        case 'walk': {
+          if (route.name !== 'walk') return;
+          try {
+            x.walk = (await api.walk(route.slug)).walk;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
