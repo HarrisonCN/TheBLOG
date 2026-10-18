@@ -103,6 +103,9 @@ export const api = {
   // L46 胶片记录
   film: () => request<{ film: import('./film-core').Summary[] }>('/api/film'),
   filmroll: (slug: string) => request<{ roll: import('./film-core').Item }>(`/api/film/${encodeURIComponent(slug)}`),
+  // L47 构图辅助线
+  composition: () => request<{ composition: import('./composition-core').Summary[] }>('/api/composition'),
+  compositionstudy: (slug: string) => request<{ study: import('./composition-core').Item }>(`/api/composition/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
