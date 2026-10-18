@@ -112,6 +112,7 @@ export const SITE_SECTIONS: SiteSection[] = [
     desc: '作品集、影集、摄影专题、照片地图与器材',
     entries: [
       { id: 'works', label: '作品集', icon: 'aperture', desc: '按系列筛选的照片，附 EXIF 参数', href: '/works/', routes: ['works'], keywords: 'works photo exif 作品 照片' },
+      { id: 'portfolio', label: '毕业作品集', icon: 'star', desc: '策展序列与创作自述，打印一页一件；也是 1.36–1.49 内容栏目的总入口', href: '/portfolio/', routes: ['portfolio', 'portfolioset'], keywords: 'portfolio graduation thesis sequence statement print 毕业 作品集 策展 自述 打印' },
       { id: 'magazine', label: '视觉杂志', icon: 'library', desc: '把照片和文章排成一期期小杂志：专题、对页、画廊、引语', href: '/magazine/', routes: ['magazine', 'issue'], keywords: 'magazine zine issue 杂志 期刊 视觉 排版 画廊 对页' },
       { id: 'av', label: '视频与声音', icon: 'play', desc: '短片和声音作品，带字幕、章节和完整文字稿', href: '/av/', routes: ['avlist', 'av'], keywords: 'video audio av film sound podcast 视频 声音 音频 短片 字幕 文字稿' },
       { id: 'halls', label: '沉浸式展厅', icon: 'box', desc: '把一组照片挂上四面墙，可以用键盘环顾，也能切回平面列表', href: '/halls/', routes: ['halls', 'hall'], keywords: 'hall gallery 3d immersive exhibition 展厅 沉浸 立体 环顾 展览' },
@@ -308,6 +309,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);
