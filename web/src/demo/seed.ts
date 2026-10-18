@@ -73,6 +73,8 @@ export interface DemoDb {
   critique?: import('./mock-critique').State;
   /** L42 扫街路线 */
   walks?: import('./mock-walks').State;
+  /** L43 色彩研究 */
+  colors?: import('./mock-colors').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

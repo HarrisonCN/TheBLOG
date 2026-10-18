@@ -2,6 +2,27 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.43.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.43.0) — 2026-10-17
+
+_L43 · 色彩研究_
+
+### 新功能 Features
+
+- **l43:** 色彩研究 — color-core（web=worker）、/colors/ 配色列表 + 配色页（hex/HSL、色块带文字标签、WCAG 2 对比度矩阵与等级、复制色值）、/api/colors + 站长接口、迁移 0034_colors (c8d7d68)
+
+### 测试 Tests
+
+- **l43:** 色彩研究 — color-core / /colors/ 页面 / /api/colors 测试先行（fail-before） (63ac946)
+
+### 文档 Docs
+
+- **colors:** L43 docs/colors.md, README feature + unit counts (worker 437 + web 817), ROADMAP (16978df)
+
+### 杂项 Chores
+
+- **release:** 1.43.0 — version bump, release-meta (1.42.0 frozen at 6982ca0) (5798e81)
+- **perf:** L43 性能预算调整 — 首屏 JS 实测 196.3 > 195；首屏 JS/CSS/懒加载块预算调为 215/48/130（JS 总量 620 不变），原因与后续（内容栏目视图按路由懒加载）写入 perf-budget.json $comment、docs/quality.md、docs/architecture-followups.md (e71f2f0)
+
 ## [1.42.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.42.0) — 2026-10-17
 
 _L42 · 扫街路线_
