@@ -742,3 +742,30 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .fm-calc input { width: 7rem; padding: 0.3rem 0.5rem; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; }
 .fm-out { font-weight: 700; }
 @media print { .fm-back, .fm-calc { display: none; } .fm-scroll { overflow: visible; } }
+/* L47 构图辅助线 */
+.cp-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.cp-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.cp-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.cp-card__title { font-weight: 700; }
+.cp { min-width: 0; max-width: 900px; }
+.cp-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.5rem; }
+.cp-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.75rem; }
+.cp-bar[hidden] { display: none; }
+.cp-toggle[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 1px; font-weight: 700; }
+.cp-fit { margin-left: 0.35rem; font-size: 0.75rem; padding: 0 0.3rem; border-radius: 5px; border: 1px solid currentColor; }
+.cp-fig { margin: 0 0 1rem; }
+.cp-stage { position: relative; line-height: 0; }
+.cp-stage img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.cp-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.cp-svg g[hidden] { display: none; }
+.cp-g line { stroke: #fff; stroke-opacity: 0.9; filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8)); }
+.cp-g--golden line { stroke: #ffd54a; stroke-dasharray: 12 8; }
+.cp-g--diagonal line { stroke: #7fdcff; }
+.cp-pt circle { fill: rgb(0 0 0 / 0.55); stroke: #fff; }
+.cp-pt text { fill: #fff; font-weight: 700; font-family: inherit; }
+.cp-fig figcaption { line-height: 1.5; margin-top: 0.4rem; }
+.cp-sec { margin: 0 0 1rem; }
+.cp-sec h2 { font-size: 1.1rem; margin: 0 0 0.4rem; }
+.cp-sec p { margin: 0 0 0.6rem; line-height: 1.8; }
+.cp-points { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; }
+@media print { .cp-bar, .cp-back { display: none; } }

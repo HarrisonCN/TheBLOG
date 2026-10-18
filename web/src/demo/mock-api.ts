@@ -44,6 +44,8 @@ import { Mock as MockChallenges } from './mock-challenges';
 import { seed as challengesSeed } from './seed-challenges';
 import { Mock as MockFilm } from './mock-film';
 import { seed as filmSeed } from './seed-film';
+import { Mock as MockComposition } from './mock-composition';
+import { seed as compositionSeed } from './seed-composition';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -531,6 +533,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.composition = new MockComposition({
+      state: () => this.db().composition ?? compositionSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.composition ??= compositionSeed(this.base);
+        mutate(db.composition);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -582,6 +593,7 @@ export class DemoBackend {
   private interviews: MockInterviews;
   private challenges: MockChallenges;
   private film: MockFilm;
+  private composition: MockComposition;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -777,6 +789,11 @@ export class DemoBackend {
       const r46 = this.film.routePublic(m, path);
       if (r46) return r46;
     }
+    // ---- L47 构图辅助线（公开：只有已发布）----
+    if (path === '/api/composition' || path.startsWith('/api/composition/')) {
+      const r47 = this.composition.routePublic(m, path);
+      if (r47) return r47;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -950,6 +967,9 @@ export class DemoBackend {
       // L46 胶片记录
       const a46 = this.film.routeAdmin(m, sub, body);
       if (a46) return a46;
+      // L47 构图辅助线
+      const a47 = this.composition.routeAdmin(m, sub, body);
+      if (a47) return a47;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

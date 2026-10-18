@@ -45,6 +45,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-challenge]')) void import('./challenge-client').then((m) => m.bind(root));
   // L46：胶片记录（按需加载）
   if (root.querySelector('[data-fm-calc]')) void import('./film-client').then((m) => m.bind(root));
+  // L47：构图辅助线（按需加载）
+  if (root.querySelector('[data-composition]')) void import('./composition-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
