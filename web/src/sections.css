@@ -831,3 +831,31 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .bh-chips a { display: inline-flex; gap: 0.3rem; align-items: center; padding: 0.25rem 0.65rem; border-radius: 999px; border: 1px solid currentColor; text-decoration: none; }
 .bh-chips svg { width: 1em; height: 1em; }
 @media print { .bh-back { display: none; } .bh-lighting { grid-template-columns: 1fr 1fr; } }
+/* L50 毕业作品集 */
+.pf-milestone, .pf-note-fic { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.pf-milestone svg, .pf-note-fic svg { flex: none; width: 1.1em; height: 1.1em; }
+.pf-cards { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.pf-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.pf-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.pf-card__title { font-weight: 700; }
+.pf-hub h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+.pf-hub__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
+.pf-hub__list a { display: block; padding: 0.45rem 0.7rem; border-radius: 10px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); text-decoration: none; }
+.pf { min-width: 0; max-width: 900px; }
+.pf-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0 0 0.75rem; }
+.pf-statement { margin: 0 0 1.25rem; max-width: 720px; }
+.pf-statement h2, .pf h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+.pf-statement p { margin: 0 0 0.7rem; line-height: 1.9; }
+.pf-tools { margin: 0 0 1rem; }
+.pf-tools[hidden] { display: none; }
+.pf-works { list-style: none; margin: 0; padding: 0; display: grid; gap: 2rem; }
+.pf-fig { margin: 0; }
+.pf-fig img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.pf-fig figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; align-items: baseline; margin-top: 0.5rem; }
+.pf-seq { font-variant-numeric: tabular-nums; font-weight: 700; padding: 0 0.4rem; border-radius: 6px; background: var(--accent-soft); color: var(--heading); }
+.pf-note { flex-basis: 100%; }
+@media print {
+  .pf-tools, .pf-back, .pf-note-fic { display: none; }
+  .pf-work { break-before: page; break-inside: avoid; }
+  .pf-fig img { max-height: 80vh; width: auto; max-width: 100%; margin: 0 auto; border-radius: 0; }
+}
