@@ -109,6 +109,9 @@ export const api = {
   // L48 投稿与展览征集
   calls: () => request<{ calls: import('./call-core').Summary[] }>('/api/calls'),
   call: (slug: string) => request<{ call: import('./call-core').Item }>(`/api/calls/${encodeURIComponent(slug)}`),
+  // L49 作品幕后
+  behind: () => request<{ behind: import('./behind-core').Summary[] }>('/api/behind'),
+  behindwork: (slug: string) => request<{ work: import('./behind-core').Item }>(`/api/behind/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
