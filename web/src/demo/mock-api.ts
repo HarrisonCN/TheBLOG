@@ -50,6 +50,8 @@ import { Mock as MockCalls } from './mock-calls';
 import { seed as callsSeed } from './seed-calls';
 import { Mock as MockBehind } from './mock-behind';
 import { seed as behindSeed } from './seed-behind';
+import { Mock as MockPortfolio } from './mock-portfolio';
+import { seed as portfolioSeed } from './seed-portfolio';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -564,6 +566,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.portfolio = new MockPortfolio({
+      state: () => this.db().portfolio ?? portfolioSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.portfolio ??= portfolioSeed(this.base);
+        mutate(db.portfolio);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -618,6 +629,7 @@ export class DemoBackend {
   private composition: MockComposition;
   private calls: MockCalls;
   private behind: MockBehind;
+  private portfolio: MockPortfolio;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -828,6 +840,11 @@ export class DemoBackend {
       const r49 = this.behind.routePublic(m, path);
       if (r49) return r49;
     }
+    // ---- L50 毕业作品集（公开：只有已发布）----
+    if (path === '/api/portfolio' || path.startsWith('/api/portfolio/')) {
+      const r50 = this.portfolio.routePublic(m, path);
+      if (r50) return r50;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1010,6 +1027,9 @@ export class DemoBackend {
       // L49 作品幕后
       const a49 = this.behind.routeAdmin(m, sub, body);
       if (a49) return a49;
+      // L50 毕业作品集
+      const a50 = this.portfolio.routeAdmin(m, sub, body);
+      if (a50) return a50;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
