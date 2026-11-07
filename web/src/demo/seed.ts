@@ -83,6 +83,8 @@ export interface DemoDb {
   film?: import('./mock-film').State;
   /** L47 构图辅助线 */
   composition?: import('./mock-composition').State;
+  /** L48 投稿与展览征集 */
+  calls?: import('./mock-calls').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

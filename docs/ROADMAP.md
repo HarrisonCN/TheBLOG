@@ -32,6 +32,7 @@
 | **1.45.0** | 52 周挑战 | 社区（52 周挑战 /challenges/） | ISO 8601 周（跨年、52/53 周年份）；每周 h2 + `<time>` 周一到周日；本周 `aria-current`（Asia/Shanghai，客户端）；本地勾选 localStorage + role=status 进度；周次范围/递增/链接校验 | D1 迁移 0036：SKIPPED-verifiable |
 | **1.46.0** | 胶片记录 | 工具（胶片记录 /film/） | 推拉档数 1/3 档、显影 ×1.3/×0.8 每档估算；互易律 Tc = Tm^p（>1 秒）；补偿表 + 逐张记录表（caption/th scope、可聚焦滚动区）；`<output>` 计算器（JS） | D1 迁移 0037：SKIPPED-verifiable |
 | **1.47.0** | 构图辅助线 | 摄影（构图辅助线 /composition/） | 三分 / 黄金分割 / 对角线几何按照片像素；SVG 线组默认 hidden，`aria-pressed` 切换（JS）；兴趣点方位 + 最近交点距离文字为基线；坐标 0–1、辅助线不重复校验 | D1 迁移 0038：SKIPPED-verifiable |
+| **1.48.0** | 投稿与展览征集 | 社区（投稿与展览征集 /calls/） | 截止时间必须带时区并按原时区显示；剩余天数向上取整、7 天内即将截止；加载时重算一次（无计时器）并归档；data: `.ics`（CRLF、转义、75 字节折行、VALARM）；主办方必须标明虚构 | D1 迁移 0039：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。

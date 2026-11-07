@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.48.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.48.0) — 2026-11-07
+
+_L48 · 投稿与展览征集_
+
+### 新功能 Features
+
+- **l48:** 投稿与展览征集 — call-core（web=worker）、/calls/ 开放中 + 已截止归档（截止时间带时区、状态与剩余天数、加载时重算无计时器）、征集页、无 JS 的 .ics 导出（RFC 5545）、主办方必须标明虚构、/api/calls + 站长接口、迁移 0039_calls (c30779c)
+
+### 测试 Tests
+
+- **l48:** 投稿与展览征集 — 测试先行（fail-before） (2cbf02f)
+
+### 文档 Docs
+
+- **calls:** L48 docs/calls.md, README feature + unit counts (worker 462 + web 876), ROADMAP (aefc712)
+
+### 杂项 Chores
+
+- **release:** 1.48.0 — version bump, release-meta (1.47.0 frozen at c714bbb) (5d06f8f)
+
 ## [1.47.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.47.0) — 2026-11-07
 
 _L47 · 构图辅助线_

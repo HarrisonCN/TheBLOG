@@ -1,0 +1,91 @@
+/**
+ * L48 / v1.48.0 投稿与展览征集演示数据：主办方、要求和链接全部虚构（链接指向 example.org 保留域名），请勿投稿。
+ */
+import type { Item } from '../call-core';
+import type { State } from './mock-calls';
+
+export function seed(_base = '/'): State {
+  const items: Item[] = [
+    {
+      slug: 'campus-zine-2027',
+      title: '示例：校园摄影小志第 3 期投稿',
+      organizer: '示例学院摄影社（虚构）',
+      fictional: true,
+      kind: 'submission',
+      summary: '主题「通勤」，入选作品印在一本 32 页的小志里。',
+      deadline: '2027-01-15T18:00+08:00',
+      fee: 0,
+      url: 'https://example.org/campus-zine',
+      rules: ['每人最多 5 张，单张长边不小于 3000 像素', '附 100 字以内的说明', '手机拍摄也可以'],
+      date: '2026-10-12',
+      status: 'published',
+    },
+    {
+      slug: 'night-city-2027',
+      title: '示例：城市夜色摄影比赛',
+      organizer: '示例城市文化馆（虚构）',
+      fictional: true,
+      kind: 'contest',
+      summary: '记录城市的夜晚：街道、灯光和夜里还在工作的人。',
+      deadline: '2027-03-31T23:59+08:00',
+      fee: 0,
+      url: 'https://example.org/night-city',
+      rules: ['作品须为 2026 年以后拍摄', '可以组照（最多 6 张），也可以单张', '不接受过度合成'],
+      date: '2026-10-15',
+      status: 'published',
+    },
+    {
+      slug: 'small-prints-2027',
+      title: '示例：小尺寸照片联展征集',
+      organizer: '示例画廊（虚构）',
+      fictional: true,
+      kind: 'exhibition',
+      summary: '每件作品不超过 A5，入选后由画廊统一装裱展出两周。',
+      deadline: '2027-05-01T12:00Z',
+      fee: 50,
+      rules: ['提交电子版初选，入选后寄送实体照片', '报名费用于装裱，入选与否均不退'],
+      date: '2026-10-08',
+      status: 'published',
+    },
+    {
+      slug: 'summer-light-2026',
+      title: '示例：夏日光影投稿（已截止）',
+      organizer: '示例摄影杂志（虚构）',
+      fictional: true,
+      kind: 'submission',
+      summary: '夏天的光：逆光、树影和傍晚。',
+      deadline: '2026-08-31T23:59+08:00',
+      fee: 0,
+      rules: ['每人 3 张以内'],
+      date: '2026-07-01',
+      status: 'published',
+    },
+    {
+      slug: 'spring-walk-2026',
+      title: '示例：春日扫街比赛（已截止）',
+      organizer: '示例街头摄影小组（虚构）',
+      fictional: true,
+      kind: 'contest',
+      summary: '一天之内在同一条街上完成的组照。',
+      deadline: '2026-04-30T17:00-04:00',
+      fee: 0,
+      rules: ['组照 4–8 张', '注明拍摄的街道'],
+      date: '2026-03-20',
+      status: 'published',
+    },
+    {
+      slug: 'draft-call',
+      title: '草稿征集（不公开）',
+      organizer: '示例（虚构）',
+      fictional: true,
+      kind: 'submission',
+      summary: '还没定。',
+      deadline: '2027-06-01T00:00+08:00',
+      fee: 0,
+      rules: ['草稿'],
+      date: '2026-10-16',
+      status: 'draft',
+    },
+  ];
+  return { items };
+}
