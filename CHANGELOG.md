@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.50.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.50.0) — 2026-11-07
+
+_L50 · 毕业作品集_
+
+### 新功能 Features
+
+- **l50:** 毕业作品集 — portfolio-core（web=worker）、/portfolio/ 作品集列表 + 1.36–1.49 内容入口（里程碑 1.50）、作品集页（创作自述、策展序列 n / N、打印一页一件）、作者必须标明虚构、/api/portfolio + 站长接口、迁移 0041_portfolio (fe5d634)
+
+### 测试 Tests
+
+- **l50:** 毕业作品集 — 测试先行（fail-before） (7f73720)
+
+### 文档 Docs
+
+- **portfolio:** L50 docs/portfolio.md, README feature + unit counts (worker 472 + web 895), ROADMAP (58c77da)
+
+### 杂项 Chores
+
+- **release:** 1.50.0 — version bump, release-meta (1.49.0 frozen at b31491d) (07948d4)
+
 ## [1.49.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.49.0) — 2026-11-07
 
 _L49 · 作品幕后_
