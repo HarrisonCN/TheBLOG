@@ -63,6 +63,8 @@ import { listPage as colorsListPage, detailPage as colorsDetailPage } from './co
 import { SLUG_RE as Colors_SLUG_RE, type Item as ColorsItem, type Summary as ColorsSummary } from './color-core';
 import { listPage as interviewsListPage, detailPage as interviewsDetailPage } from './interview-view';
 import { SLUG_RE as Interviews_SLUG_RE, type Item as InterviewsItem, type Summary as InterviewsSummary } from './interview-core';
+import { listPage as challengesListPage, detailPage as challengesDetailPage } from './challenge-view';
+import { SLUG_RE as Challenges_SLUG_RE, type Item as ChallengesItem, type Summary as ChallengesSummary } from './challenge-core';
 // @content:imports — L36+ 内容栏目挂载点（scaffold）
 import { GROUP_SLUG_RE } from './group-core';
 
@@ -189,6 +191,8 @@ export type Route =
   | { name: 'colorstudy'; slug: string }
   | { name: 'interviews' }
   | { name: 'interview'; slug: string }
+  | { name: 'challenges' }
+  | { name: 'challenge'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -196,7 +200,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, challenges: 1, challenge: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -286,6 +290,8 @@ const STATIC: Record<string, Route['name']> = {
   '/colors': 'colors',
   // L44 摄影人访谈
   '/interviews': 'interviews',
+  // L45 52 周挑战
+  '/challenges': 'challenges',
   // @content:static — L36+ 内容栏目挂载点（scaffold）
 };
 /** 扩展栏目的静态路由（预渲染用） */
@@ -373,6 +379,9 @@ export function parseRoute(pathname: string): Route {
   // L44：摄影人访谈
   m = /^\/interviews\/([^/]+)$/.exec(p);
   if (m) return Interviews_SLUG_RE.test(m[1]!) ? { name: 'interview', slug: m[1]! } : { name: 'notfound' };
+  // L45：52 周挑战
+  m = /^\/challenges\/([^/]+)$/.exec(p);
+  if (m) return Challenges_SLUG_RE.test(m[1]!) ? { name: 'challenge', slug: m[1]! } : { name: 'notfound' };
   // L28：小组详情
   m = /^\/groups\/([^/]+)$/.exec(p);
   if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
@@ -510,6 +519,10 @@ export function routePath(r: Route): string {
       return '/interviews/';
     case 'interview':
       return `/interviews/${r.slug}/`;
+    case 'challenges':
+      return '/challenges/';
+    case 'challenge':
+      return `/challenges/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -640,6 +653,9 @@ export interface Extra {
   /** L44 摄影人访谈：列表（已发布）/ 详情 */
   interviews?: InterviewsSummary[];
   interview?: InterviewsItem;
+  /** L45 52 周挑战：列表（已发布）/ 详情 */
+  challenges?: ChallengesSummary[];
+  challenge?: ChallengesItem;
   issueNav?: { prev: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null; next: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null };
 }
 
@@ -729,6 +745,10 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['interviews'];
     case 'interview':
       return ['interview'];
+    case 'challenges':
+      return ['challenges'];
+    case 'challenge':
+      return ['challenge'];
     default:
       return [];
   }
@@ -1933,6 +1953,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return interviewsListPage(site, route, x.interviews ?? []);
     case 'interview':
       return x.interview ? interviewsDetailPage(site, route, x.interview) : notFoundPage(site, route);
+    case 'challenges':
+      return challengesListPage(site, route, x.challenges ?? []);
+    case 'challenge':
+      return x.challenge ? challengesDetailPage(site, route, x.challenge) : notFoundPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':
