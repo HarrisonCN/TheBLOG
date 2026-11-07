@@ -2,6 +2,28 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.44.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.44.0) — 2026-11-07
+
+_L44 · 摄影人访谈_
+
+### 新功能 Features
+
+- **l44:** 摄影人访谈 — interview-core（web=worker）、/interviews/ 访谈列表 + 访谈页（虚构声明、目录锚点、问题 h2、引语卡归位、阅读时长）、受访者必须标明虚构、/api/interviews + 站长接口、迁移 0035_interviews (be585ff)
+
+### 测试 Tests
+
+- **quality:** 全树时间字面量扫描用例超时上限 30s（全量并发时 CPU 争用超 5s 默认值；单跑 13/13，断言不变） (a01b1ab)
+- **worker:** TOTP 重放用例固定时间步（钉住 last_step），消除跨 30 秒边界时的偶发 200≠401（v1.43.0 main CI 出现一次） (cd7968b)
+- **l44:** 摄影人访谈 — interview-core / /interviews/ 页面 / /api/interviews 测试先行（fail-before） (fae0fea)
+
+### 文档 Docs
+
+- **interviews:** L44 docs/interviews.md, README feature + unit counts (worker 442 + web 828), ROADMAP (263bc65)
+
+### 杂项 Chores
+
+- **release:** 1.44.0 — version bump, release-meta (1.43.0 frozen at a59849c) (7d1423a)
+
 ## [1.43.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.43.0) — 2026-10-17
 
 _L43 · 色彩研究_
