@@ -128,6 +128,7 @@ scripts/e2e.mjs         端到端测试
 - **摄影人访谈（L44 · 1.44.0）**：专题栏目新增 **摄影人访谈** `/interviews/`：问答结构的访谈，带目录锚点、引语卡和阅读时长；受访者必须标明虚构（演示站不收录真实人物）。见 [docs/interviews.md](docs/interviews.md)。
 - **52 周挑战（L45 · 1.45.0）**：社区栏目新增 **52 周挑战** `/challenges/`：每周一个主题，按 ISO 周计算日期范围与「本周」（Asia/Shanghai），完成进度只存在本机浏览器。见 [docs/challenges.md](docs/challenges.md)。
 - **胶片记录（L46 · 1.46.0）**：工具栏目新增 **胶片记录** `/film/`：胶卷登记（片种/ISO/EI/冲洗/逐张参数），推拉冲显影时间与互易律失效补偿估算，带计算器。见 [docs/film.md](docs/film.md)。
+- **构图辅助线（L47 · 1.47.0）**：摄影栏目新增 **构图辅助线** `/composition/`：三分线 / 黄金分割线 / 对角线 SVG 叠加层（`aria-pressed` 切换，默认关闭），兴趣点方位与离交点距离的文字说明为基线。见 [docs/composition.md](docs/composition.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -213,7 +214,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 452 个 + web 853 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 457 个 + web 863 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
