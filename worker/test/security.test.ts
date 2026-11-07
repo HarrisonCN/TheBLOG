@@ -312,9 +312,12 @@ describe('admin TOTP two-factor', () => {
     // preAuth 塞进 Cookie 不被当成会话
     expect((await call(env, '/api/admin/posts', { cookie: `__Host-blog_session=${b.preAuth}` })).status).toBe(401);
     expect((await post('/api/auth/2fa', undefined, { preAuth: b.preAuth, code: '123456' }, { 'cf-connecting-ip': '10.22.9.20' })).status).toBe(401);
-    // confirm 用掉了当前时间步：同一个码重放被拒；下一步的码（±1 窗口内）可以
-    expect((await post('/api/auth/2fa', undefined, { preAuth: b.preAuth, code: await hotp(secret, step()) }, { 'cf-connecting-ip': '10.22.9.20' })).status).toBe(401);
-    const ok = await post('/api/auth/2fa', undefined, { preAuth: b.preAuth, code: await hotp(secret, step() + 1) }, { 'cf-connecting-ip': '10.22.9.20' });
+    // confirm 用掉了当前时间步：同一个码重放被拒；下一步的码（±1 窗口内）可以。
+    // 固定一个时间步并把 last_step 钉在它上面：否则 confirm 与这里之间恰好跨过 30 秒边界时，step() 已是新的一步，"重放"会变成合法码（CI 偶发 200≠401）。
+    const s0 = step();
+    await env.DB.prepare('UPDATE admin_totp SET last_step = ? WHERE id = 1').bind(s0).run();
+    expect((await post('/api/auth/2fa', undefined, { preAuth: b.preAuth, code: await hotp(secret, s0) }, { 'cf-connecting-ip': '10.22.9.20' })).status).toBe(401);
+    const ok = await post('/api/auth/2fa', undefined, { preAuth: b.preAuth, code: await hotp(secret, s0 + 1) }, { 'cf-connecting-ip': '10.22.9.20' });
     expect(ok.status).toBe(200);
     expect(ok.headers.get('set-cookie')).toContain('__Host-blog_session=');
     expect((await J(ok)).csrfToken).toBeTruthy();
