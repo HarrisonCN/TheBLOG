@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.45.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.45.0) — 2026-11-07
+
+_L45 · 52 周挑战_
+
+### 新功能 Features
+
+- **l45:** 52 周挑战 — challenge-core（web=worker）、/challenges/ 挑战列表 + 挑战页（ISO 周、每周 h2 + 周一到周日 time、提示与作品链接）、本周标记（Asia/Shanghai、aria-current）、本地完成进度（localStorage、role=status）、/api/challenges + 站长接口、迁移 0036_challenges (7580570)
+
+### 测试 Tests
+
+- **l45:** 52 周挑战 — 测试先行（fail-before） (f443305)
+
+### 文档 Docs
+
+- **challenges:** L45 docs/challenges.md, README feature + unit counts (worker 447 + web 840), ROADMAP (d37f762)
+
+### 杂项 Chores
+
+- **release:** 1.45.0 — version bump, release-meta (1.44.0 frozen at 3a8e2f0) (e6885ba)
+
 ## [1.44.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.44.0) — 2026-11-07
 
 _L44 · 摄影人访谈_
