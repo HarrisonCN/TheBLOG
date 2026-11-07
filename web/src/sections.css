@@ -712,3 +712,33 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .ch-week__done[hidden] { display: none; }
 .ch-week__done input { width: 1.1rem; height: 1.1rem; }
 @media print { .ch-bar, .ch-back, .ch-week__done { display: none; } .ch-week { break-inside: avoid; } }
+/* L46 胶片记录 */
+.fm-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.fm-card__a { display: grid; gap: 0.3rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.fm-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.fm-card__title { font-weight: 700; }
+.fm { min-width: 0; max-width: 760px; }
+.fm-sum { margin: 0 0 1rem; }
+.fm-cover { margin: 0 0 1rem; }
+.fm-cover img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.fm-facts { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); margin: 0 0 1rem; }
+.fm-facts div { padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); min-width: 0; }
+.fm-facts dt { font-size: 0.85rem; font-weight: 700; }
+.fm-facts dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+.fm-dev { font-size: 1.2rem; }
+.fm-warn { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid currentColor; }
+.fm-warn svg { flex: none; width: 1.1em; height: 1.1em; }
+.fm-sec { margin: 0 0 1.25rem; min-width: 0; }
+.fm-sec h2 { font-size: 1.1rem; margin: 0 0 0.4rem; }
+.fm-scroll { max-width: 100%; overflow-x: auto; border-radius: 10px; }
+.fm-scroll:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.fm-table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+.fm-table caption { text-align: left; font-weight: 700; padding: 0 0 0.3rem; }
+.fm-table th, .fm-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border, rgb(127 127 127 / 0.3)); text-align: left; white-space: nowrap; }
+.fm-frames td:nth-child(2), .fm-frames td:nth-child(6) { white-space: normal; min-width: 7em; }
+.fm-recip { max-width: 320px; }
+.fm-calc { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
+.fm-calc[hidden] { display: none; }
+.fm-calc input { width: 7rem; padding: 0.3rem 0.5rem; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; }
+.fm-out { font-weight: 700; }
+@media print { .fm-back, .fm-calc { display: none; } .fm-scroll { overflow: visible; } }

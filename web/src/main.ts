@@ -313,6 +313,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'film':
+          x.film = (await api.film().catch(() => ({ film: [] }))).film;
+          return;
+        case 'filmroll': {
+          if (route.name !== 'filmroll') return;
+          try {
+            x.filmroll = (await api.filmroll(route.slug)).roll;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

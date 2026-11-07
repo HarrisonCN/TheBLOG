@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.46.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.46.0) — 2026-11-07
+
+_L46 · 胶片记录_
+
+### 新功能 Features
+
+- **l46:** 胶片记录 — film-core（web=worker）、/film/ 胶卷列表 + 胶卷页（片种/ISO→EI/推拉档数、推拉冲显影时间估算、互易律补偿表与计算器、逐张记录表）、/api/film + 站长接口、迁移 0037_film (ad3d345)
+
+### 修复 Fixes
+
+- **l46:** 横向滚动表格区域用各自的 aria-label（与所在 section 同名导致 axe landmark-unique） (1a434d1)
+
+### 测试 Tests
+
+- **l46:** 胶片记录 — 测试先行（fail-before） (adb763b)
+
+### 文档 Docs
+
+- **film:** L46 docs/film.md, README feature + unit counts (worker 452 + web 853), ROADMAP (f85bf45)
+
+### 杂项 Chores
+
+- **release:** 1.46.0 — version bump, release-meta (1.45.0 frozen at 14c289c) (90360f2)
+
 ## [1.45.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.45.0) — 2026-11-07
 
 _L45 · 52 周挑战_

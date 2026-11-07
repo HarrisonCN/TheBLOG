@@ -3,4 +3,4 @@ import pkg from '../package.json';
 
 export const APP_VERSION: string = pkg.version;
 /** 这份代码需要的最新 D1 迁移（smoke 检查与 /api/health 用它判断远程 D1 是否已经迁移到位）；新增迁移时同步修改（测试会检查） */
-export const EXPECTED_MIGRATION = '0036_challenges';
+export const EXPECTED_MIGRATION = '0037_film';

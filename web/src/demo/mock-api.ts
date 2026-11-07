@@ -42,6 +42,8 @@ import { Mock as MockInterviews } from './mock-interviews';
 import { seed as interviewsSeed } from './seed-interviews';
 import { Mock as MockChallenges } from './mock-challenges';
 import { seed as challengesSeed } from './seed-challenges';
+import { Mock as MockFilm } from './mock-film';
+import { seed as filmSeed } from './seed-film';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -520,6 +522,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.film = new MockFilm({
+      state: () => this.db().film ?? filmSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.film ??= filmSeed(this.base);
+        mutate(db.film);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -570,6 +581,7 @@ export class DemoBackend {
   private colors: MockColors;
   private interviews: MockInterviews;
   private challenges: MockChallenges;
+  private film: MockFilm;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -760,6 +772,11 @@ export class DemoBackend {
       const r45 = this.challenges.routePublic(m, path);
       if (r45) return r45;
     }
+    // ---- L46 胶片记录（公开：只有已发布）----
+    if (path === '/api/film' || path.startsWith('/api/film/')) {
+      const r46 = this.film.routePublic(m, path);
+      if (r46) return r46;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -930,6 +947,9 @@ export class DemoBackend {
       // L45 52 周挑战
       const a45 = this.challenges.routeAdmin(m, sub, body);
       if (a45) return a45;
+      // L46 胶片记录
+      const a46 = this.film.routeAdmin(m, sub, body);
+      if (a46) return a46;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

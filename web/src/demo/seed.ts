@@ -79,6 +79,8 @@ export interface DemoDb {
   interviews?: import('./mock-interviews').State;
   /** L45 52 周挑战 */
   challenges?: import('./mock-challenges').State;
+  /** L46 胶片记录 */
+  film?: import('./mock-film').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
