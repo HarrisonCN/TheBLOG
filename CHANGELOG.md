@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.47.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.47.0) — 2026-11-07
+
+_L47 · 构图辅助线_
+
+### 新功能 Features
+
+- **l47:** 构图辅助线 — composition-core（web=worker）、/composition/ 列表 + 分析页（三分/黄金分割/对角线 SVG 叠加层默认关闭、aria-pressed 切换、兴趣点方位与距离文字、构图说明为基线）、/api/composition + 站长接口、迁移 0038_composition (eeb3c8c)
+
+### 测试 Tests
+
+- **l47:** 构图辅助线 — 测试先行（fail-before） (decba08)
+
+### 文档 Docs
+
+- **composition:** L47 docs/composition.md, README feature + unit counts (worker 457 + web 863), ROADMAP (3441630)
+
+### 杂项 Chores
+
+- **release:** 1.47.0 — version bump, release-meta (1.46.0 frozen at 254d76d) (52cd77e)
+
 ## [1.46.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.46.0) — 2026-11-07
 
 _L46 · 胶片记录_

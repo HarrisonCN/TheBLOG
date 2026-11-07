@@ -81,6 +81,8 @@ export interface DemoDb {
   challenges?: import('./mock-challenges').State;
   /** L46 胶片记录 */
   film?: import('./mock-film').State;
+  /** L47 构图辅助线 */
+  composition?: import('./mock-composition').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

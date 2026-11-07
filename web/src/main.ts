@@ -326,6 +326,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'composition':
+          x.composition = (await api.composition().catch(() => ({ composition: [] }))).composition;
+          return;
+        case 'compositionstudy': {
+          if (route.name !== 'compositionstudy') return;
+          try {
+            x.compositionstudy = (await api.compositionstudy(route.slug)).study;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
