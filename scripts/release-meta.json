@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.42.0", "milestone": "L42", "from": "0adbcfc", "date": "2026-10-17", "title": "扫街路线" },
+    { "version": "1.43.0", "milestone": "L43", "from": "6982ca0", "date": "2026-10-17", "title": "色彩研究" },
+    { "version": "1.42.0", "milestone": "L42", "sha": "6982ca0", "from": "0adbcfc", "date": "2026-10-17", "title": "扫街路线" },
     { "version": "1.41.0", "milestone": "L41", "sha": "0adbcfc", "from": "b233c8f", "date": "2026-10-17", "title": "作品点评" },
     { "version": "1.40.0", "milestone": "L40", "sha": "b233c8f", "from": "49c6ebd", "date": "2026-10-17", "title": "课程笔记" },
     { "version": "1.39.0", "milestone": "L39", "sha": "49c6ebd", "from": "9b86a94", "date": "2026-10-17", "title": "照片日历" },

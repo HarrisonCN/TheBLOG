@@ -634,3 +634,29 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .wk-stop__h { font-size: 1rem; margin: 0.2rem 0 0; }
 .wk-stop__leg, .wk-stop__tip { margin: 0; }
 .wk-stop__img { display: block; width: 100%; max-width: 480px; height: auto; border-radius: 10px; margin-top: 0.3rem; }
+/* L43 色彩研究 */
+.co, .co > *, .co-tile > * { min-width: 0; max-width: 100%; }
+.co-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.co-card__a { display: grid; gap: 0.35rem; padding: 0.6rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.co-card__cover img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 10px; }
+.co-card__bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; }
+.co-card__bar span { flex: 1; }
+.co-card__title { font-weight: 700; }
+.co-card__meta { overflow-wrap: anywhere; }
+.co-fig { margin: 0 0 1rem; }
+.co-fig img { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; border-radius: 12px; }
+.co-h { font-size: 1.1rem; margin: 1.2rem 0 0.6rem; }
+.co-sws { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); }
+.co-sw { display: grid; gap: 0.2rem; padding: 0.5rem; border: 1px solid var(--hairline); border-radius: 12px; align-content: start; }
+.co-sw__chip { display: flex; align-items: flex-end; min-height: 72px; padding: 0.4rem; border-radius: 8px; font-weight: 700; box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.35); }
+.co-sw__name { font-weight: 700; color: var(--heading); }
+.co-sw__copy { justify-self: start; }
+.co-status:empty { display: none; }
+.co-mx-wrap { overflow-x: auto; max-width: 100%; }
+.co-mx { border-collapse: collapse; font-size: 0.9rem; }
+.co-mx caption { text-align: start; padding-bottom: 0.4rem; color: var(--muted); }
+.co-mx th, .co-mx td { border: 1px solid var(--hairline); padding: 0.35rem 0.5rem; text-align: center; white-space: nowrap; }
+.co-mx td span { display: block; }
+.co-back { margin-top: 1.2rem; }
+@media print { .co-sw__copy { display: none !important; } .co-sw__chip { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+.co-mx-wrap:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 4px; }

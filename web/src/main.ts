@@ -274,6 +274,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'colorStudies':
+          x.colorStudies = (await api.colorStudies().catch(() => ({ studies: [] }))).studies;
+          return;
+        case 'colorStudy': {
+          if (route.name !== 'colorstudy') return;
+          try {
+            x.colorStudy = (await api.colorStudy(route.slug)).study;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

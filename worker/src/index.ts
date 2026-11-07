@@ -27,6 +27,7 @@ import { routeAdmin as routeAdminCalendar, routePublic as routePublicCalendar } 
 import { routeAdmin as routeAdminCourses, routePublic as routePublicCourses } from './courses';
 import { routeAdmin as routeAdminCritique, routePublic as routePublicCritique } from './critique';
 import { routeAdmin as routeAdminWalks, routePublic as routePublicWalks } from './walks';
+import { routeAdmin as routeAdminColors, routePublic as routePublicColors } from './colors';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -161,6 +162,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
   if (path === '/api/walks' || path.startsWith('/api/walks/')) {
     const r42 = await routePublicWalks(req, env, path);
     if (r42) return r42;
+  }
+  // ---------- L43 色彩研究（公开：只有已发布） ----------
+  if (path === '/api/colors' || path.startsWith('/api/colors/')) {
+    const r43 = await routePublicColors(req, env, path);
+    if (r43) return r43;
   }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
@@ -299,6 +305,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L42 扫街路线（整份 JSON 最多 64 KB）
     const a42 = await routeAdminWalks(req, env, sub, () => readJson(req, 64 * 1024));
     if (a42) return a42;
+    // L43 色彩研究（整份 JSON 最多 64 KB）
+    const a43 = await routeAdminColors(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a43) return a43;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
