@@ -34,6 +34,7 @@
 | **1.47.0** | 构图辅助线 | 摄影（构图辅助线 /composition/） | 三分 / 黄金分割 / 对角线几何按照片像素；SVG 线组默认 hidden，`aria-pressed` 切换（JS）；兴趣点方位 + 最近交点距离文字为基线；坐标 0–1、辅助线不重复校验 | D1 迁移 0038：SKIPPED-verifiable |
 | **1.48.0** | 投稿与展览征集 | 社区（投稿与展览征集 /calls/） | 截止时间必须带时区并按原时区显示；剩余天数向上取整、7 天内即将截止；加载时重算一次（无计时器）并归档；data: `.ics`（CRLF、转义、75 字节折行、VALARM）；主办方必须标明虚构 | D1 迁移 0039：SKIPPED-verifiable |
 | **1.49.0** | 作品幕后 | 摄影（作品幕后 /behind/） | 布光示意 SVG role=img + title/desc + 同文 figcaption（文字描述必填）；光源有向角度（左正右负、180° 逆光）与光位名称；参数范围/快门写法/坐标 0–100 校验；器材 → /gear/、术语 → /glossary/:slug/（示例术语存在性单测） | D1 迁移 0040：SKIPPED-verifiable |
+| **1.50.0** | 毕业作品集（里程碑） | 摄影（毕业作品集 /portfolio/） | 策展序列 3–24 件、序号从 1 起连续；figure + 「n / N」说明行；打印 break-before: page 一页一件；1.36–1.49 共 14 个入口（版本连续、路由已注册单测）；作者必须标明虚构 | D1 迁移 0041：SKIPPED-verifiable |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。
