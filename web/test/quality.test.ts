@@ -143,7 +143,7 @@ describe('跨引擎日期：时间字面量只用 ISO 8601', () => {
       read(f).split('\n').flatMap((l, i) => (HUMAN.test(l) ? [`${f}:${i + 1}`] : [])),
     );
     expect(bad).toEqual([]);
-  });
+  }, 30_000); // 全树扫描：并发跑全量单测时 CPU 争用会超过默认 5s（单独跑 ~0.3s），给足上限而不放松断言
   it('演示种子 / 演示 mock 里传给 Date 的字面量都是严格 ISO 8601（不依赖引擎的宽松解析）', () => {
     const ISO = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
     const CALL = /(?:new Date|Date\.parse|\b(?:iso|day|at|ago))\(\s*['`"]([^'`"]+)['`"]\s*\)/g;
