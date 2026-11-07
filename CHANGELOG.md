@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.49.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.49.0) — 2026-11-07
+
+_L49 · 作品幕后_
+
+### 新功能 Features
+
+- **l49:** 作品幕后 — behind-core（web=worker）、/behind/ 列表 + 幕后页（拍摄参数、俯视布光示意 SVG（role=img、文字描述必填）、光源角度与光位、步骤、器材 → /gear/、术语 → /glossary/）、/api/behind + 站长接口、迁移 0040_behind (10b814e)
+
+### 测试 Tests
+
+- **l49:** 作品幕后 — 测试先行（fail-before） (e776312)
+
+### 文档 Docs
+
+- **behind:** L49 docs/behind.md, README feature + unit counts (worker 467 + web 886), ROADMAP (bd3cf9f)
+
+### 杂项 Chores
+
+- **release:** 1.49.0 — version bump, release-meta (1.48.0 frozen at 7a3fbe6) (ef787a7)
+
 ## [1.48.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.48.0) — 2026-11-07
 
 _L48 · 投稿与展览征集_
