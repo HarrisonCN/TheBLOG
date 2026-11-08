@@ -391,6 +391,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'qa':
+          x.qa = (await api.qa().catch(() => ({ questions: [] }))).questions;
+          return;
+        case 'question': {
+          if (route.name !== 'question') return;
+          try {
+            x.question = (await api.question(route.slug)).question;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

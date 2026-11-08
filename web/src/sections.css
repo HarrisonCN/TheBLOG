@@ -884,3 +884,19 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .cc-post__text { overflow-wrap: anywhere; }
 .cc-filter { margin: 0 0 0.75rem; }
 .cc-badge { margin-left: 0.25rem; padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; font-weight: 600; }
+/* L52 问答区 */
+.qa-q p { margin: 0 0 0.6rem; overflow-wrap: anywhere; }
+.qa-answers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.qa-answer { display: flex; gap: 0.75rem; padding: 0.7rem 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.qa-answer.is-accepted { border-color: var(--accent); background: var(--accent-soft); }
+.qa-vote { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; min-width: 3.2rem; }
+.qa-vbtn { min-width: 2.2rem; min-height: 2.2rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.35)); background: transparent; color: var(--heading); cursor: pointer; }
+.qa-vbtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.qa-n { font-variant-numeric: tabular-nums; font-size: 0.85rem; white-space: nowrap; }
+.qa-body { min-width: 0; }
+.qa-body p { margin: 0 0 0.3rem; }
+.qa-text { overflow-wrap: anywhere; }
+.qa-accepted { padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.qa-filter { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; margin: 0 0 0.75rem; padding: 0.4rem 0.7rem; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); border-radius: 10px; }
+.qa-filter legend { padding: 0 0.3rem; }
+.qa-state.is-solved { font-weight: 600; color: var(--heading); }
