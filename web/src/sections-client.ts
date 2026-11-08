@@ -49,6 +49,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-composition]')) void import('./composition-client').then((m) => m.bind(root));
   // L48：投稿与展览征集（按需加载）
   if (root.querySelector('[data-calls]')) void import('./call-client').then((m) => m.bind(root));
+  // L50：毕业作品集（按需加载）
+  if (root.querySelector('[data-portfolio]')) void import('./portfolio-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
