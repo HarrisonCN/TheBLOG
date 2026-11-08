@@ -93,6 +93,8 @@ export interface DemoDb {
   circles?: import('./mock-circles').State;
   /** L52 问答区 */
   qa?: import('./mock-qa').State;
+  /** L53 投票与小测验 */
+  polls?: import('./mock-polls').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
