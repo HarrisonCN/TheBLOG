@@ -124,6 +124,9 @@ export const api = {
   // L53 投票与小测验
   polls: () => request<{ polls: import('./polls-core').Summary[] }>('/api/polls'),
   poll: (slug: string) => request<{ poll: import('./polls-core').Item }>(`/api/polls/${encodeURIComponent(slug)}`),
+  // L54 关注与动态流
+  activity: () => request<{ streams: import('./activity-core').Summary[] }>('/api/activity'),
+  stream: (slug: string) => request<{ stream: import('./activity-core').Item }>(`/api/activity/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
