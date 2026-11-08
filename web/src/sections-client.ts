@@ -59,6 +59,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-poll]')) void import('./polls-client').then((m) => m.bind(root));
   // L54：关注与动态流（按需加载）
   if (root.querySelector('[data-stream], [data-streams]')) void import('./activity-client').then((m) => m.bind(root));
+  // L55：接龙写作（按需加载）
+  if (root.querySelector('[data-relay]')) void import('./relay-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
