@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream', 'relaystory']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -235,6 +235,8 @@ if (API || DEMO) {
     extra.polls = (await soft('/api/polls', { polls: [] })).polls ?? [];
     // L54：关注与动态流
     extra.activity = (await soft('/api/activity', { streams: [] })).streams ?? [];
+    // L55：接龙写作
+    extra.relay = (await soft('/api/relay', { stories: [] })).stories ?? [];
     // @content:pre-extra — L36+ 内容栏目挂载点（scaffold）
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
@@ -544,6 +546,16 @@ if (API || DEMO) {
       n54++;
     }
     console.log(`[prerender] L54：关注与动态流 ${n54} 条`);
+    // L55：接龙写作（详情页全文都在静态 HTML 里）
+    let n55 = 0;
+    for (const s of extra.relay) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/relay/${s.slug}`, null);
+      if (!d?.story) continue;
+      await emit({ name: 'relaystory', slug: s.slug }, async () => ({ relaystory: d.story }), async () => ({ title: `${s.title} · 接龙写作`, description: s.summary || s.title, image: s.cover?.src || '', type: 'article' }));
+      n55++;
+    }
+    console.log(`[prerender] L55：接龙写作 ${n55} 条`);
     // @content:pre-emit — L36+ 内容栏目挂载点（scaffold）
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
