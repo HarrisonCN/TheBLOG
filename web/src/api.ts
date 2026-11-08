@@ -130,6 +130,9 @@ export const api = {
   // L55 接龙写作
   relay: () => request<{ stories: import('./relay-core').Summary[] }>('/api/relay'),
   relaystory: (slug: string) => request<{ story: import('./relay-core').Item }>(`/api/relay/${encodeURIComponent(slug)}`),
+  // L56 活动与聚会
+  meetups: () => request<{ meetups: import('./meetups-core').Summary[] }>('/api/meetups'),
+  meetup: (slug: string) => request<{ meetup: import('./meetups-core').Item }>(`/api/meetups/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
