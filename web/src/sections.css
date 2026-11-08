@@ -943,3 +943,15 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .rl-field { display: grid; gap: 0.25rem; }
 .rl-field input, .rl-field textarea { font: inherit; padding: 0.4rem 0.55rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); width: 100%; box-sizing: border-box; }
 .rl-state.is-done { font-weight: 600; color: var(--heading); }
+/* L56 活动与聚会 */
+.mu-facts { display: grid; gap: 0.4rem; margin: 0.75rem 0; }
+.mu-facts div { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.5rem; }
+.mu-facts dt { font-weight: 700; color: var(--heading); }
+.mu-facts dd { margin: 0; overflow-wrap: anywhere; }
+.mu-past { padding: 0 0.4rem; border-radius: 6px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); color: var(--text); }
+.mu-cal { margin: 0 0 0.75rem; }
+.mu-rsvp { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); border-radius: 10px; }
+.mu-rsvp legend { padding: 0 0.3rem; font-weight: 600; }
+.mu-agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.mu-agenda li { display: grid; grid-template-columns: 3.5rem 1fr; gap: 0.5rem; }
+.mu-time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--heading); }

@@ -443,6 +443,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'meetups':
+          x.meetups = (await api.meetups().catch(() => ({ meetups: [] }))).meetups;
+          return;
+        case 'meetup': {
+          if (route.name !== 'meetup') return;
+          try {
+            x.meetup = (await api.meetup(route.slug)).meetup;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

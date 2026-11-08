@@ -62,6 +62,8 @@ import { Mock as MockActivity } from './mock-activity';
 import { seed as activitySeed } from './seed-activity';
 import { Mock as MockRelay } from './mock-relay';
 import { seed as relaySeed } from './seed-relay';
+import { Mock as MockMeetups } from './mock-meetups';
+import { seed as meetupsSeed } from './seed-meetups';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -630,6 +632,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.meetups = new MockMeetups({
+      state: () => this.db().meetups ?? meetupsSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.meetups ??= meetupsSeed(this.base);
+        mutate(db.meetups);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -690,6 +701,7 @@ export class DemoBackend {
   private polls: MockPolls;
   private activity: MockActivity;
   private relay: MockRelay;
+  private meetups: MockMeetups;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -930,6 +942,11 @@ export class DemoBackend {
       const r55 = this.relay.routePublic(m, path);
       if (r55) return r55;
     }
+    // ---- L56 活动与聚会（公开：只有已发布）----
+    if (path === '/api/meetups' || path.startsWith('/api/meetups/')) {
+      const r56 = this.meetups.routePublic(m, path);
+      if (r56) return r56;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1130,6 +1147,9 @@ export class DemoBackend {
       // L55 接龙写作
       const a55 = this.relay.routeAdmin(m, sub, body);
       if (a55) return a55;
+      // L56 活动与聚会
+      const a56 = this.meetups.routeAdmin(m, sub, body);
+      if (a56) return a56;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
