@@ -859,3 +859,28 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
   .pf-work { break-before: page; break-inside: avoid; }
   .pf-fig img { max-height: 80vh; width: auto; max-width: 100%; margin: 0 auto; border-radius: 0; }
 }
+/* L51 兴趣圈子 */
+.ck { min-width: 0; max-width: 900px; }
+.ck h2 { font-size: 1.1rem; margin: 1.25rem 0 0.5rem; }
+.ck-note { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.ck-note svg { flex: none; width: 1.1em; height: 1.1em; }
+.ck-lead { font-size: 1.05rem; margin: 0 0 0.75rem; }
+.ck-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.ck-card[hidden] { display: none; }
+.ck-card__a { display: grid; gap: 0.3rem; padding: 0.8rem 0.9rem; border-radius: 14px; background: var(--accent-soft); color: var(--heading); text-decoration: none; height: 100%; box-sizing: border-box; }
+.ck-card__title { font-weight: 700; }
+.ck-card__sum { color: var(--text); }
+.ck-chips { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; vertical-align: middle; }
+.ck-chip { padding: 0 0.45rem; border-radius: 999px; border: 1px solid var(--border, rgb(127 127 127 / 0.35)); font-size: 0.8rem; color: var(--text); }
+.ck-back { margin: 1.5rem 0 0; }
+.ck [hidden] { display: none; }
+.cc-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0.6rem 0; }
+.cc-join { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0 0 0.5rem; }
+.cc-join [aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.cc-rules { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; }
+.cc-posts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.cc-post { padding: 0.6rem 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.cc-post p { margin: 0 0 0.25rem; }
+.cc-post__text { overflow-wrap: anywhere; }
+.cc-filter { margin: 0 0 0.75rem; }
+.cc-badge { margin-left: 0.25rem; padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; font-weight: 600; }

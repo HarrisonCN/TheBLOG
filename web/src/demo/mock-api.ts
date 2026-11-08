@@ -52,6 +52,8 @@ import { Mock as MockBehind } from './mock-behind';
 import { seed as behindSeed } from './seed-behind';
 import { Mock as MockPortfolio } from './mock-portfolio';
 import { seed as portfolioSeed } from './seed-portfolio';
+import { Mock as MockCircles } from './mock-circles';
+import { seed as circlesSeed } from './seed-circles';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -575,6 +577,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.circles = new MockCircles({
+      state: () => this.db().circles ?? circlesSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.circles ??= circlesSeed(this.base);
+        mutate(db.circles);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -630,6 +641,7 @@ export class DemoBackend {
   private calls: MockCalls;
   private behind: MockBehind;
   private portfolio: MockPortfolio;
+  private circles: MockCircles;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -845,6 +857,11 @@ export class DemoBackend {
       const r50 = this.portfolio.routePublic(m, path);
       if (r50) return r50;
     }
+    // ---- L51 兴趣圈子（公开：只有已发布）----
+    if (path === '/api/circles' || path.startsWith('/api/circles/')) {
+      const r51 = this.circles.routePublic(m, path);
+      if (r51) return r51;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1030,6 +1047,9 @@ export class DemoBackend {
       // L50 毕业作品集
       const a50 = this.portfolio.routeAdmin(m, sub, body);
       if (a50) return a50;
+      // L51 兴趣圈子
+      const a51 = this.circles.routeAdmin(m, sub, body);
+      if (a51) return a51;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
