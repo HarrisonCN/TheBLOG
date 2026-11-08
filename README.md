@@ -133,6 +133,7 @@ scripts/e2e.mjs         端到端测试
 - **作品幕后（L49 · 1.49.0）**：摄影栏目新增 **作品幕后** `/behind/`：拍摄参数、俯视布光示意 SVG（`role="img"`，文字描述必填）、光源角度与光位、步骤，器材链接到 /gear/、术语链接到 /glossary/。见 [docs/behind.md](docs/behind.md)。
 - **毕业作品集（L50 · 1.50.0）**：摄影栏目新增 **毕业作品集** `/portfolio/`：策展序列 + 创作自述，打印一页一件；列表页汇总 1.36–1.49 的 14 个内容栏目入口（里程碑 1.50）。见 [docs/portfolio.md](docs/portfolio.md)。
 - **兴趣圈子（L51 · 1.51.0）**：社区栏目新增 **兴趣圈子** `/circles/`：圈子守则、圈主与最近帖子，「加入 / 退出」与「只看我加入的」只存在本机；新栏目共用 content-kit 字段表校验。见 [docs/circles.md](docs/circles.md)。
+- **问答区（L52 · 1.52.0）**：社区栏目新增 **问答区** `/qa/`：采纳的回答排在最前、其余按票数；赞同 / 反对与状态筛选只存在本机。见 [docs/qa.md](docs/qa.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -218,7 +219,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 477 个 + web 905 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 482 个 + web 915 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
