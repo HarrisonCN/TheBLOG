@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.52.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.52.0) — 2026-11-08
+
+_L52 · 问答区_
+
+### 新功能 Features
+
+- **l52:** 问答区 — qa-core（web=worker）、/qa/ 问题列表 + 状态筛选、问题页（采纳的回答在最前、按票数排序、赞同 / 反对只存在本机）、/api/qa + 站长接口、迁移 0043_qa (0009a20)
+
+### 性能 Performance
+
+- **budget:** 1.52 首屏 JS 216.8 > 215 — 按 1.51–1.65 计划内栏目增长调为 250 / 52 / 150 / 690 KB（原因写在 perf-budget.json $comment、docs/quality.md、architecture-followups.md） (a9dcbd6)
+
+### 测试 Tests
+
+- **l52:** 问答区 — 测试先行（fail-before） (5153822)
+
+### 文档 Docs
+
+- **qa:** L52 docs/qa.md, README feature + unit counts (worker 482 + web 915), ROADMAP (896b1ce)
+
+### 杂项 Chores
+
+- **release:** 1.52.0 — version bump, release-meta (1.51.0 frozen at f51320a) (6cbbd9e)
+
 ## [1.51.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.51.0) — 2026-11-08
 
 _L51 · 兴趣圈子_
