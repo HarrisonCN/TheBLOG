@@ -58,6 +58,8 @@ import { Mock as MockQa } from './mock-qa';
 import { seed as qaSeed } from './seed-qa';
 import { Mock as MockPolls } from './mock-polls';
 import { seed as pollsSeed } from './seed-polls';
+import { Mock as MockActivity } from './mock-activity';
+import { seed as activitySeed } from './seed-activity';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -608,6 +610,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.activity = new MockActivity({
+      state: () => this.db().activity ?? activitySeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.activity ??= activitySeed(this.base);
+        mutate(db.activity);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -666,6 +677,7 @@ export class DemoBackend {
   private circles: MockCircles;
   private qa: MockQa;
   private polls: MockPolls;
+  private activity: MockActivity;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -896,6 +908,11 @@ export class DemoBackend {
       const r53 = this.polls.routePublic(m, path);
       if (r53) return r53;
     }
+    // ---- L54 关注与动态流（公开：只有已发布）----
+    if (path === '/api/activity' || path.startsWith('/api/activity/')) {
+      const r54 = this.activity.routePublic(m, path);
+      if (r54) return r54;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1090,6 +1107,9 @@ export class DemoBackend {
       // L53 投票与小测验
       const a53 = this.polls.routeAdmin(m, sub, body);
       if (a53) return a53;
+      // L54 关注与动态流
+      const a54 = this.activity.routeAdmin(m, sub, body);
+      if (a54) return a54;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
