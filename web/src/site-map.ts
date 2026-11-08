@@ -151,6 +151,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'activity', label: '关注与动态流', icon: 'bell', desc: '关注社区成员，把大家的最新动态排成一条时间线；关注列表只存在本机', href: '/activity/', routes: ['activity', 'stream'], keywords: 'follow following activity feed timeline stream member 关注 动态 时间线 成员 粉丝 动态流' },
       { id: 'relay', label: '接龙写作', icon: 'edit', desc: '一人一段接着写故事：同一个人不能连续写两段，写满就完结', href: '/relay/', routes: ['relay', 'relaystory'], keywords: 'relay story writing collaborative fiction paragraph turn 接龙 写作 故事 续写 合写 段落' },
       { id: 'meetups', label: '活动与聚会', icon: 'calendar', desc: '线下聚会和线上活动：时间、地点、议程和名额，可加到日历；报名状态只存在本机', href: '/meetups/', routes: ['meetups', 'meetup'], keywords: 'meetup event gathering rsvp calendar ics agenda 聚会 活动 报名 日历 议程 名额 线下' },
+      { id: 'threads', label: '话题广场', icon: 'message', desc: '什么都能聊的讨论帖：按标签筛选，按最新、回复数或热度排序', href: '/threads/', routes: ['threads', 'thread'], keywords: 'thread forum discussion topic tag reply sort hot bbs 话题 讨论 帖子 论坛 标签 回复 热度 排序' },
       { id: 'critique', label: '作品点评', icon: 'message', desc: '按构图、光线、色彩、叙事四个维度的结构化点评', href: '/critique/', routes: ['critique', 'critiquework'], keywords: 'critique review feedback 点评 评图 意见 构图 光线' },
       { id: 'events', label: '摄影活动', icon: 'flag', desc: '每日一图、每周主题与投稿投票', href: '/events/', routes: ['events', 'event'], keywords: 'event 活动 投票 投稿 聊天室' },
       { id: 'challenges', label: '52 周挑战', icon: 'calendar', desc: '每周一个拍摄主题，按 ISO 周排好，完成进度只存在本机', href: '/challenges/', routes: ['challenges', 'challenge'], keywords: '52 week challenge weekly theme project 52 周 挑战 每周 主题 打卡' },
@@ -316,6 +317,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream', 'relaystory', 'meetup', 'clubbook', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream', 'relaystory', 'meetup', 'clubbook', 'thread', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);

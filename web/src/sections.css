@@ -968,3 +968,18 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .bc-done { display: inline-flex; gap: 0.35rem; align-items: center; margin: 0 0 0.4rem; }
 .bc-posts { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; overflow-wrap: anywhere; }
 .bc-today { padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.8rem; }
+/* L58 话题广场 */
+.th-tools { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0 0 0.9rem; }
+.th-tools select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
+.th-tags { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; }
+.th-tag { font: inherit; font-size: 0.85rem; min-height: 2rem; padding: 0.1rem 0.6rem; border-radius: 999px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: transparent; color: var(--heading); cursor: pointer; }
+.th-tag[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.th-pin, .th-op { padding: 0 0.35rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; font-weight: 600; }
+.th-body p { margin: 0 0 0.6rem; overflow-wrap: anywhere; }
+.th-replies { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.th-reply { padding: 0.5rem 0.75rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.th-reply.is-op { background: var(--accent-soft); color: var(--heading); }
+.th-reply[hidden] { display: none; }
+.th-reply p { margin: 0 0 0.25rem; }
+.th-text { overflow-wrap: anywhere; }
+.th-floor { font-variant-numeric: tabular-nums; font-weight: 700; }

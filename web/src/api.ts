@@ -136,6 +136,9 @@ export const api = {
   // L57 读书会
   bookclub: () => request<{ books: import('./bookclub-core').Summary[] }>('/api/book-club'),
   clubbook: (slug: string) => request<{ book: import('./bookclub-core').Item }>(`/api/book-club/${encodeURIComponent(slug)}`),
+  // L58 话题广场
+  threads: () => request<{ threads: import('./threads-core').Summary[] }>('/api/threads'),
+  thread: (slug: string) => request<{ thread: import('./threads-core').Item }>(`/api/threads/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
