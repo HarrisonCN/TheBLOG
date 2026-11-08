@@ -66,6 +66,8 @@ import { Mock as MockMeetups } from './mock-meetups';
 import { seed as meetupsSeed } from './seed-meetups';
 import { Mock as MockBookclub } from './mock-bookclub';
 import { seed as bookclubSeed } from './seed-bookclub';
+import { Mock as MockThreads } from './mock-threads';
+import { seed as threadsSeed } from './seed-threads';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -652,6 +654,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.threads = new MockThreads({
+      state: () => this.db().threads ?? threadsSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.threads ??= threadsSeed(this.base);
+        mutate(db.threads);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -714,6 +725,7 @@ export class DemoBackend {
   private relay: MockRelay;
   private meetups: MockMeetups;
   private bookclub: MockBookclub;
+  private threads: MockThreads;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -964,6 +976,11 @@ export class DemoBackend {
       const r57 = this.bookclub.routePublic(m, path);
       if (r57) return r57;
     }
+    // ---- L58 话题广场（公开：只有已发布）----
+    if (path === '/api/threads' || path.startsWith('/api/threads/')) {
+      const r58 = this.threads.routePublic(m, path);
+      if (r58) return r58;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1170,6 +1187,9 @@ export class DemoBackend {
       // L57 读书会
       const a57 = this.bookclub.routeAdmin(m, sub, body);
       if (a57) return a57;
+      // L58 话题广场
+      const a58 = this.threads.routeAdmin(m, sub, body);
+      if (a58) return a58;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
