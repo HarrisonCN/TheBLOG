@@ -63,6 +63,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-relay]')) void import('./relay-client').then((m) => m.bind(root));
   // L56：活动与聚会（按需加载）
   if (root.querySelector('[data-meetup], [data-meetups]')) void import('./meetups-client').then((m) => m.bind(root));
+  // L57：读书会（按需加载）
+  if (root.querySelector('[data-bookclub]')) void import('./bookclub-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));
