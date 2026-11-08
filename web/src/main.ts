@@ -378,6 +378,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'circles':
+          x.circles = (await api.circles().catch(() => ({ circles: [] }))).circles;
+          return;
+        case 'circle': {
+          if (route.name !== 'circle') return;
+          try {
+            x.circle = (await api.circle(route.slug)).circle;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

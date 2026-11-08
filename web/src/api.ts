@@ -115,6 +115,9 @@ export const api = {
   // L50 毕业作品集
   portfolio: () => request<{ portfolio: import('./portfolio-core').Summary[] }>('/api/portfolio'),
   portfolioset: (slug: string) => request<{ set: import('./portfolio-core').Item }>(`/api/portfolio/${encodeURIComponent(slug)}`),
+  // L51 兴趣圈子
+  circles: () => request<{ circles: import('./circles-core').Summary[] }>('/api/circles'),
+  circle: (slug: string) => request<{ circle: import('./circles-core').Item }>(`/api/circles/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

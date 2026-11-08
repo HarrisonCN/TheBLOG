@@ -144,6 +144,7 @@ export const SITE_SECTIONS: SiteSection[] = [
       { id: 'feed', label: '社区动态', icon: 'users', desc: '关注的人和最新的作品', href: '/feed/', routes: ['feed', 'work'], keywords: 'feed 动态 作品' },
       { id: 'topics', label: '话题', icon: 'tag', desc: '摄影、编程、硬件、设计和日常', href: '/t/', routes: ['topics', 'topic'], keywords: 'topic 话题 订阅' },
       { id: 'groups', label: '小组', icon: 'users', desc: '按兴趣组队：加入小组、分享作品、看公告', href: '/groups/', routes: ['groups', 'group'], keywords: 'group 小组 兴趣 社群 组队' },
+      { id: 'circles', label: '兴趣圈子', icon: 'users', desc: '按兴趣聚在一起：圈子守则、圈主和最近的帖子，加入状态只存在本机', href: '/circles/', routes: ['circles', 'circle'], keywords: 'circle interest community club members posts join 圈子 兴趣 社群 加入 帖子 守则' },
       { id: 'critique', label: '作品点评', icon: 'message', desc: '按构图、光线、色彩、叙事四个维度的结构化点评', href: '/critique/', routes: ['critique', 'critiquework'], keywords: 'critique review feedback 点评 评图 意见 构图 光线' },
       { id: 'events', label: '摄影活动', icon: 'flag', desc: '每日一图、每周主题与投稿投票', href: '/events/', routes: ['events', 'event'], keywords: 'event 活动 投票 投稿 聊天室' },
       { id: 'challenges', label: '52 周挑战', icon: 'calendar', desc: '每周一个拍摄主题，按 ISO 周排好，完成进度只存在本机', href: '/challenges/', routes: ['challenges', 'challenge'], keywords: '52 week challenge weekly theme project 52 周 挑战 每周 主题 打卡' },
@@ -309,6 +310,6 @@ export function noindexRoute(route: RouteName): boolean {
   return SITE_SECTIONS.some((s) => s.entries.some((en) => en.index === false && en.routes.includes(route)));
 }
 /** 详情页（带参数的路由）：由各自的数据驱动预渲染 */
-const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'notfound']);
+const DETAIL = new Set<RouteName>(['post', 'tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'conversation', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'notfound']);
 /** 和条目同属一个 entry 但只属于个人的路由 */
 const NOINDEX = new Set<RouteName>(['msgrequests', 'msgsettings']);

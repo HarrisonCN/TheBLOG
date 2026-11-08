@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -227,6 +227,8 @@ if (API || DEMO) {
     extra.behind = (await soft('/api/behind', { behind: [] })).behind ?? [];
     // L50：毕业作品集
     extra.portfolio = (await soft('/api/portfolio', { portfolio: [] })).portfolio ?? [];
+    // L51：兴趣圈子
+    extra.circles = (await soft('/api/circles', { circles: [] })).circles ?? [];
     // @content:pre-extra — L36+ 内容栏目挂载点（scaffold）
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
@@ -496,6 +498,16 @@ if (API || DEMO) {
       n50++;
     }
     console.log(`[prerender] L50：毕业作品集 ${n50} 条`);
+    // L51：兴趣圈子（详情页全文都在静态 HTML 里）
+    let n51 = 0;
+    for (const s of extra.circles) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/circles/${s.slug}`, null);
+      if (!d?.circle) continue;
+      await emit({ name: 'circle', slug: s.slug }, async () => ({ circle: d.circle }), async () => ({ title: `${s.title} · 兴趣圈子`, description: s.summary || s.title, image: s.cover?.src || '', type: 'article' }));
+      n51++;
+    }
+    console.log(`[prerender] L51：兴趣圈子 ${n51} 条`);
     // @content:pre-emit — L36+ 内容栏目挂载点（scaffold）
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。
