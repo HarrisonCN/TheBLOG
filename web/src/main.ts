@@ -404,6 +404,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'polls':
+          x.polls = (await api.polls().catch(() => ({ polls: [] }))).polls;
+          return;
+        case 'poll': {
+          if (route.name !== 'poll') return;
+          try {
+            x.poll = (await api.poll(route.slug)).poll;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
