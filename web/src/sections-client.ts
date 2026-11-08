@@ -53,6 +53,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-portfolio]')) void import('./portfolio-client').then((m) => m.bind(root));
   // L51：兴趣圈子（按需加载）
   if (root.querySelector('[data-circle], [data-circles]')) void import('./circles-client').then((m) => m.bind(root));
+  // L52：问答区（按需加载）
+  if (root.querySelector('[data-question], [data-questions]')) void import('./qa-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

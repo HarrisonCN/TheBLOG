@@ -14,7 +14,7 @@ export interface Issue {
 }
 export type Field =
   | { k: 's'; label: string; max: number; opt?: true }
-  | { k: 'p'; label: string; min: number; max: number; len: number }
+  | { k: 'p'; label: string; min: number; max: number; len: number; opt?: true }
   | { k: 'i'; label: string; lo: number; hi: number; opt?: true }
   | { k: 'e'; label: string; vals: readonly string[]; opt?: true }
   | { k: 'd'; label: string; opt?: true }
@@ -22,7 +22,7 @@ export type Field =
   | { k: 'u'; label: string; opt?: true }
   | { k: 'b'; label: string; opt?: true }
   | { k: 't'; label: string; max: number; len: number; opt?: true }
-  | { k: 'l'; label: string; min: number; max: number; of: Schema };
+  | { k: 'l'; label: string; min: number; max: number; of: Schema; opt?: true };
 export type Schema = Record<string, Field>;
 type Bad = (path: string, message: string) => void;
 
@@ -91,7 +91,7 @@ export const BASE: Schema = {
   summary: { k: 's', label: '简介', max: 160 },
 };
 
-export function validateWith<T>(schema: Schema, input: unknown, extra?: (item: T, bad: Bad) => void): { item?: T; issues: Issue[] } {
+export function validateWith<T>(schema: Schema, input: unknown, extra?: (item: T, bad: Bad, raw: Record<string, unknown>) => void): { item?: T; issues: Issue[] } {
   const issues: Issue[] = [];
   const bad: Bad = (path, message) => void issues.push({ path, message });
   const o = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
@@ -102,7 +102,7 @@ export function validateWith<T>(schema: Schema, input: unknown, extra?: (item: T
   if (o.status !== 'published' && o.status !== 'draft') bad('status', '状态只能是 published / draft');
   if (issues.length) return { issues };
   const item = { ...out, fictional: true, date: o.date, status: o.status } as T;
-  extra?.(item, bad);
+  extra?.(item, bad, o);
   return issues.length ? { issues } : { item, issues };
 }
 
