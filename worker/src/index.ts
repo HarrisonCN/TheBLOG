@@ -47,6 +47,7 @@ import { routeAdmin as routeAdminProfiles, routePublic as routePublicProfiles } 
 import { routeAdmin as routeAdminWeekly, routePublic as routePublicWeekly } from './weekly';
 import { routeAdmin as routeAdminBookmarks, routePublic as routePublicBookmarks } from './bookmarks';
 import { routeAdmin as routeAdminTreehole, routePublic as routePublicTreehole } from './treehole';
+import { routeAdmin as routeAdminSwap, routePublic as routePublicSwap } from './swap';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -282,6 +283,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r62 = await routePublicTreehole(req, env, path);
     if (r62) return r62;
   }
+  // ---------- L63 互助交换（公开：只有已发布） ----------
+  if (path === '/api/swap' || path.startsWith('/api/swap/')) {
+    const r63 = await routePublicSwap(req, env, path);
+    if (r63) return r63;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -479,6 +485,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L62 树洞（整份 JSON 最多 64 KB）
     const a62 = await routeAdminTreehole(req, env, sub, () => readJson(req, 64 * 1024));
     if (a62) return a62;
+    // L63 互助交换（整份 JSON 最多 64 KB）
+    const a63 = await routeAdminSwap(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a63) return a63;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

@@ -534,6 +534,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'swap':
+          x.swap = (await api.swap().catch(() => ({ posts: [] }))).posts;
+          return;
+        case 'swapitem': {
+          if (route.name !== 'swapitem') return;
+          try {
+            x.swapitem = (await api.swapitem(route.slug)).post;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

@@ -75,6 +75,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-bookmark], [data-bookmarks]')) void import('./bookmarks-client').then((m) => m.bind(root));
   // L62：树洞（按需加载）
   if (root.querySelector('[data-treehole], [data-treenote]')) void import('./treehole-client').then((m) => m.bind(root));
+  // L63：互助交换（按需加载）
+  if (root.querySelector('[data-swap], [data-swapitem]')) void import('./swap-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

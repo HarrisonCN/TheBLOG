@@ -1038,3 +1038,15 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .tn-mine__item { padding: 0.5rem 0.7rem; border-radius: 10px; border: 1px dashed var(--accent); }
 .tn-mine__item p { margin: 0 0 0.3rem; overflow-wrap: anywhere; }
 .tn-pending { padding: 0 0.35rem; border-radius: 6px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); }
+/* L63 互助交换 */
+.sw-filter { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0 0 0.9rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); border-radius: 10px; }
+.sw-filter fieldset { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; margin: 0; padding: 0; border: 0; }
+.sw-filter legend { float: left; margin-right: 0.4rem; }
+.sw-filter select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
+.sw-head { font-weight: 600; color: var(--heading); }
+.sw-state.is-open { font-weight: 600; color: var(--heading); }
+.sw-headline { margin: 0 0 0.5rem; }
+.sw-kind { padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.sw-result { padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--accent-soft); color: var(--heading); }
+.sw-int [aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.sw-badge { margin-left: 0.25rem; padding: 0 0.4rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; font-weight: 600; }

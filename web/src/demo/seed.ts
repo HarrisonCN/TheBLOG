@@ -113,6 +113,8 @@ export interface DemoDb {
   bookmarks?: import('./mock-bookmarks').State;
   /** L62 树洞 */
   treehole?: import('./mock-treehole').State;
+  /** L63 互助交换 */
+  swap?: import('./mock-swap').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

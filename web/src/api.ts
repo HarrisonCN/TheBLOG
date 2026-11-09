@@ -151,6 +151,9 @@ export const api = {
   // L62 树洞
   treehole: () => request<{ notes: import('./treehole-core').Summary[] }>('/api/treehole'),
   treenote: (slug: string) => request<{ note: import('./treehole-core').Item }>(`/api/treehole/${encodeURIComponent(slug)}`),
+  // L63 互助交换
+  swap: () => request<{ posts: import('./swap-core').Summary[] }>('/api/swap'),
+  swapitem: (slug: string) => request<{ post: import('./swap-core').Item }>(`/api/swap/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
