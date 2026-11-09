@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.54.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.54.0) — 2026-11-08
+
+_L54 · 关注与动态流_
+
+### 新功能 Features
+
+- **l54:** 关注与动态流 — activity-core（web=worker）、/activity/ 合并时间线 + 成员卡片 + 「只看我关注的」、成员页（简介、个人时间线、关注只存在本机）、/api/activity + 站长接口、迁移 0045_activity (8bac06c)
+
+### 测试 Tests
+
+- **l54:** 关注与动态流 — 测试先行（fail-before） (cdd8b80)
+
+### 文档 Docs
+
+- **activity:** L54 docs/activity.md, README feature + unit counts (worker 492 + web 935), ROADMAP (7c9c9a6)
+
+### 杂项 Chores
+
+- **release:** 1.54.0 — version bump, release-meta (1.53.0 frozen at 70c112a) (fe524d8)
+
 ## [1.53.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.53.0) — 2026-11-08
 
 _L53 · 投票与小测验_
