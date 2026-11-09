@@ -44,6 +44,8 @@
 
 本地：`PW_DIR=<装了 playwright 与 axe-core 的目录> node scripts/browser-e2e.mjs --browser firefox`。
 
+**CI 运行环境（hotfix，2026-11-09）**：`browser` 任务固定在 `runs-on: ubuntu-24.04`。GitHub 把 `ubuntu-latest` 切到 Ubuntu 26.04 后，v1.54.0（a9e3e2b）的 main CI 里 `browser (webkit)` 在「Install Playwright + axe-core」一步失败：playwright 1.47.2 的 `install --with-deps webkit` 需要 libicu74、libxml2、libvpx9、libx264-164，26.04 没有这些包（重跑一次同样失败，不是偶发，也没有任何测试被执行）。测试与门槛未改动；`check` 任务仍用 `ubuntu-latest`。之后升级 Playwright 时一并评估放开固定。
+
 ## 4. 验收清单（每个版本）
 
 1. 先写测试，保留失败日志（fail-before）。
