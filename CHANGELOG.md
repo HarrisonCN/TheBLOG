@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.56.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.56.0) — 2026-11-09
+
+_L56 · 活动与聚会_
+
+### 新功能 Features
+
+- **l56:** 活动与聚会 — meetups-core（web=worker，toIcs / whenText / seatsLeft）、/meetups/ 活动列表（按当前时间标已结束）、活动页（议程、名额、.ics 加到日历、报名只存在本机）、/api/meetups + 站长接口、迁移 0047_meetups (58dee76)
+
+### 测试 Tests
+
+- **l56:** 活动与聚会 — 测试先行（fail-before） (70f4a9e)
+
+### 文档 Docs
+
+- **meetups:** L56 docs/meetups.md, README feature + unit counts (worker 504 + web 956), ROADMAP (eea4414)
+
+### 杂项 Chores
+
+- **release:** 1.56.0 — version bump, release-meta (1.55.1 frozen at b1b9559) (361500e)
+
 ## [1.55.1](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.55.1) — 2026-11-09
 
 _L55 hotfix · 话题热门在近 30 天没有作品时不再为空_
