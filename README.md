@@ -137,6 +137,7 @@ scripts/e2e.mjs         端到端测试
 - **投票与小测验（L53 · 1.53.0）**：社区栏目新增 **投票与小测验** `/polls/`：结果条预渲染、一机一票（本机）、测验答完才显示对错与解析并给出得分。见 [docs/polls.md](docs/polls.md)。
 - **关注与动态流（L54 · 1.54.0）**：社区栏目新增 **关注与动态流** `/activity/`：成员动态合并成时间线，关注与「只看我关注的」只存在本机。见 [docs/activity.md](docs/activity.md)。
 - **接龙写作（L55 · 1.55.0）**：社区栏目新增 **接龙写作** `/relay/`：一人一段、同一作者不能连续、写满完结；续写表单校验后只保存在本机。见 [docs/relay.md](docs/relay.md)。
+- **活动与聚会（L56 · 1.56.0）**：社区栏目新增 **活动与聚会** `/meetups/`：时间地点、议程与名额，.ics 加到日历（UTC、CRLF），报名与「已结束」标记只在本机计算。见 [docs/meetups.md](docs/meetups.md)。
 - **MCP**：`/mcp`，工具 `list_posts` `get_post` `create_post` `update_post` `delete_post` `publish_post` `get_profile` `update_profile` `get_settings` `update_settings` `upload_image` 以及社区工具 `list_members` `grant_badge` `revoke_badge` `list_sticky_notes` `moderate_sticky_note` `list_inbox` `moderate_inbox` `get_festivals` `set_festivals` `set_projects`，以及 `update_section`（整体替换一个扩展栏目；`get_site_content` 可读取全部栏目）；L20 起还有按令牌作用域分级的开放工具 `whoami` `search_public_works` `get_public_work` `list_public_posts` `get_public_profile` `list_topics`（只读公开）、`list_my_works` `get_my_work` `create_my_work` `update_my_work` `publish_my_work` `delete_my_work`（作者）、`list_moderation_queue` `moderate_content` `list_webmentions` `moderate_webmention`（审核员）。详见 [docs/mcp-clients.md](docs/mcp-clients.md)。
 
 ## API
@@ -222,7 +223,7 @@ npm run dev:web        # 前端    http://localhost:5173 （/api、/mcp 代理�
 
 ```bash
 npm run typecheck
-npm test               # worker 497 个 + web 945 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
+npm test               # worker 504 个 + web 956 个单元测试（含 CI 里每次都跑的 D1 恢复演练）
 npm run e2e            # wrangler dev + 官方 MCP SDK 客户端建文、改文、发布 → 前端构建 → 检查生成的页面
 ```
 
