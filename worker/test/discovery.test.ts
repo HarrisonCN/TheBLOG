@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { call, disposeEnv, login, setupEnv } from './helpers';
 import { testOutbox } from '../src/community';
 import type { Env } from '../src/env';
-import { checkCollectionItem, checkEvent, checkTopic, checkWorkTopics, eventPhase, hotScore, talliesVisible, voteEligibility } from '../src/discovery-core';
+import { checkCollectionItem, checkEvent, checkTopic, checkWorkTopics, eventPhase, HOT_WINDOW_DAYS, hotScore, rankHot, talliesVisible, voteEligibility } from '../src/discovery-core';
 
 let env: Env;
 let admin: { cookie: string; csrf: string };
@@ -54,6 +54,18 @@ describe('discovery-core 纯函数', () => {
     const busy = hotScore({ reactions: 9, comments: 4, bookmarks: 3, publishedAt: '2026-10-11T10:00:00Z' }, now);
     expect(fresh).toBeGreaterThan(old);
     expect(busy).toBeGreaterThan(fresh);
+  });
+  it('热门排行：先看近 30 天；窗口内一件都没有时退回全部作品（同一分数），并标出范围', () => {
+    const now = Date.parse('2026-11-09T22:00:00Z');
+    const day = 86_400_000;
+    const at = (d: number) => new Date(now - d * day).toISOString();
+    const row = (id: number, d: number, reactions = 0) => ({ id, publishedAt: at(d), reactions, comments: 0, bookmarks: 0 });
+    // 窗口内有作品：只排窗口内的，旧作品不混进来
+    expect(rankHot([row(1, 2), row(2, 40, 50), row(3, 1, 3)], now, 24)).toEqual({ ids: [3, 1], scope: 'recent' });
+    // 窗口内一件都没有：不再显示空列表，按全部作品排（互动多、越新越靠前）
+    expect(rankHot([row(1, HOT_WINDOW_DAYS + 5), row(2, HOT_WINDOW_DAYS + 9, 20), row(3, HOT_WINDOW_DAYS + 1)], now, 24)).toEqual({ ids: [2, 3, 1], scope: 'all' });
+    expect(rankHot([row(1, 100), row(2, 90)], now, 1).ids).toEqual([2]);
+    expect(rankHot([], now, 24)).toEqual({ ids: [], scope: 'recent' });
   });
   it('活动：阶段 / 投稿期上限 / 票数可见性 / 投票资格', () => {
     const e = { startsAt: '2026-10-10T00:00:00Z', endsAt: '2026-10-12T00:00:00Z', voting: true, voteEndsAt: '2026-10-14T00:00:00Z' };
@@ -132,6 +144,21 @@ describe('L17 话题 / 订阅 / 发现', () => {
     expect((await get('/api/social/topics/photography/works?sort=random')).status).toBe(400);
     const t = await J(await get('/api/social/topics/photography'));
     expect(t.topic.counts.works).toBe(1);
+  });
+  it('话题热门：近 30 天没有新作品时不显示空列表，退回全部作品排序（hotScope=all）', async () => {
+    const hot = await J(await get('/api/social/topics/photography/works?sort=hot'));
+    expect(hot.hotScope).toBe('recent');
+    const { results } = await env.DB.prepare('SELECT id, published_at FROM user_posts').all<{ id: number; published_at: string | null }>();
+    const old = new Date(Date.now() - (HOT_WINDOW_DAYS + 10) * 86_400_000).toISOString();
+    await env.DB.prepare('UPDATE user_posts SET published_at = ? WHERE published_at IS NOT NULL').bind(old).run();
+    try {
+      const aged = await J(await get('/api/social/topics/photography/works?sort=hot'));
+      expect(aged.hotScope).toBe('all');
+      expect(aged.works.map((w: any) => w.id)).toContain(wPub);
+      expect(aged.works.map((w: any) => w.id)).not.toContain(wFol);
+    } finally {
+      for (const r of results) await env.DB.prepare('UPDATE user_posts SET published_at = ? WHERE id = ?').bind(r.published_at, r.id).run();
+    }
   });
   it('精选：站长设置后出现在话题页「精选」', async () => {
     expect((await adm('/api/admin/discovery/topics/photography/featured', { workId: wShort })).status).toBe(404); // 不在这个话题
