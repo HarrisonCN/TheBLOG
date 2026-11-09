@@ -78,6 +78,8 @@ import { Mock as MockTreehole } from './mock-treehole';
 import { seed as treeholeSeed } from './seed-treehole';
 import { Mock as MockSwap } from './mock-swap';
 import { seed as swapSeed } from './seed-swap';
+import { Mock as MockLife } from './mock-life';
+import { seed as lifeSeed } from './seed-life';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -718,6 +720,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.life = new MockLife({
+      state: () => this.db().life ?? lifeSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.life ??= lifeSeed(this.base);
+        mutate(db.life);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -786,6 +797,7 @@ export class DemoBackend {
   private bookmarks: MockBookmarks;
   private treehole: MockTreehole;
   private swap: MockSwap;
+  private life: MockLife;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -1066,6 +1078,11 @@ export class DemoBackend {
       const r63 = this.swap.routePublic(m, path);
       if (r63) return r63;
     }
+    // ---- L64 生活专栏（公开：只有已发布）----
+    if (path === '/api/life' || path.startsWith('/api/life/')) {
+      const r64 = this.life.routePublic(m, path);
+      if (r64) return r64;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1290,6 +1307,9 @@ export class DemoBackend {
       // L63 互助交换
       const a63 = this.swap.routeAdmin(m, sub, body);
       if (a63) return a63;
+      // L64 生活专栏
+      const a64 = this.life.routeAdmin(m, sub, body);
+      if (a64) return a64;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

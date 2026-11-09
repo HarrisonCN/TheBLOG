@@ -101,6 +101,8 @@ import { listPage as treeholeListPage, detailPage as treeholeDetailPage } from '
 import { SLUG_RE as Treehole_SLUG_RE, type Item as TreeholeItem, type Summary as TreeholeSummary } from './treehole-core';
 import { listPage as swapListPage, detailPage as swapDetailPage } from './swap-view';
 import { SLUG_RE as Swap_SLUG_RE, type Item as SwapItem, type Summary as SwapSummary } from './swap-core';
+import { listPage as lifeListPage, detailPage as lifeDetailPage } from './life-view';
+import { SLUG_RE as Life_SLUG_RE, type Item as LifeItem, type Summary as LifeSummary } from './life-core';
 // @content:imports — L36+ 内容栏目挂载点（scaffold）
 import { GROUP_SLUG_RE } from './group-core';
 
@@ -265,6 +267,8 @@ export type Route =
   | { name: 'treenote'; slug: string }
   | { name: 'swap' }
   | { name: 'swapitem'; slug: string }
+  | { name: 'life' }
+  | { name: 'lifepost'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -272,7 +276,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, challenges: 1, challenge: 1, film: 1, filmroll: 1, composition: 1, compositionstudy: 1, calls: 1, call: 1, behind: 1, behindwork: 1, portfolio: 1, portfolioset: 1, circles: 1, circle: 1, qa: 1, question: 1, polls: 1, poll: 1, activity: 1, stream: 1, relay: 1, relaystory: 1, meetups: 1, meetup: 1, bookclub: 1, clubbook: 1, threads: 1, thread: 1, profiles: 1, memberprofile: 1, weekly: 1, weeklyissue: 1, bookmarks: 1, bookmark: 1, treehole: 1, treenote: 1, swap: 1, swapitem: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, challenges: 1, challenge: 1, film: 1, filmroll: 1, composition: 1, compositionstudy: 1, calls: 1, call: 1, behind: 1, behindwork: 1, portfolio: 1, portfolioset: 1, circles: 1, circle: 1, qa: 1, question: 1, polls: 1, poll: 1, activity: 1, stream: 1, relay: 1, relaystory: 1, meetups: 1, meetup: 1, bookclub: 1, clubbook: 1, threads: 1, thread: 1, profiles: 1, memberprofile: 1, weekly: 1, weeklyissue: 1, bookmarks: 1, bookmark: 1, treehole: 1, treenote: 1, swap: 1, swapitem: 1, life: 1, lifepost: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -400,6 +404,8 @@ const STATIC: Record<string, Route['name']> = {
   '/treehole': 'treehole',
   // L63 互助交换
   '/swap': 'swap',
+  // L64 生活专栏
+  '/life': 'life',
   // @content:static — L36+ 内容栏目挂载点（scaffold）
 };
 /** 扩展栏目的静态路由（预渲染用） */
@@ -544,6 +550,9 @@ export function parseRoute(pathname: string): Route {
   // L63：互助交换
   m = /^\/swap\/([^/]+)$/.exec(p);
   if (m) return Swap_SLUG_RE.test(m[1]!) ? { name: 'swapitem', slug: m[1]! } : { name: 'notfound' };
+  // L64：生活专栏
+  m = /^\/life\/([^/]+)$/.exec(p);
+  if (m) return Life_SLUG_RE.test(m[1]!) ? { name: 'lifepost', slug: m[1]! } : { name: 'notfound' };
   // L28：小组详情
   m = /^\/groups\/([^/]+)$/.exec(p);
   if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
@@ -757,6 +766,10 @@ export function routePath(r: Route): string {
       return '/swap/';
     case 'swapitem':
       return `/swap/${r.slug}/`;
+    case 'life':
+      return '/life/';
+    case 'lifepost':
+      return `/life/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -944,6 +957,9 @@ export interface Extra {
   /** L63 互助交换：列表（已发布）/ 详情 */
   swap?: SwapSummary[];
   swapitem?: SwapItem;
+  /** L64 生活专栏：列表（已发布）/ 详情 */
+  life?: LifeSummary[];
+  lifepost?: LifeItem;
   issueNav?: { prev: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null; next: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null };
 }
 
@@ -1109,6 +1125,10 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['swap'];
     case 'swapitem':
       return ['swapitem'];
+    case 'life':
+      return ['life'];
+    case 'lifepost':
+      return ['lifepost'];
     default:
       return [];
   }
@@ -2389,6 +2409,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return swapListPage(site, route, x.swap ?? []);
     case 'swapitem':
       return x.swapitem ? swapDetailPage(site, route, x.swapitem) : notFoundPage(site, route);
+    case 'life':
+      return lifeListPage(site, route, x.life ?? []);
+    case 'lifepost':
+      return x.lifepost ? lifeDetailPage(site, route, x.lifepost) : notFoundPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':

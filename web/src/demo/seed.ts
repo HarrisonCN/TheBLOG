@@ -115,6 +115,8 @@ export interface DemoDb {
   treehole?: import('./mock-treehole').State;
   /** L63 互助交换 */
   swap?: import('./mock-swap').State;
+  /** L64 生活专栏 */
+  life?: import('./mock-life').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;
