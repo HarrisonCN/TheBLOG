@@ -2,6 +2,30 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.55.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.55.0) — 2026-11-09
+
+_L55 · 接龙写作_
+
+### 新功能 Features
+
+- **l55:** 接龙写作 — relay-core（web=worker）、/relay/ 故事列表（进度、进行中 / 已完成）、故事页（段落、规则、续写表单校验后只存在本机）、/api/relay + 站长接口、迁移 0046_relay (deddb20)
+
+### 测试 Tests
+
+- **l55:** 接龙写作 — 测试先行（fail-before） (4290ffc)
+
+### 文档 Docs
+
+- **relay:** L55 docs/relay.md, README feature + unit counts (worker 497 + web 945), ROADMAP (c27bf8a)
+
+### CI
+
+- pin browser jobs to ubuntu-24.04 (26.04 lacks webkit deps for playwright 1.47) (#54) (4d23ca9)
+
+### 杂项 Chores
+
+- **release:** 1.55.0 — version bump, release-meta (1.54.0 frozen at a9e3e2b) (cbd2de1)
+
 ## [1.54.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.54.0) — 2026-11-08
 
 _L54 · 关注与动态流_
