@@ -2,6 +2,22 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.55.1](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.55.1) — 2026-11-09
+
+_L55 hotfix · 话题热门在近 30 天没有作品时不再为空_
+
+### 修复 Fixes
+
+- **discovery:** 话题热门在近 30 天没有作品时退回全部作品排序（rankHot，web = worker），说明里写明，不再显示空列表 (b0e0f08)
+
+### 测试 Tests
+
+- **discovery:** 话题热门在近 30 天没有作品时不变空 — 测试先行（fail-before） (c495354)
+
+### 杂项 Chores
+
+- **release:** 1.55.1 — version bump, release-meta (1.55.0 frozen at 6be062c) (6176c46)
+
 ## [1.55.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.55.0) — 2026-11-09
 
 _L55 · 接龙写作_

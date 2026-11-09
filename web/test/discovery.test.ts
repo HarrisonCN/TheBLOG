@@ -52,6 +52,14 @@ describe('演示 mock：L17 发现与活跃（与 Worker 同规则）', () => {
     for (const sort of ['latest', 'hot', 'featured']) expect(B(await api.handle('GET', `/api/social/topics/photography/works?sort=${sort}`)).works.length).toBeGreaterThan(0);
     expect((await api.handle('GET', '/api/social/topics/nope-x')).status).toBe(404);
   });
+  it('热门：演示种子过了 30 天也不会变空 —— 退回全部作品排序并标出 hotScope=all（L56 回归里发现的时间相关空列表）', async () => {
+    expect(B(await api.handle('GET', '/api/social/topics/photography/works?sort=hot')).hotScope).toBe('recent');
+    clock += 60 * 86_400_000;
+    const r = B(await api.handle('GET', '/api/social/topics/photography/works?sort=hot'));
+    expect(r.hotScope).toBe('all');
+    expect(r.works.length).toBeGreaterThan(0);
+    expect(r.works.every((w: any) => w.visibility === 'public')).toBe(true);
+  });
   it('订阅话题后，「关注」流出现话题作品（没关注任何人）；新作品通知每话题每天一条', async () => {
     const a = await join('a17@example.com', '阿一', 'ayi_17');
     const b = await join('b17@example.com', '阿二', 'aer_17');

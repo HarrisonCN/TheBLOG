@@ -30,7 +30,8 @@ import {
   entryEligibility,
   eventPhase,
   HOT_WINDOW_DAYS,
-  hotScore,
+  rankHot,
+  type HotScope,
   MAX_COLLECTION_ITEMS,
   MAX_COLLECTIONS,
   talliesVisible,
@@ -157,25 +158,24 @@ async function topicBlogPosts(env: Env, topicId: number, limit = 6): Promise<Blo
 function viewerFilter(viewer: Member | null): { sql: string; args: unknown[] } {
   return viewer ? { sql: ` AND ${HIDE_RELATED_SQL}`, args: [viewer.id, viewer.id] } : { sql: '', args: [] };
 }
-async function hotIds(env: Env, topicId: number | null, viewer: Member | null, limit: number): Promise<number[]> {
-  const since = new Date(Date.now() - HOT_WINDOW_DAYS * 86_400_000).toISOString();
+async function hotIds(env: Env, topicId: number | null, viewer: Member | null, limit: number): Promise<{ ids: number[]; scope: HotScope }> {
+  // 不在 SQL 里按 30 天窗口过滤：窗口内一件都没有时要退回全部作品（rankHot）。最近 300 件足够：窗口内超过 300 件时它们全是窗口内的。
   const vf = viewerFilter(viewer);
   const { results } = await env.DB.prepare(
     `SELECT p.id, p.published_at,
        (SELECT COUNT(*) FROM user_reactions r WHERE r.post_id = p.id) AS rc,
        (SELECT COUNT(*) FROM user_post_comments c WHERE c.post_id = p.id AND c.status = 'published' AND c.mod_state = 'ok' AND c.deleted_at IS NULL) AS cc,
        (SELECT COUNT(*) FROM user_post_bookmarks b WHERE b.post_id = p.id) AS bc
-     FROM user_posts p WHERE ${PUBLIC_WORK_SQL} AND p.published_at >= ?${topicId ? ' AND p.id IN (SELECT post_id FROM post_topics WHERE topic_id = ?)' : ''}${vf.sql}
+     FROM user_posts p WHERE ${PUBLIC_WORK_SQL}${topicId ? ' AND p.id IN (SELECT post_id FROM post_topics WHERE topic_id = ?)' : ''}${vf.sql}
      ORDER BY p.published_at DESC LIMIT 300`,
   )
-    .bind(since, ...(topicId ? [topicId] : []), ...vf.args)
+    .bind(...(topicId ? [topicId] : []), ...vf.args)
     .all<{ id: number; published_at: string; rc: number; cc: number; bc: number }>();
-  const now = Date.now();
-  return results
-    .map((r) => ({ id: r.id, s: hotScore({ reactions: r.rc, comments: r.cc, bookmarks: r.bc, publishedAt: r.published_at }, now) }))
-    .sort((a, b) => b.s - a.s || b.id - a.id)
-    .slice(0, limit)
-    .map((x) => x.id);
+  return rankHot(
+    results.map((r) => ({ id: r.id, publishedAt: r.published_at, reactions: r.rc, comments: r.cc, bookmarks: r.bc })),
+    Date.now(),
+    limit,
+  );
 }
 async function worksByIds(env: Env, ids: number[], viewerId: number | null): Promise<Work[]> {
   if (!ids.length) return [];
@@ -201,7 +201,10 @@ export async function topicWorks(req: Request, env: Env, slug: string, url: URL)
   const t = await topicBySlug(env, slug);
   const sort = (url.searchParams.get('sort') ?? 'latest') as TopicSort;
   if (!TOPIC_SORTS.includes(sort)) throw bad('sort', 'sort 只能是 featured / latest / hot');
-  if (sort === 'hot') return { works: await worksByIds(env, await hotIds(env, t.id, viewer, 24), viewer?.id ?? null), nextCursor: null, sort };
+  if (sort === 'hot') {
+    const h = await hotIds(env, t.id, viewer, 24);
+    return { works: await worksByIds(env, h.ids, viewer?.id ?? null), nextCursor: null, sort, hotScope: h.scope };
+  }
   const limit = Math.min(30, Math.max(1, Number(url.searchParams.get('limit') ?? 12) || 12));
   const before = Number(url.searchParams.get('cursor') ?? 0) || 0;
   const vf = viewerFilter(viewer);

@@ -76,6 +76,20 @@ export function hotScore(x: { reactions: number; comments: number; bookmarks: nu
   const points = 1 + x.reactions + 2 * x.comments + 3 * x.bookmarks;
   return points / Math.pow(ageH + 2, 1.5);
 }
+/** 热门的取样范围：recent = 近 HOT_WINDOW_DAYS 天；all = 窗口内一件都没有时退回全部作品（小社区安静一阵子很常见，不该显示空列表）。 */
+export type HotScope = 'recent' | 'all';
+/** 热门排行（web = worker 同一规则）：先只排近 HOT_WINDOW_DAYS 天发布的作品；窗口内一件都没有时，用同一个分数排全部作品（分数本身随时间衰减，越新越靠前）。 */
+export function rankHot(rows: { id: number; publishedAt: string; reactions: number; comments: number; bookmarks: number }[], now: number, limit: number): { ids: number[]; scope: HotScope } {
+  const since = now - HOT_WINDOW_DAYS * 86_400_000;
+  const recent = rows.filter((r) => Date.parse(r.publishedAt) >= since);
+  const scope: HotScope = recent.length || !rows.length ? 'recent' : 'all';
+  const ids = (scope === 'recent' ? recent : rows)
+    .map((r) => ({ id: r.id, s: hotScore(r, now) }))
+    .sort((a, b) => b.s - a.s || b.id - a.id)
+    .slice(0, limit)
+    .map((x) => x.id);
+  return { ids, scope };
+}
 
 // ============================================================ 活动
 export const EVENT_KINDS = ['daily', 'weekly', 'open'] as const;
