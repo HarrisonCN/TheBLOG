@@ -928,3 +928,18 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .af-follow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.6rem 0; }
 .af-follow [aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
 .af-filter { margin: 0 0 0.75rem; }
+/* L55 接龙写作 */
+.rl-prompt { margin: 0 0 0.4rem; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.rl-paras { list-style: none; margin: 1rem 0; padding: 0; display: grid; gap: 0.75rem; counter-reset: none; }
+.rl-para { padding: 0.6rem 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.rl-para.is-mine { border-style: dashed; border-color: var(--accent); }
+.rl-para p { margin: 0 0 0.25rem; }
+.rl-text { line-height: 1.8; overflow-wrap: anywhere; }
+.rl-done { display: flex; gap: 0.5rem; align-items: center; padding: 0.5rem 0.75rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.rl-done svg { flex: none; width: 1.1em; height: 1.1em; }
+.rl-form { display: grid; gap: 0.5rem; max-width: 640px; padding: 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.rl-form h2 { margin: 0; }
+.rl-form p { margin: 0; }
+.rl-field { display: grid; gap: 0.25rem; }
+.rl-field input, .rl-field textarea { font: inherit; padding: 0.4rem 0.55rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); width: 100%; box-sizing: border-box; }
+.rl-state.is-done { font-weight: 600; color: var(--heading); }

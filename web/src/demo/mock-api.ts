@@ -60,6 +60,8 @@ import { Mock as MockPolls } from './mock-polls';
 import { seed as pollsSeed } from './seed-polls';
 import { Mock as MockActivity } from './mock-activity';
 import { seed as activitySeed } from './seed-activity';
+import { Mock as MockRelay } from './mock-relay';
+import { seed as relaySeed } from './seed-relay';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -619,6 +621,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.relay = new MockRelay({
+      state: () => this.db().relay ?? relaySeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.relay ??= relaySeed(this.base);
+        mutate(db.relay);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -678,6 +689,7 @@ export class DemoBackend {
   private qa: MockQa;
   private polls: MockPolls;
   private activity: MockActivity;
+  private relay: MockRelay;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -913,6 +925,11 @@ export class DemoBackend {
       const r54 = this.activity.routePublic(m, path);
       if (r54) return r54;
     }
+    // ---- L55 接龙写作（公开：只有已发布）----
+    if (path === '/api/relay' || path.startsWith('/api/relay/')) {
+      const r55 = this.relay.routePublic(m, path);
+      if (r55) return r55;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1110,6 +1127,9 @@ export class DemoBackend {
       // L54 关注与动态流
       const a54 = this.activity.routeAdmin(m, sub, body);
       if (a54) return a54;
+      // L55 接龙写作
+      const a55 = this.relay.routeAdmin(m, sub, body);
+      if (a55) return a55;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
