@@ -38,6 +38,7 @@ import { routeAdmin as routeAdminPortfolio, routePublic as routePublicPortfolio 
 import { routeAdmin as routeAdminCircles, routePublic as routePublicCircles } from './circles';
 import { routeAdmin as routeAdminQa, routePublic as routePublicQa } from './qa';
 import { routeAdmin as routeAdminPolls, routePublic as routePublicPolls } from './polls';
+import { routeAdmin as routeAdminActivity, routePublic as routePublicActivity } from './activity';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -228,6 +229,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r53 = await routePublicPolls(req, env, path);
     if (r53) return r53;
   }
+  // ---------- L54 关注与动态流（公开：只有已发布） ----------
+  if (path === '/api/activity' || path.startsWith('/api/activity/')) {
+    const r54 = await routePublicActivity(req, env, path);
+    if (r54) return r54;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -398,6 +404,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L53 投票与小测验（整份 JSON 最多 64 KB）
     const a53 = await routeAdminPolls(req, env, sub, () => readJson(req, 64 * 1024));
     if (a53) return a53;
+    // L54 关注与动态流（整份 JSON 最多 64 KB）
+    const a54 = await routeAdminActivity(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a54) return a54;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

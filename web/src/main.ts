@@ -417,6 +417,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'activity':
+          x.activity = (await api.activity().catch(() => ({ streams: [] }))).streams;
+          return;
+        case 'stream': {
+          if (route.name !== 'stream') return;
+          try {
+            x.stream = (await api.stream(route.slug)).stream;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
