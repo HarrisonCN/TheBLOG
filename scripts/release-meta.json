@@ -1,7 +1,8 @@
 {
   "$comment": "SemVer ↔ 里程碑：Lnn = 1.nn.0，修补版本 = 1.nn.x。scripts/changelog.mjs 读这里生成 CHANGELOG.md；已发布版本的段落一旦写入就冻结（squash 合并后提交明细会丢失）。",
   "releases": [
-    { "version": "1.53.0", "milestone": "L53", "from": "f17e6fd", "date": "2026-11-08", "title": "投票与小测验" },
+    { "version": "1.54.0", "milestone": "L54", "from": "70c112a", "date": "2026-11-08", "title": "关注与动态流" },
+    { "version": "1.53.0", "milestone": "L53", "sha": "70c112a", "from": "f17e6fd", "date": "2026-11-08", "title": "投票与小测验" },
     { "version": "1.52.0", "milestone": "L52", "sha": "f17e6fd", "from": "f51320a", "date": "2026-11-08", "title": "问答区" },
     { "version": "1.51.0", "milestone": "L51", "sha": "f51320a", "from": "7cc0666", "date": "2026-11-08", "title": "兴趣圈子" },
     { "version": "1.50.0", "milestone": "L50", "sha": "7cc0666", "from": "b31491d", "date": "2026-11-07", "title": "毕业作品集" },
