@@ -43,6 +43,7 @@ import { routeAdmin as routeAdminRelay, routePublic as routePublicRelay } from '
 import { routeAdmin as routeAdminMeetups, routePublic as routePublicMeetups } from './meetups';
 import { routeAdmin as routeAdminBookclub, routePublic as routePublicBookclub } from './bookclub';
 import { routeAdmin as routeAdminThreads, routePublic as routePublicThreads } from './threads';
+import { routeAdmin as routeAdminProfiles, routePublic as routePublicProfiles } from './profiles';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -258,6 +259,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r58 = await routePublicThreads(req, env, path);
     if (r58) return r58;
   }
+  // ---------- L59 成员主页与成就（公开：只有已发布） ----------
+  if (path === '/api/profiles' || path.startsWith('/api/profiles/')) {
+    const r59 = await routePublicProfiles(req, env, path);
+    if (r59) return r59;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -443,6 +449,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L58 话题广场（整份 JSON 最多 64 KB）
     const a58 = await routeAdminThreads(req, env, sub, () => readJson(req, 64 * 1024));
     if (a58) return a58;
+    // L59 成员主页与成就（整份 JSON 最多 64 KB）
+    const a59 = await routeAdminProfiles(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a59) return a59;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

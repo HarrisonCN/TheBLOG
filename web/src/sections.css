@@ -983,3 +983,21 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .th-reply p { margin: 0 0 0.25rem; }
 .th-text { overflow-wrap: anywhere; }
 .th-floor { font-variant-numeric: tabular-nums; font-weight: 700; }
+/* L59 成员主页与成就 */
+.mb-bio { margin: 0 0 0.25rem; }
+.mb-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; margin: 0.75rem 0; }
+.mb-stats div { padding: 0.5rem 0.6rem; border-radius: 10px; background: var(--accent-soft); color: var(--heading); }
+.mb-stats dt { font-size: 0.8rem; }
+.mb-stats dd { margin: 0; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mb-links { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.mb-links a { display: inline-flex; gap: 0.25rem; align-items: center; }
+.mb-links svg { width: 1em; height: 1em; }
+.mb-badges { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
+.mb-badge { display: grid; gap: 0.2rem; padding: 0.6rem 0.7rem; border-radius: 12px; border: 1px dashed var(--border, rgb(127 127 127 / 0.45)); }
+.mb-badge.is-earned { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--heading); }
+.mb-badge[hidden] { display: none; }
+.mb-badge__icon { font-size: 1.4rem; line-height: 1; }
+.mb-badge__label { font-weight: 700; }
+.mb-badge progress { width: 100%; height: 0.5rem; accent-color: var(--accent); }
+.mb-sort { margin: 0 0 0.75rem; }
+.mb-sort select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
