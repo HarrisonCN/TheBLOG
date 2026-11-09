@@ -157,6 +157,9 @@ export const api = {
   // L64 生活专栏
   life: () => request<{ posts: import('./life-core').Summary[] }>('/api/life'),
   lifepost: (slug: string) => request<{ post: import('./life-core').Item }>(`/api/life/${encodeURIComponent(slug)}`),
+  // L65 社区守则与治理
+  guidelines: () => request<{ guidelines: import('./guidelines-core').Summary[] }>('/api/guidelines'),
+  guideline: (slug: string) => request<{ guideline: import('./guidelines-core').Item }>(`/api/guidelines/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

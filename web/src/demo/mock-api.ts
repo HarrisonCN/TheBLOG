@@ -80,6 +80,8 @@ import { Mock as MockSwap } from './mock-swap';
 import { seed as swapSeed } from './seed-swap';
 import { Mock as MockLife } from './mock-life';
 import { seed as lifeSeed } from './seed-life';
+import { Mock as MockGuidelines } from './mock-guidelines';
+import { seed as guidelinesSeed } from './seed-guidelines';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -729,6 +731,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.guidelines = new MockGuidelines({
+      state: () => this.db().guidelines ?? guidelinesSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.guidelines ??= guidelinesSeed(this.base);
+        mutate(db.guidelines);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -798,6 +809,7 @@ export class DemoBackend {
   private treehole: MockTreehole;
   private swap: MockSwap;
   private life: MockLife;
+  private guidelines: MockGuidelines;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -1083,6 +1095,11 @@ export class DemoBackend {
       const r64 = this.life.routePublic(m, path);
       if (r64) return r64;
     }
+    // ---- L65 社区守则与治理（公开：只有已发布）----
+    if (path === '/api/guidelines' || path.startsWith('/api/guidelines/')) {
+      const r65 = this.guidelines.routePublic(m, path);
+      if (r65) return r65;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1310,6 +1327,9 @@ export class DemoBackend {
       // L64 生活专栏
       const a64 = this.life.routeAdmin(m, sub, body);
       if (a64) return a64;
+      // L65 社区守则与治理
+      const a65 = this.guidelines.routeAdmin(m, sub, body);
+      if (a65) return a65;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

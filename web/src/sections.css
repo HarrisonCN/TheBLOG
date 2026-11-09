@@ -1066,3 +1066,23 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .lf-day ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
 .lf-kind { font-weight: 600; color: var(--heading); }
 .lf-filter { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: center; margin: 0 0 0.75rem; padding: 0.4rem 0.7rem; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); border-radius: 10px; }
+/* L65 社区守则与治理 */
+.gl-rules { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+.gl-rules li { overflow-wrap: anywhere; }
+.gl-ex { display: block; margin-top: 0.15rem; color: var(--text); opacity: 0.85; }
+.gl-tablewrap { overflow-x: auto; }
+.gl-table { border-collapse: collapse; min-width: 100%; font-variant-numeric: tabular-nums; }
+.gl-table caption { text-align: left; font-size: 0.85rem; margin-bottom: 0.3rem; }
+.gl-table th, .gl-table td { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--border, rgb(127 127 127 / 0.3)); text-align: right; white-space: nowrap; }
+.gl-table th:first-child, .gl-table thead th:first-child { text-align: left; }
+.gl-dash, .gl-report { margin: 1.5rem 0 0; }
+.gl-report { padding: 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); max-width: 640px; }
+.gl-report h2, .gl-report h3 { margin: 0 0 0.4rem; }
+.gl-report form { display: grid; gap: 0.5rem; margin: 0 0 1rem; }
+.gl-report form p { margin: 0; }
+.gl-field { display: grid; gap: 0.25rem; }
+.gl-field input, .gl-field select, .gl-field textarea { font: inherit; padding: 0.4rem 0.55rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); width: 100%; box-sizing: border-box; }
+.gl-mine { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.gl-mine__item { padding: 0.5rem 0.7rem; border-radius: 10px; border: 1px dashed var(--accent); }
+.gl-mine__item p { margin: 0 0 0.3rem; overflow-wrap: anywhere; }
+.gl-sent { padding: 0 0.35rem; border-radius: 6px; background: var(--accent-soft); color: var(--heading); }

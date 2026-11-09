@@ -79,6 +79,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-swap], [data-swapitem]')) void import('./swap-client').then((m) => m.bind(root));
   // L64：生活专栏（按需加载）
   if (root.querySelector('[data-lifepost], [data-life]')) void import('./life-client').then((m) => m.bind(root));
+  // L65：社区守则与治理（按需加载）
+  if (root.querySelector('[data-guidelines]')) void import('./guidelines-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

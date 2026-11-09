@@ -560,6 +560,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'guidelines':
+          x.guidelines = (await api.guidelines().catch(() => ({ guidelines: [] }))).guidelines;
+          return;
+        case 'guideline': {
+          if (route.name !== 'guideline') return;
+          try {
+            x.guideline = (await api.guideline(route.slug)).guideline;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
