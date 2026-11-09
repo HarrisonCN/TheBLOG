@@ -48,7 +48,9 @@ jobs:
 
   # L32 平台质量基线：演示站在三种浏览器引擎里逐页验收（1280 浅色 + 390 深色：axe 0、无横向溢出、无报错、跳到正文、单一 h1）
   browser:
-    runs-on: ubuntu-latest
+    # 固定 ubuntu-24.04：ubuntu-latest 已指向 26.04，playwright 1.47.2 `install --with-deps webkit` 需要的
+    # libicu74 / libxml2 / libvpx9 / libx264-164 在 26.04 上没有（v1.54.0 main CI 2026-11-09）。升级 Playwright 后再放开。
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
