@@ -54,6 +54,8 @@ import { Mock as MockPortfolio } from './mock-portfolio';
 import { seed as portfolioSeed } from './seed-portfolio';
 import { Mock as MockCircles } from './mock-circles';
 import { seed as circlesSeed } from './seed-circles';
+import { Mock as MockQa } from './mock-qa';
+import { seed as qaSeed } from './seed-qa';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -586,6 +588,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.qa = new MockQa({
+      state: () => this.db().qa ?? qaSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.qa ??= qaSeed(this.base);
+        mutate(db.qa);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -642,6 +653,7 @@ export class DemoBackend {
   private behind: MockBehind;
   private portfolio: MockPortfolio;
   private circles: MockCircles;
+  private qa: MockQa;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -862,6 +874,11 @@ export class DemoBackend {
       const r51 = this.circles.routePublic(m, path);
       if (r51) return r51;
     }
+    // ---- L52 问答区（公开：只有已发布）----
+    if (path === '/api/qa' || path.startsWith('/api/qa/')) {
+      const r52 = this.qa.routePublic(m, path);
+      if (r52) return r52;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1050,6 +1067,9 @@ export class DemoBackend {
       // L51 兴趣圈子
       const a51 = this.circles.routeAdmin(m, sub, body);
       if (a51) return a51;
+      // L52 问答区
+      const a52 = this.qa.routeAdmin(m, sub, body);
+      if (a52) return a52;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

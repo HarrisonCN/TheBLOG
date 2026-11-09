@@ -36,6 +36,7 @@ import { routeAdmin as routeAdminCalls, routePublic as routePublicCalls } from '
 import { routeAdmin as routeAdminBehind, routePublic as routePublicBehind } from './behind';
 import { routeAdmin as routeAdminPortfolio, routePublic as routePublicPortfolio } from './portfolio';
 import { routeAdmin as routeAdminCircles, routePublic as routePublicCircles } from './circles';
+import { routeAdmin as routeAdminQa, routePublic as routePublicQa } from './qa';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -216,6 +217,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r51 = await routePublicCircles(req, env, path);
     if (r51) return r51;
   }
+  // ---------- L52 问答区（公开：只有已发布） ----------
+  if (path === '/api/qa' || path.startsWith('/api/qa/')) {
+    const r52 = await routePublicQa(req, env, path);
+    if (r52) return r52;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -380,6 +386,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L51 兴趣圈子（整份 JSON 最多 64 KB）
     const a51 = await routeAdminCircles(req, env, sub, () => readJson(req, 64 * 1024));
     if (a51) return a51;
+    // L52 问答区（整份 JSON 最多 64 KB）
+    const a52 = await routeAdminQa(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a52) return a52;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;
