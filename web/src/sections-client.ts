@@ -71,6 +71,8 @@ export function bindSections(root: ParentNode, ctx: Ctx): void {
   if (root.querySelector('[data-member], [data-members]')) void import('./profiles-client').then((m) => m.bind(root));
   // L60：社区周刊（按需加载）
   if (root.querySelector('[data-weekly]')) void import('./weekly-client').then((m) => m.bind(root));
+  // L61：链接分享（按需加载）
+  if (root.querySelector('[data-bookmark], [data-bookmarks]')) void import('./bookmarks-client').then((m) => m.bind(root));
   // @content:clients — L36+ 内容栏目挂载点（scaffold）
   // L28：小组（按需加载）
   if (root.querySelector('[data-groups], [data-group]')) void import('./groups-client').then((m) => m.bindGroups(root, ctx));

@@ -145,6 +145,9 @@ export const api = {
   // L60 社区周刊
   weekly: () => request<{ issues: import('./weekly-core').Summary[] }>('/api/weekly'),
   weeklyissue: (slug: string) => request<{ issue: import('./weekly-core').Item }>(`/api/weekly/${encodeURIComponent(slug)}`),
+  // L61 链接分享
+  bookmarks: () => request<{ links: import('./bookmarks-core').Summary[] }>('/api/bookmarks'),
+  bookmark: (slug: string) => request<{ link: import('./bookmarks-core').Item }>(`/api/bookmarks/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

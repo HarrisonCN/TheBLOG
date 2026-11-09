@@ -109,6 +109,8 @@ export interface DemoDb {
   profiles?: import('./mock-profiles').State;
   /** L60 社区周刊 */
   weekly?: import('./mock-weekly').State;
+  /** L61 链接分享 */
+  bookmarks?: import('./mock-bookmarks').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

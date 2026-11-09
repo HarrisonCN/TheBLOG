@@ -45,6 +45,7 @@ import { routeAdmin as routeAdminBookclub, routePublic as routePublicBookclub } 
 import { routeAdmin as routeAdminThreads, routePublic as routePublicThreads } from './threads';
 import { routeAdmin as routeAdminProfiles, routePublic as routePublicProfiles } from './profiles';
 import { routeAdmin as routeAdminWeekly, routePublic as routePublicWeekly } from './weekly';
+import { routeAdmin as routeAdminBookmarks, routePublic as routePublicBookmarks } from './bookmarks';
 // @content:wk-imports — L36+ 内容栏目挂载点（scaffold）
 import { dispatchEvent, routeAiStudioAdmin, routeAiStudioSocial, routeAp, scheduledWebhooks } from './aistudio';
 import { rateLimit } from './community';
@@ -270,6 +271,11 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     const r60 = await routePublicWeekly(req, env, path);
     if (r60) return r60;
   }
+  // ---------- L61 链接分享（公开：只有已发布） ----------
+  if (path === '/api/bookmarks' || path.startsWith('/api/bookmarks/')) {
+    const r61 = await routePublicBookmarks(req, env, path);
+    if (r61) return r61;
+  }
   // @content:wk-public — L36+ 内容栏目挂载点（scaffold）
 
   // ---------- L31 ActivityPub 只读试验（WebFinger / Actor / Outbox） ----------
@@ -461,6 +467,9 @@ async function route(req: Request, env: Env, url: URL, ctx?: Ctx): Promise<Respo
     // L60 社区周刊（整份 JSON 最多 64 KB）
     const a60 = await routeAdminWeekly(req, env, sub, () => readJson(req, 64 * 1024));
     if (a60) return a60;
+    // L61 链接分享（整份 JSON 最多 64 KB）
+    const a61 = await routeAdminBookmarks(req, env, sub, () => readJson(req, 64 * 1024));
+    if (a61) return a61;
     // @content:wk-admin — L36+ 内容栏目挂载点（scaffold）
     const openAdmin = await routeAdminOpen(req, env, sub, url, () => readJson(req, 8 * 1024), ctx);
     if (openAdmin) return openAdmin;

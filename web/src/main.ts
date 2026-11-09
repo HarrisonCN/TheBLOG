@@ -508,6 +508,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'bookmarks':
+          x.bookmarks = (await api.bookmarks().catch(() => ({ links: [] }))).links;
+          return;
+        case 'bookmark': {
+          if (route.name !== 'bookmark') return;
+          try {
+            x.bookmark = (await api.bookmark(route.slug)).link;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

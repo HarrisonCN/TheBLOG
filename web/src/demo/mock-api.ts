@@ -72,6 +72,8 @@ import { Mock as MockProfiles } from './mock-profiles';
 import { seed as profilesSeed } from './seed-profiles';
 import { Mock as MockWeekly } from './mock-weekly';
 import { seed as weeklySeed } from './seed-weekly';
+import { Mock as MockBookmarks } from './mock-bookmarks';
+import { seed as bookmarksSeed } from './seed-bookmarks';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -685,6 +687,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.bookmarks = new MockBookmarks({
+      state: () => this.db().bookmarks ?? bookmarksSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.bookmarks ??= bookmarksSeed(this.base);
+        mutate(db.bookmarks);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -750,6 +761,7 @@ export class DemoBackend {
   private threads: MockThreads;
   private profiles: MockProfiles;
   private weekly: MockWeekly;
+  private bookmarks: MockBookmarks;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -1015,6 +1027,11 @@ export class DemoBackend {
       const r60 = this.weekly.routePublic(m, path);
       if (r60) return r60;
     }
+    // ---- L61 链接分享（公开：只有已发布）----
+    if (path === '/api/bookmarks' || path.startsWith('/api/bookmarks/')) {
+      const r61 = this.bookmarks.routePublic(m, path);
+      if (r61) return r61;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1230,6 +1247,9 @@ export class DemoBackend {
       // L60 社区周刊
       const a60 = this.weekly.routeAdmin(m, sub, body);
       if (a60) return a60;
+      // L61 链接分享
+      const a61 = this.bookmarks.routeAdmin(m, sub, body);
+      if (a61) return a61;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

@@ -169,7 +169,7 @@ const sitemap = [];
 /** L23：栏目注册表给出的固定路由（render）和其中进 sitemap 的（index）；详情页里公开的照旧进 sitemap */
 const SITEMAP = R.sitemapRoutes();
 const INDEX = new Set(SITEMAP.index);
-const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream', 'relaystory', 'meetup', 'clubbook', 'thread', 'memberprofile', 'weeklyissue']);
+const DETAIL_INDEX = new Set(['tag', 'category', 'album', 'user', 'work', 'topic', 'event', 'collection', 'project', 'feature', 'seriesdetail', 'month', 'shelfyear', 'group', 'issue', 'av', 'hall', 'term', 'retouchcase', 'checklist', 'calendarmonth', 'course', 'critiquework', 'walk', 'colorstudy', 'interview', 'challenge', 'filmroll', 'compositionstudy', 'call', 'behindwork', 'portfolioset', 'circle', 'question', 'poll', 'stream', 'relaystory', 'meetup', 'clubbook', 'thread', 'memberprofile', 'weeklyissue', 'bookmark']);
 const shell = template.replace('<!--blog:app-->', '').replace('<!--blog:data-->', '');
 const soft = (p, fallback) => get(p).catch(() => fallback);
 /** L20：演示版有静态订阅源的对象（公开主页 / 话题 / 公开项目） */
@@ -247,6 +247,8 @@ if (API || DEMO) {
     extra.profiles = (await soft('/api/profiles', { profiles: [] })).profiles ?? [];
     // L60：社区周刊
     extra.weekly = (await soft('/api/weekly', { issues: [] })).issues ?? [];
+    // L61：链接分享
+    extra.bookmarks = (await soft('/api/bookmarks', { links: [] })).links ?? [];
     // @content:pre-extra — L36+ 内容栏目挂载点（scaffold）
     // 每个页面只嵌入它需要的额外数据；单页失败：严格模式记下来最后让构建失败，宽松模式跳过
     const emit = async (route, loadX, loadShare) => {
@@ -616,6 +618,16 @@ if (API || DEMO) {
       n60++;
     }
     console.log(`[prerender] L60：社区周刊 ${n60} 条`);
+    // L61：链接分享（详情页全文都在静态 HTML 里）
+    let n61 = 0;
+    for (const s of extra.bookmarks) {
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(s.slug)) continue;
+      const d = await soft(`/api/bookmarks/${s.slug}`, null);
+      if (!d?.link) continue;
+      await emit({ name: 'bookmark', slug: s.slug }, async () => ({ bookmark: d.link }), async () => ({ title: `${s.title} · 链接分享`, description: s.summary || s.title, image: s.cover?.src || '', type: 'article' }));
+      n61++;
+    }
+    console.log(`[prerender] L61：链接分享 ${n61} 条`);
     // @content:pre-emit — L36+ 内容栏目挂载点（scaffold）
     // L16：公开作品 / 作者主页的静态外壳（只有标题和加载占位，内容在浏览器端按权限加载），让 /w/:id/、/u/:name/ 在 Pages 上返回 200。
     // 旧 Worker 没有 /api/social/works 时跳过（不算预渲染失败）。

@@ -1012,3 +1012,12 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .wk-text { flex-basis: 100%; overflow-wrap: anywhere; }
 .wk-item a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .wk-tag { padding: 0 0.35rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; }
+/* L61 链接分享 */
+.bm-go { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin: 0 0 0.75rem; }
+.bm-up { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.bm-up [aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.bm-host { font-weight: 600; color: var(--heading); }
+.bm-note p { margin: 0 0 0.6rem; overflow-wrap: anywhere; }
+.bm-comments { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
+.bm-sort { margin: 0 0 0.75rem; }
+.bm-sort select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
