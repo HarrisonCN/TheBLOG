@@ -16,7 +16,8 @@ import {
   entryEligibility,
   eventPhase,
   HOT_WINDOW_DAYS,
-  hotScore,
+  rankHot,
+  type HotScope,
   MAX_COLLECTION_ITEMS,
   MAX_COLLECTIONS,
   talliesVisible,
@@ -277,31 +278,30 @@ export class MockDiscovery implements DiscoveryHooks {
       .map((p) => p.postId);
     return { topic: this.toTopic(t, viewer?.id ?? null), featured: this.works(featured, viewer).slice(0, 4), posts: this.topicPosts(t.id) };
   }
-  private hotIds(topicId: number | null, viewer: Member | null, limit: number): number[] {
+  private hotIds(topicId: number | null, viewer: Member | null, limit: number): { ids: number[]; scope: HotScope } {
     const u = this.h.ugc;
     const s = this.st();
-    const since = new Date(this.h.now().getTime() - HOT_WINDOW_DAYS * 86_400_000).toISOString();
     const ids = topicId ? new Set(s.postTopics.filter((p) => p.topicId === topicId).map((p) => p.postId)) : null;
-    const now = this.h.now().getTime();
     const hidden = u.hiddenFor(viewer?.id ?? null);
-    return this.h.ugc
+    const rows = this.h.ugc
       .allWorks()
-      .filter((w) => this.publicWork(w) && (w.publishedAt ?? '') >= since && (!ids || ids.has(w.id)) && !hidden.has(w.authorId))
+      .filter((w) => this.publicWork(w) && (!ids || ids.has(w.id)) && !hidden.has(w.authorId))
       .map((w) => {
         const x = u.toWork(w, null);
         const reactions = Object.values(x.counts.reactions).reduce((a, b) => a + (b ?? 0), 0);
-        return { id: w.id, s: hotScore({ reactions, comments: x.counts.comments, bookmarks: x.counts.bookmarks, publishedAt: w.publishedAt! }, now) };
-      })
-      .sort((a, b) => b.s - a.s || b.id - a.id)
-      .slice(0, limit)
-      .map((x) => x.id);
+        return { id: w.id, publishedAt: w.publishedAt!, reactions, comments: x.counts.comments, bookmarks: x.counts.bookmarks };
+      });
+    return rankHot(rows, this.h.now().getTime(), limit);
   }
   topicWorks(headers: Record<string, string>, slug: string, q: URLSearchParams) {
     const viewer = this.h.optionalMember(headers);
     const t = this.topic(slug);
     const sort = (q.get('sort') ?? 'latest') as TopicSort;
     if (!TOPIC_SORTS.includes(sort)) throw bad('sort', 'sort 只能是 featured / latest / hot');
-    if (sort === 'hot') return { works: this.works(this.hotIds(t.id, viewer, 24), viewer), nextCursor: null, sort };
+    if (sort === 'hot') {
+      const h = this.hotIds(t.id, viewer, 24);
+      return { works: this.works(h.ids, viewer), nextCursor: null, sort, hotScope: h.scope };
+    }
     const limit = Math.min(30, Math.max(1, Number(q.get('limit') ?? 12) || 12));
     const before = Number(q.get('cursor') ?? 0) || 0;
     const hidden = this.h.ugc.hiddenFor(viewer?.id ?? null);

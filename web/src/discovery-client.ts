@@ -13,7 +13,7 @@ import { icon } from './icons';
 import { postPath, url, userPath } from './render';
 import { ago, avatar, card, errMsg, gate, img, type UgcCtx, type Work } from './ugc-client';
 import { PARAM_KEYS, PARAM_LABEL } from './ugc-core';
-import { COLLECTION_KIND_LABEL, EVENT_KIND_LABEL, EVENT_PHASE_LABEL, TOPIC_SORT_LABEL, type CollectionKind, type EventKind, type EventPhase, type TopicSort } from './discovery-core';
+import { COLLECTION_KIND_LABEL, EVENT_KIND_LABEL, EVENT_PHASE_LABEL, TOPIC_SORT_LABEL, type CollectionKind, type EventKind, type EventPhase, type HotScope, type TopicSort } from './discovery-core';
 
 interface Card { username: string; nickname: string; avatarUrl: string; bio: string }
 interface Topic { slug: string; name: string; intro: string; counts: { works: number; subscribers: number }; subscribed: boolean }
@@ -37,7 +37,7 @@ export const disc = {
   discover: () => get<{ featuredCreators: Creator[]; newest: Work[]; activeCreators: Creator[]; topics: Topic[]; events: EventSummary[] }>('/api/social/discover'),
   topics: () => get<{ topics: Topic[] }>('/api/social/topics'),
   topic: (slug: string) => get<{ topic: Topic; featured: Work[]; posts: { slug: string; title: string; summary: string; cover: string | null; publishedAt: string | null }[] }>(`/api/social/topics/${slug}`),
-  topicWorks: (slug: string, sort: TopicSort, cursor?: string | null) => get<{ works: Work[]; nextCursor: string | null }>(`/api/social/topics/${slug}/works?sort=${sort}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
+  topicWorks: (slug: string, sort: TopicSort, cursor?: string | null) => get<{ works: Work[]; nextCursor: string | null; hotScope?: HotScope }>(`/api/social/topics/${slug}/works?sort=${sort}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`),
   subscribe: (slug: string, on: boolean) => send<{ subscribed: boolean; counts: Topic['counts'] }>(`/api/social/topics/${slug}/subscribe`, on ? 'POST' : 'DELETE'),
   myTopics: () => get<{ topics: Topic[] }>('/api/social/me/topics'),
   events: (status = 'all') => get<{ events: EventSummary[] }>(`/api/social/events?status=${status}`),
@@ -174,6 +174,7 @@ async function renderTopic(box: HTMLElement, slug: string, ctx: UgcCtx): Promise
   const more = box.querySelector<HTMLButtonElement>('.js-more')!;
   const hint = box.querySelector<HTMLElement>('.js-sort-hint')!;
   const live = box.querySelector<HTMLElement>('.js-live')!;
+  const HOT_ALL_HINT = '近 30 天没有新作品，暂按全部作品的互动（回应 + 评论 + 收藏）与发布时间简单计算，越新越靠前；不做个性化推荐。';
   const HINT: Record<TopicSort, string> = { latest: '按发布时间排序。', hot: '近 30 天内按互动（回应 + 评论 + 收藏）与发布时间简单计算，越新越靠前；不做个性化推荐。', featured: '由站长挑选。' };
   const load = async (append: boolean) => {
     list.setAttribute('aria-busy', 'true');
@@ -181,6 +182,8 @@ async function renderTopic(box: HTMLElement, slug: string, ctx: UgcCtx): Promise
     try {
       const r = await disc.topicWorks(t.slug, sort, append ? cursor : null);
       cursor = r.nextCursor;
+      // 近 30 天没有作品时，热门退回全部作品排序 —— 说明里如实写出来
+      if (sort === 'hot' && r.hotScope === 'all') hint.textContent = HOT_ALL_HINT;
       const html = r.works.map(card).join('');
       if (append) list.insertAdjacentHTML('beforeend', html);
       else list.innerHTML = html || `<div class="soc-gate tile tile--full">${icon('image')}<p class="muted">${sort === 'featured' ? '还没有精选作品。' : '这个话题还没有作品，来发布第一件吧。'}</p></div>`;
