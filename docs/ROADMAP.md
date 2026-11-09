@@ -37,6 +37,7 @@
 | **1.50.0** | 毕业作品集（里程碑） | 摄影（毕业作品集 /portfolio/） | 策展序列 3–24 件、序号从 1 起连续；figure + 「n / N」说明行；打印 break-before: page 一页一件；1.36–1.49 共 14 个入口（版本连续、路由已注册单测）；作者必须标明虚构 | D1 迁移 0041：SKIPPED-verifiable |
 | **1.51.0** | 兴趣圈子 | 社区（兴趣圈子 /circles/） | content-kit 字段表校验（web=worker）；守则、圈主、帖子倒序；加入 / 退出 aria-pressed + 本机成员数 +1；列表「已加入」标记与筛选；示例全部虚构 | D1 迁移 0042：SKIPPED-verifiable |
 | **1.52.0** | 问答区 | 社区（问答区 /qa/） | 采纳优先 + 票数排序；回答编号唯一、采纳必须存在；赞同 / 反对 aria-pressed、改票 / 取消；「全部 / 待解决 / 已解决」筛选；示例全部虚构 | D1 迁移 0043：SKIPPED-verifiable |
+| **1.53.0** | 投票与小测验 | 社区（投票与小测验 /polls/） | progress 结果条；一机一票（localStorage）；测验每题恰好一个正确答案、解析不剧透、得分；投票不能标正确答案；示例全部虚构 | D1 迁移 0044：SKIPPED-verifiable；服务器端计票 SKIPPED |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。
