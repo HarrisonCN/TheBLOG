@@ -40,6 +40,7 @@
 | **1.53.0** | 投票与小测验 | 社区（投票与小测验 /polls/） | progress 结果条；一机一票（localStorage）；测验每题恰好一个正确答案、解析不剧透、得分；投票不能标正确答案；示例全部虚构 | D1 迁移 0044：SKIPPED-verifiable；服务器端计票 SKIPPED |
 | **1.54.0** | 关注与动态流 | 社区（关注与动态流 /activity/） | 多人动态合并时间线（mergeFeed）；成员页时间线；关注 aria-pressed + 本机关注者 +1；「只看我关注的」；示例全部虚构 | D1 迁移 0045：SKIPPED-verifiable |
 | **1.55.0** | 接龙写作 | 社区（接龙写作 /relay/） | 序号连续、同一作者不能连续两段、段数上限；续写表单（字数提示、规则校验、本机保存 / 删除）；已完结故事无表单；示例全部虚构 | D1 迁移 0046：SKIPPED-verifiable；服务器端收稿 SKIPPED |
+| **1.56.0** | 活动与聚会 | 社区（活动与聚会 /meetups/） | .ics（北京时间 → UTC、转义、CRLF、data: 链接无需 JS）；报名单选本机占名额、满员不可参加；按当前时间标「已结束」；示例全部虚构 | D1 迁移 0047：SKIPPED-verifiable；服务器端报名 SKIPPED |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。

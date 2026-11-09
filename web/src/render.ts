@@ -85,6 +85,8 @@ import { listPage as activityListPage, detailPage as activityDetailPage } from '
 import { SLUG_RE as Activity_SLUG_RE, type Item as ActivityItem, type Summary as ActivitySummary } from './activity-core';
 import { listPage as relayListPage, detailPage as relayDetailPage } from './relay-view';
 import { SLUG_RE as Relay_SLUG_RE, type Item as RelayItem, type Summary as RelaySummary } from './relay-core';
+import { listPage as meetupsListPage, detailPage as meetupsDetailPage } from './meetups-view';
+import { SLUG_RE as Meetups_SLUG_RE, type Item as MeetupsItem, type Summary as MeetupsSummary } from './meetups-core';
 // @content:imports — L36+ 内容栏目挂载点（scaffold）
 import { GROUP_SLUG_RE } from './group-core';
 
@@ -233,6 +235,8 @@ export type Route =
   | { name: 'stream'; slug: string }
   | { name: 'relay' }
   | { name: 'relaystory'; slug: string }
+  | { name: 'meetups' }
+  | { name: 'meetup'; slug: string }
   | { name: 'notfound' };
 
 /** 全部路由名（编译期穷举：Route 加了新成员而这里没加会报错）。栏目注册表的单元测试用它找孤儿路由。 */
@@ -240,7 +244,7 @@ const ROUTE_NAME_SET: Record<Route['name'], 1> = {
   home: 1, post: 1, archives: 1, tags: 1, tag: 1, categories: 1, category: 1, gallery: 1, album: 1, favorites: 1, guestbook: 1, links: 1, about: 1, privacy: 1, join: 1, mailbox: 1,
   now: 1, works: 1, gear: 1, shelf: 1, timeline: 1, changelog: 1, opensource: 1, stats: 1, search: 1, subscribe: 1, map: 1, user: 1, notifications: 1, me: 1, feed: 1, compose: 1,
   work: 1, discover: 1, topics: 1, topic: 1, events: 1, event: 1, collection: 1, projects: 1, project: 1, features: 1, feature: 1, mystats: 1, security: 1, messages: 1,
-  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, challenges: 1, challenge: 1, film: 1, filmroll: 1, composition: 1, compositionstudy: 1, calls: 1, call: 1, behind: 1, behindwork: 1, portfolio: 1, portfolioset: 1, circles: 1, circle: 1, qa: 1, question: 1, polls: 1, poll: 1, activity: 1, stream: 1, relay: 1, relaystory: 1, notfound: 1,
+  msgrequests: 1, msgsettings: 1, conversation: 1, status: 1, community: 1, tools: 1, account: 1, sections: 1, essays: 1, series: 1, preview: 1, scheduled: 1, seriesdetail: 1, monthly: 1, month: 1, quotes: 1, shelfyear: 1, readinglist: 1, groups: 1, group: 1, exposure: 1, dof: 1, goldenhour: 1, exifviewer: 1, guide: 1, magazine: 1, issue: 1, avlist: 1, av: 1, halls: 1, hall: 1, glossary: 1, term: 1, retouch: 1, retouchcase: 1, checklists: 1, checklist: 1, calendar: 1, calendarmonth: 1, courses: 1, course: 1, critique: 1, critiquework: 1, walks: 1, walk: 1, colors: 1, colorstudy: 1, interviews: 1, interview: 1, challenges: 1, challenge: 1, film: 1, filmroll: 1, composition: 1, compositionstudy: 1, calls: 1, call: 1, behind: 1, behindwork: 1, portfolio: 1, portfolioset: 1, circles: 1, circle: 1, qa: 1, question: 1, polls: 1, poll: 1, activity: 1, stream: 1, relay: 1, relaystory: 1, meetups: 1, meetup: 1, notfound: 1,
 };
 export const ROUTE_NAMES = Object.keys(ROUTE_NAME_SET) as Route['name'][];
 
@@ -352,6 +356,8 @@ const STATIC: Record<string, Route['name']> = {
   '/activity': 'activity',
   // L55 接龙写作
   '/relay': 'relay',
+  // L56 活动与聚会
+  '/meetups': 'meetups',
   // @content:static — L36+ 内容栏目挂载点（scaffold）
 };
 /** 扩展栏目的静态路由（预渲染用） */
@@ -472,6 +478,9 @@ export function parseRoute(pathname: string): Route {
   // L55：接龙写作
   m = /^\/relay\/([^/]+)$/.exec(p);
   if (m) return Relay_SLUG_RE.test(m[1]!) ? { name: 'relaystory', slug: m[1]! } : { name: 'notfound' };
+  // L56：活动与聚会
+  m = /^\/meetups\/([^/]+)$/.exec(p);
+  if (m) return Meetups_SLUG_RE.test(m[1]!) ? { name: 'meetup', slug: m[1]! } : { name: 'notfound' };
   // L28：小组详情
   m = /^\/groups\/([^/]+)$/.exec(p);
   if (m) return GROUP_SLUG_RE.test(m[1]!) ? { name: 'group', slug: m[1]! } : { name: 'notfound' };
@@ -653,6 +662,10 @@ export function routePath(r: Route): string {
       return '/relay/';
     case 'relaystory':
       return `/relay/${r.slug}/`;
+    case 'meetups':
+      return '/meetups/';
+    case 'meetup':
+      return `/meetups/${r.slug}/`;
     case 'notfound':
       return '/404/';
     default:
@@ -816,6 +829,9 @@ export interface Extra {
   /** L55 接龙写作：列表（已发布）/ 详情 */
   relay?: RelaySummary[];
   relaystory?: RelayItem;
+  /** L56 活动与聚会：列表（已发布）/ 详情 */
+  meetups?: MeetupsSummary[];
+  meetup?: MeetupsItem;
   issueNav?: { prev: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null; next: Pick<IssueSummary, 'slug' | 'no' | 'title'> | null };
 }
 
@@ -949,6 +965,10 @@ export function needs(r: Route): (keyof Extra)[] {
       return ['relay'];
     case 'relaystory':
       return ['relaystory'];
+    case 'meetups':
+      return ['meetups'];
+    case 'meetup':
+      return ['meetup'];
     default:
       return [];
   }
@@ -2197,6 +2217,10 @@ export function renderRoute(route: Route, site: SiteData, x: Extra = {}): Page {
       return relayListPage(site, route, x.relay ?? []);
     case 'relaystory':
       return x.relaystory ? relayDetailPage(site, route, x.relaystory) : notFoundPage(site, route);
+    case 'meetups':
+      return meetupsListPage(site, route, x.meetups ?? []);
+    case 'meetup':
+      return x.meetup ? meetupsDetailPage(site, route, x.meetup) : notFoundPage(site, route);
     case 'group':
       return groupPage(site, route);
     case 'user':
