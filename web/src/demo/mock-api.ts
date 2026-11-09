@@ -68,6 +68,8 @@ import { Mock as MockBookclub } from './mock-bookclub';
 import { seed as bookclubSeed } from './seed-bookclub';
 import { Mock as MockThreads } from './mock-threads';
 import { seed as threadsSeed } from './seed-threads';
+import { Mock as MockProfiles } from './mock-profiles';
+import { seed as profilesSeed } from './seed-profiles';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -663,6 +665,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.profiles = new MockProfiles({
+      state: () => this.db().profiles ?? profilesSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.profiles ??= profilesSeed(this.base);
+        mutate(db.profiles);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -726,6 +737,7 @@ export class DemoBackend {
   private meetups: MockMeetups;
   private bookclub: MockBookclub;
   private threads: MockThreads;
+  private profiles: MockProfiles;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -981,6 +993,11 @@ export class DemoBackend {
       const r58 = this.threads.routePublic(m, path);
       if (r58) return r58;
     }
+    // ---- L59 成员主页与成就（公开：只有已发布）----
+    if (path === '/api/profiles' || path.startsWith('/api/profiles/')) {
+      const r59 = this.profiles.routePublic(m, path);
+      if (r59) return r59;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1190,6 +1207,9 @@ export class DemoBackend {
       // L58 话题广场
       const a58 = this.threads.routeAdmin(m, sub, body);
       if (a58) return a58;
+      // L59 成员主页与成就
+      const a59 = this.profiles.routeAdmin(m, sub, body);
+      if (a59) return a59;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;
