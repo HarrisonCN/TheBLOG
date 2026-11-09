@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.53.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.53.0) — 2026-11-08
+
+_L53 · 投票与小测验_
+
+### 新功能 Features
+
+- **l53:** 投票与小测验 — polls-core（web=worker）、/polls/ 列表、投票页（结果条、一机一票只存在本机）、测验页（对错、解析、得分）、/api/polls + 站长接口、迁移 0044_polls (a8b56d8)
+
+### 测试 Tests
+
+- **l53:** 投票与小测验 — 测试先行（fail-before） (086f06a)
+
+### 文档 Docs
+
+- **polls:** L53 docs/polls.md, README feature + unit counts (worker 487 + web 925), ROADMAP (7383b24)
+
+### 杂项 Chores
+
+- **release:** 1.53.0 — version bump, release-meta (1.52.0 frozen at f17e6fd) (f1482b2)
+
 ## [1.52.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.52.0) — 2026-11-08
 
 _L52 · 问答区_
