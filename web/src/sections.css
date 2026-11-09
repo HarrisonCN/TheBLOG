@@ -1021,3 +1021,20 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .bm-comments { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
 .bm-sort { margin: 0 0 0.75rem; }
 .bm-sort select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
+/* L62 树洞 */
+.tn-paper { padding: 0.9rem 1rem; border-radius: 4px 14px 14px 14px; background: var(--accent-soft); color: var(--heading); line-height: 1.9; }
+.tn-paper p { margin: 0 0 0.5rem; overflow-wrap: anywhere; }
+.tn-hug { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.75rem 0; }
+.tn-hug [aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.tn-replies { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; overflow-wrap: anywhere; }
+.tn-mood { font-weight: 600; color: var(--heading); }
+.tn-write { margin: 1.5rem 0 0; padding: 0.8rem; border-radius: 12px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); max-width: 640px; }
+.tn-write h2, .tn-write h3 { margin: 0 0 0.4rem; }
+.tn-write form { display: grid; gap: 0.5rem; margin: 0 0 1rem; }
+.tn-write form p { margin: 0; }
+.tn-field { display: grid; gap: 0.25rem; }
+.tn-field select, .tn-field textarea { font: inherit; padding: 0.4rem 0.55rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); width: 100%; box-sizing: border-box; }
+.tn-mine { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.tn-mine__item { padding: 0.5rem 0.7rem; border-radius: 10px; border: 1px dashed var(--accent); }
+.tn-mine__item p { margin: 0 0 0.3rem; overflow-wrap: anywhere; }
+.tn-pending { padding: 0 0.35rem; border-radius: 6px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); }

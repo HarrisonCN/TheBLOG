@@ -74,6 +74,8 @@ import { Mock as MockWeekly } from './mock-weekly';
 import { seed as weeklySeed } from './seed-weekly';
 import { Mock as MockBookmarks } from './mock-bookmarks';
 import { seed as bookmarksSeed } from './seed-bookmarks';
+import { Mock as MockTreehole } from './mock-treehole';
+import { seed as treeholeSeed } from './seed-treehole';
 // @content:mock-imports — L36+ 内容栏目挂载点（scaffold）
 import { MockSync } from './mock-sync';
 import { MockStudio, studioSeed } from './mock-studio';
@@ -696,6 +698,15 @@ export class DemoBackend {
         this.save(db);
       },
     });
+    this.treehole = new MockTreehole({
+      state: () => this.db().treehole ?? treeholeSeed(this.base),
+      commit: (mutate) => {
+        const db = structuredClone(this.db());
+        db.treehole ??= treeholeSeed(this.base);
+        mutate(db.treehole);
+        this.save(db);
+      },
+    });
     // @content:mock-ctor — L36+ 内容栏目挂载点（scaffold）
     this.aistudio = new MockAiStudio({
       state: () => this.db().aistudio ?? aiStudioSeed(),
@@ -762,6 +773,7 @@ export class DemoBackend {
   private profiles: MockProfiles;
   private weekly: MockWeekly;
   private bookmarks: MockBookmarks;
+  private treehole: MockTreehole;
   // @content:mock-field — L36+ 内容栏目挂载点（scaffold）
   private sync: MockSync;
   private groupsPurge(id: number): void {
@@ -1032,6 +1044,11 @@ export class DemoBackend {
       const r61 = this.bookmarks.routePublic(m, path);
       if (r61) return r61;
     }
+    // ---- L62 树洞（公开：只有已发布）----
+    if (path === '/api/treehole' || path.startsWith('/api/treehole/')) {
+      const r62 = this.treehole.routePublic(m, path);
+      if (r62) return r62;
+    }
     // @content:mock-public — L36+ 内容栏目挂载点（scaffold）
     // ---- L20 Webmention / 订阅源 / 开放接口 / MCP ----
     if (path === '/mcp' || path.startsWith('/api/webmention') || path.startsWith('/api/feeds/') || path.startsWith('/api/open/')) {
@@ -1250,6 +1267,9 @@ export class DemoBackend {
       // L61 链接分享
       const a61 = this.bookmarks.routeAdmin(m, sub, body);
       if (a61) return a61;
+      // L62 树洞
+      const a62 = this.treehole.routeAdmin(m, sub, body);
+      if (a62) return a62;
       // @content:mock-admin — L36+ 内容栏目挂载点（scaffold）
       const openAdmin = this.open.routeAdmin(m, sub, q, body);
       if (openAdmin) return openAdmin;

@@ -521,6 +521,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'treehole':
+          x.treehole = (await api.treehole().catch(() => ({ notes: [] }))).notes;
+          return;
+        case 'treenote': {
+          if (route.name !== 'treenote') return;
+          try {
+            x.treenote = (await api.treenote(route.slug)).note;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

@@ -148,6 +148,9 @@ export const api = {
   // L61 链接分享
   bookmarks: () => request<{ links: import('./bookmarks-core').Summary[] }>('/api/bookmarks'),
   bookmark: (slug: string) => request<{ link: import('./bookmarks-core').Item }>(`/api/bookmarks/${encodeURIComponent(slug)}`),
+  // L62 树洞
+  treehole: () => request<{ notes: import('./treehole-core').Summary[] }>('/api/treehole'),
+  treenote: (slug: string) => request<{ note: import('./treehole-core').Item }>(`/api/treehole/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),
