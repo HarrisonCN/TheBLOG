@@ -142,6 +142,9 @@ export const api = {
   // L59 成员主页与成就
   profiles: () => request<{ profiles: import('./profiles-core').Summary[] }>('/api/profiles'),
   memberprofile: (slug: string) => request<{ profile: import('./profiles-core').Item }>(`/api/profiles/${encodeURIComponent(slug)}`),
+  // L60 社区周刊
+  weekly: () => request<{ issues: import('./weekly-core').Summary[] }>('/api/weekly'),
+  weeklyissue: (slug: string) => request<{ issue: import('./weekly-core').Item }>(`/api/weekly/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

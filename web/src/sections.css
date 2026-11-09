@@ -1001,3 +1001,14 @@ a.repo-mini__a:hover { background: var(--accent-soft); color: var(--fg); }
 .mb-badge progress { width: 100%; height: 0.5rem; accent-color: var(--accent); }
 .mb-sort { margin: 0 0 0.75rem; }
 .mb-sort select { font: inherit; padding: 0.2rem 0.4rem; border-radius: 8px; border: 1px solid var(--border, rgb(127 127 127 / 0.45)); background: var(--bg, transparent); color: var(--text); }
+/* L60 社区周刊 */
+.wk-intro p { margin: 0 0 0.6rem; }
+.wk-follow { margin: 0.5rem 0; }
+.wk-sec[hidden] { display: none; }
+.wk-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.wk-item { display: flex; flex-wrap: wrap; gap: 0.2rem 0.5rem; align-items: baseline; padding: 0.45rem 0.7rem; border-radius: 10px; border: 1px solid var(--border, rgb(127 127 127 / 0.3)); }
+.wk-item[hidden] { display: none; }
+.wk-item.is-followed { border-color: var(--accent); background: var(--accent-soft); color: var(--heading); }
+.wk-text { flex-basis: 100%; overflow-wrap: anywhere; }
+.wk-item a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.wk-tag { padding: 0 0.35rem; border-radius: 6px; background: var(--accent); color: var(--accent-fg); font-size: 0.75rem; }
