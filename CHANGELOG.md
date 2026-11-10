@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.58.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.58.0) — 2026-11-09
+
+_L58 · 话题广场_
+
+### 新功能 Features
+
+- **l58:** 话题广场 — threads-core（web=worker，heat / sortThreads / tagCounts / floors）、/threads/ 讨论帖列表（排序、标签筛选）、帖子页（楼层、只看楼主）、/api/threads + 站长接口、迁移 0049_threads (915e80f)
+
+### 测试 Tests
+
+- **l58:** 话题广场 — 测试先行（fail-before） (ff80519)
+
+### 文档 Docs
+
+- **threads:** L58 docs/threads.md, README feature + unit counts (worker 514 + web 976), ROADMAP (053109a)
+
+### 杂项 Chores
+
+- **release:** 1.58.0 — version bump, release-meta (1.57.0 frozen at 9911068) (30c2197)
+
 ## [1.57.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.57.0) — 2026-11-09
 
 _L57 · 读书会_
