@@ -482,6 +482,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'profiles':
+          x.profiles = (await api.profiles().catch(() => ({ profiles: [] }))).profiles;
+          return;
+        case 'memberprofile': {
+          if (route.name !== 'memberprofile') return;
+          try {
+            x.memberprofile = (await api.memberprofile(route.slug)).profile;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;

@@ -139,6 +139,9 @@ export const api = {
   // L58 话题广场
   threads: () => request<{ threads: import('./threads-core').Summary[] }>('/api/threads'),
   thread: (slug: string) => request<{ thread: import('./threads-core').Item }>(`/api/threads/${encodeURIComponent(slug)}`),
+  // L59 成员主页与成就
+  profiles: () => request<{ profiles: import('./profiles-core').Summary[] }>('/api/profiles'),
+  memberprofile: (slug: string) => request<{ profile: import('./profiles-core').Item }>(`/api/profiles/${encodeURIComponent(slug)}`),
   // @content:api — L36+ 内容栏目挂载点（scaffold）
   issue: (slug: string) => request<{ issue: import('./magazine-core').Issue }>(`/api/magazine/${encodeURIComponent(slug)}`),
   content: <K extends ContentKey>(key: K) => request<{ items: ContentMap[K] }>(`/api/content/${key}`),

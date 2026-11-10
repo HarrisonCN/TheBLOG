@@ -105,6 +105,8 @@ export interface DemoDb {
   bookclub?: import('./mock-bookclub').State;
   /** L58 话题广场 */
   threads?: import('./mock-threads').State;
+  /** L59 成员主页与成就 */
+  profiles?: import('./mock-profiles').State;
   // @content:db — L36+ 内容栏目挂载点（scaffold）
   /** L30 跨设备同步（阅读进度 + 稍后读） */
   readingSync?: import('./mock-sync').SyncState;

@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.59.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.59.0) — 2026-11-09
+
+_L59 · 成员主页与成就_
+
+### 新功能 Features
+
+- **l59:** 成员主页与成就 — profiles-core（web=worker，BADGES / badgeProgress）、/members/ 成员列表（排序）、成员页（参与数据、成就墙进度条、只看已获得）、/api/profiles + 站长接口、迁移 0050_members (19501bf)
+
+### 测试 Tests
+
+- **l59:** 成员主页与成就 — 测试先行（fail-before） (9152c67)
+
+### 文档 Docs
+
+- **profiles:** L59 docs/profiles.md, README feature + unit counts (worker 519 + web 986), ROADMAP (64be88a)
+
+### 杂项 Chores
+
+- **release:** 1.59.0 — version bump, release-meta (1.58.0 frozen at 74adffb) (5dcb2d5)
+
 ## [1.58.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.58.0) — 2026-11-09
 
 _L58 · 话题广场_
