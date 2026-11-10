@@ -43,6 +43,7 @@
 | **1.56.0** | 活动与聚会 | 社区（活动与聚会 /meetups/） | .ics（北京时间 → UTC、转义、CRLF、data: 链接无需 JS）；报名单选本机占名额、满员不可参加；按当前时间标「已结束」；示例全部虚构 | D1 迁移 0047：SKIPPED-verifiable；服务器端报名 SKIPPED |
 | **1.57.0** | 读书会 | 专题（读书会 /book-club/） | 周次连续、日期递增、讨论编号唯一；Asia/Shanghai 今天的当前周（aria-current）；本机阅读进度条；示例全部虚构 | D1 迁移 0048：SKIPPED-verifiable |
 | **1.58.0** | 话题广场 | 社区（话题广场 /threads/） | 三种排序（置顶优先）、标签 aria-pressed 多选取交集、热度公式、楼层与只看楼主；示例全部虚构 | D1 迁移 0049：SKIPPED-verifiable |
+| **1.59.0** | 成员主页与成就 | 社区（成员主页与成就 /members/） | 8 枚成就规则（BADGES）与进度条；加入日期 / 被采纳数校验；链接只允许 https + nofollow ugc；只看已获得、排序；示例全部虚构 | D1 迁移 0050：SKIPPED-verifiable；真实账号统计 SKIPPED |
 
 每一版的固定流程：先写失败的测试（保存失败日志）→ 实现 → web / worker 单元测试 → 新的 E2E（1280 浅色 + 390 深色，axe 0）→
 全量回归 → README / CHANGELOG / 版本号 → PR + CI（含 Pages 敏感字符串检查）→ squash 合并 → 发布 + `chore-freeze-1nn` → 线上验证。
