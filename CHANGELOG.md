@@ -2,6 +2,26 @@
 
 本文件由 `node scripts/changelog.mjs --write` 从 conventional commits 生成（已发布版本的段落冻结）。版本遵循 SemVer，里程碑映射 **Lnn = 1.nn.0**。
 
+## [1.57.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.57.0) — 2026-11-09
+
+_L57 · 读书会_
+
+### 新功能 Features
+
+- **l57:** 读书会 — bookclub-core（web=worker，currentWeek / todayIn）、/book-club/ 共读列表、共读页（按周阅读计划、每周讨论、本机进度条、本周标记）、/api/book-club + 站长接口、迁移 0048_bookclub (58562f1)
+
+### 测试 Tests
+
+- **l57:** 读书会 — 测试先行（fail-before） (89f7605)
+
+### 文档 Docs
+
+- **bookclub:** L57 docs/bookclub.md, README feature + unit counts (worker 509 + web 966), ROADMAP (e865329)
+
+### 杂项 Chores
+
+- **release:** 1.57.0 — version bump, release-meta (1.56.0 frozen at 862ea1a) (254b5e5)
+
 ## [1.56.0](https://github.com/HarrisonCN/TheBLOG/releases/tag/v1.56.0) — 2026-11-09
 
 _L56 · 活动与聚会_
