@@ -456,6 +456,19 @@ async function loadExtra(route: Route): Promise<Extra> {
           }
           return;
         }
+        case 'bookclub':
+          x.bookclub = (await api.bookclub().catch(() => ({ books: [] }))).books;
+          return;
+        case 'clubbook': {
+          if (route.name !== 'clubbook') return;
+          try {
+            x.clubbook = (await api.clubbook(route.slug)).book;
+          } catch (e) {
+            if (e instanceof ApiError && e.status === 404) return;
+            throw e;
+          }
+          return;
+        }
         case 'issueNav': {
           if (route.name !== 'issue') return;
           const list = (await api.magazine().catch(() => ({ issues: [] }))).issues;
